@@ -243,7 +243,7 @@ BIOS
 REQUIREMENTS
 -------
 
-* You'll need standard coreutils & the util-linux commands in your $PATH, along with:
+* Nothing special for command requirements -- `xsos` needs standard coreutils & util-linux commands, along with:
   - `gawk`
   - `sed`
 * The script doesn't use absolute paths for cmd names so no problems with Fedora
@@ -254,12 +254,12 @@ THINGS THAT MIGHT SURPRISE YOU
 -------
 
 * The script can update itself via the internet if run with `--update`.
-* When printing disk info with `-d|--disks`, the script automatically detects linux software raid (md) devices and hides their components.
+* When printing disk info with `-d/--disks`, the script automatically detects linux software raid (md) devices and hides their components.
 * When run with `-m/--mpath`, the script consults the `multipath` command to print info about native multipathd devices. If using this option in concert with `-d/--disks`, the script also detects all multipath device slave paths and hides those device nodes from the disk output.
 * When printing info on pci net devices (`-l/--lspci`), `xsos` simplifies the output in an intelligent way. Example:
 
 ```
-[rsaw@server]# lspci | grep Eth
+[rsaw@server]$ lspci | grep Eth
 03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
 05:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
 0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
@@ -267,7 +267,7 @@ THINGS THAT MIGHT SURPRISE YOU
 0e:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
 0e:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
 
-[rsaw@server]# xsos -l
+[rsaw@server]$ xsos -l
 LSPCI
   Netdevs:
     2 Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12) {2,1-port}
@@ -282,7 +282,7 @@ AUTHORS
 
 As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill](http://b19.org).
 
-However, people rarely accomplish things in a vacuum... I am very thankful to StackOverflow and a couple prolific users over there. [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) both offered answers containing pieces of code that were instrumental at various stages of my `awk` career.
+However, people rarely accomplish things in a vacuum... I am very thankful to StackOverflow and a couple prolific users over there. [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) have both offered answers containing pieces of code that were extremely instructive in helping me to advance my `awk` career.
 
 Please contact me if you have ideas, suggestions, questions, or want to collaborate on this or something similar. For specific bugs and feature-requests, you can [post a new issue on the tracker](/ryran/xsos/issues).
 
