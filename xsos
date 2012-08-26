@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.0z last mod 2012/08/26
+# xsos v0.0.1 last mod 2012/08/26
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -42,14 +42,14 @@ BLUE='\033[1;34m'; purple='\033[0;35m'; PURPLE='\033[1;35m'; cyan='\033[0;36m'; 
 
 USAGE() {
   echo "Usage: $pzero [-xKMabocmdplenks] [SOSREPORT-ROOT]"
-  echo "  or:  $pzero -?|-h|--help"
+  echo "  or:  $pzero [--B FILE] [--C FILE] [--M FILE] [--D FILE] [--L FILE] [--N FILE]"
+  echo "  or:  $pzero [-?|-h|--help]"
 }
 
 
 XHELP() {
   USAGE
-  echo "
-Print info about system from SOSREPORT-ROOT, or else current system
+  echo "Extract useful data about system from SOSREPORT-ROOT or else localhost
 
 Display options:"
   echo "
@@ -72,18 +72,36 @@ Content options:"
  -k, --kern@show add'l /proc entries, e.g. stat, cmdline
  -s, --sysctl@show important kernel sysctls" | column -ts@
   echo "
-Notes:
+Note that $pzero argument parsing is performed by GNU getopt, so order of args
+is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
 
 If no content options are specified, $pzero only shows some information,
-equivalent to running it as follows:
+equivalent to:
 
   $pzero --os --cpu --mem --lspci
   
-If SOSREPORT-ROOT isn't provided, current system's info will be printed;
+If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
 as root (UID 0). When executing in this manner as non-root, those modules will
 be silently skipped, even if explicitly requested.
 
+Sometimes a full sosreport isn't available; sometimes you simply have a
+dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
+
+Special options:"
+  echo "
+ --B=FILE@FILE must contain dmidecode dump
+ --C=FILE@FILE must contain /proc/cpuinfo dump
+ --M=FILE@FILE must contain /proc/meminfo dump
+ --D=FILE@FILE must contain /proc/partitions dump
+ --L=FILE@FILE must contain lspci dump
+ --N=FILE@FILE must contain /proc/net/dev dump" | column -ts@
+  echo "
+As is hopefully clear, each of these options requires a filename as an
+argument. These options can be used together, but cannot be used in concert
+with regular 'Content options' -- Content opts are ignored if Special options
+are detected. Also note: the '=' can be replaced with a space if desired.
+ 
 Version info: ${version:2}
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
@@ -154,53 +172,45 @@ UPDATE() {
 
 # Check for help query
 case $1 in
-  -h|--help|-\?) XHELP
+  -h|--help|help|-\?) XHELP
 ;;
   --update) UPDATE
 esac
 
+
 # GNU getopt short and long options:
 sopts='xKMabocmdplenks'
-lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,net,kern,sysctl'
+lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,net,kern,sysctl,B:,C:,M:,D:,L:,N:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
 
 # Parse command-line arguments
 PARSE() {
-  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool net kern sysctl
+  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool net kern sysctl B C M D L N sfile
   until [[ $1 = -- ]]; do
     case $1 in
-      -x|--nocolor) shift; nocolor=y
-    ;;
-      -K|--kb)      shift; mem_unit="k"
-    ;;
-      -M|--mb)      shift; mem_unit="m"
-    ;;
-      -a|--all)     shift; opts=y; all=y
-    ;;
-      -b|--bios)    shift; opts=y; bios=y
-    ;;
-      -o|--os)      shift; opts=y; os=y
-    ;;
-      -c|--cpu)     shift; opts=y; cpu=y
-    ;;
-      -m|--mem)     shift; opts=y; mem=y
-    ;;
-      -d|--disks)   shift; opts=y; disks=y
-    ;;
-      -p|--mpath)   shift; opts=y; mpath=y
-    ;;
-      -l|--lspci)   shift; opts=y; lspci=y
-    ;;
-      -e|--ethtool) shift; opts=y; ethtool=y
-    ;;
-      -n|--net)     shift; opts=y; net=y
-    ;;
-      -k|--kern)    shift; opts=y; kern=y
-    ;;
-      -s|--sysctl)  shift; opts=y; sysctl=y
-    ;;
+      -x|--nocolor) shift; nocolor=y          ;;
+      -K|--kb)      shift; mem_unit="k"       ;;
+      -M|--mb)      shift; mem_unit="m"       ;;
+      -a|--all)     shift; opts=y; all=y      ;;
+      -b|--bios)    shift; opts=y; bios=y     ;;
+      -o|--os)      shift; opts=y; os=y       ;;
+      -c|--cpu)     shift; opts=y; cpu=y      ;;
+      -m|--mem)     shift; opts=y; mem=y      ;;
+      -d|--disks)   shift; opts=y; disks=y    ;;
+      -p|--mpath)   shift; opts=y; mpath=y    ;;
+      -l|--lspci)   shift; opts=y; lspci=y    ;;
+      -e|--ethtool) shift; opts=y; ethtool=y  ;;
+      -n|--net)     shift; opts=y; net=y      ;;
+      -k|--kern)    shift; opts=y; kern=y     ;;
+      -s|--sysctl)  shift; opts=y; sysctl=y   ;;
+      --B)  declare -gA sfile; sfile[B]=$2; shift 2  ;;
+      --C)  declare -gA sfile; sfile[C]=$2; shift 2  ;;
+      --M)  declare -gA sfile; sfile[M]=$2; shift 2  ;;
+      --D)  declare -gA sfile; sfile[D]=$2; shift 2  ;;
+      --L)  declare -gA sfile; sfile[L]=$2; shift 2  ;;
+      --N)  declare -gA sfile; sfile[N]=$2; shift 2  ;;
     esac
   done
   shift #(to get rid of the '--')
@@ -210,8 +220,13 @@ PARSE() {
 # Call the parser
 PARSE $(getopt -u --name=$pzero -o $sopts -l $lopts -- "$@")
 
+
+# If at least one special option was used appropriately with a file,
+# we'll do that instead of other content
+if [[ -n ${sfile[@]} ]]; then
+  :
 # Set default view if no content options specified
-if [[ -z $opts ]]; then
+elif [[ -z $opts ]]; then
   os=y; cpu=y; mem=y; lspci=y
 # Else, if "all" option specified, set full view
 elif [[ -n $all ]]; then
@@ -243,7 +258,7 @@ heading_separator="$c_sep-------------------------------------------------------
 
 
 DMIDECODE() {
-  [[ -z $1 ]] && dmidecode=$(dmidecode) || dmidecode=$(<"$1")
+  [[ -z $1 ]] && dmidecode=$(dmidecode 2>/dev/null) || dmidecode=$(<"$1")
   echo -e "${c_h1}BIOS${c_0}"
   # Prints "<Manufacturer> <Product Name>, <Version>"
   echo -e "${c_h2}  System:${c_0}"
@@ -332,7 +347,7 @@ OSINFO() {
 
 
 CPUINFO() {
-  cpuinfo=$(<"$1/proc/cpuinfo")
+  [[ -f $1 ]] && cpuinfo=$(<"$1") || cpuinfo=$(<"$1/proc/cpuinfo")
   model_cpu=$(awk -F: 'BEGIN{n=0} /model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo" | sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g')
   num_cpu=$(awk '/processor/{n++} END{print n}' <<<"$cpuinfo")
   num_cpu_phys=$(grep "physical id" <<<"$cpuinfo" | sort -u | wc -l)
@@ -350,6 +365,7 @@ CPUINFO() {
 
 
 MEMINFO() {
+  [[ -f $1 ]] && meminfo=$1 || meminfo=$1/proc/meminfo
   echo -e "${c_h1}MEMORY${c_0}"
   awk -vu="$mem_unit" -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
     
@@ -497,7 +513,7 @@ MEMINFO() {
         printf    "    %s%.0f%s total%s [%.0f%s (%.1f%%) used]\n", H_IMP, MemTotal, u, H0, MemUsed, u, Mem_Percent
        #printf    "    %.0f%s (%.1f%%) used\n", MemUsed, u, Mem_Percent
         printf    "    %s%.0f%s (%.1f%%) used excluding buffers/cache%s\n", H_IMP, MemUsedNoBC, u, MemNoBC_Percent, H0
-        printf    "    %.2f%s (%.1f%%) dirty\n", Dirty, u, Dirty_Percent
+        printf    "    %.0f%s (%.1f%%) dirty\n", Dirty, u, Dirty_Percent
         
         printf    "  %sHugePages:%s\n", H2, H0
         if (HugepagesTotal == 0)
@@ -510,10 +526,10 @@ MEMINFO() {
         printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
         if (SHOW_Lowmem == 1)
           printf  "    %.0f%s (%.1f%%) of %.0f%s LowMem in-use\n", LowUsed, u, LowUsed_Percent, LowTotal, u
-        printf    "    %.2f%s (%.1f%%) of total ram used for Slab\n", Slab, u, Slab_Percent
-        printf    "    %.2f%s (%.1f%%) of total ram used for PageTables\n", PageTables, u, PT_Percent
+        printf    "    %.0f%s (%.1f%%) of total ram used for Slab\n", Slab, u, Slab_Percent
+        printf    "    %.0f%s (%.1f%%) of total ram used for PageTables\n", PageTables, u, PT_Percent
         if (SHOW_Shmem == 1)
-          printf  "    %.2f%s (%.1f%%) of total ram used for Shmem\n", Shmem, u, Shmem_Percent
+          printf  "    %.0f%s (%.1f%%) of total ram used for Shmem\n", Shmem, u, Shmem_Percent
         
         printf    "  %sSwap:%s\n", H2, H0
         if (SwapTotal == 0)
@@ -522,7 +538,7 @@ MEMINFO() {
           printf  "    %.0f%s (%.1f%%) used of %.0f%s total\n", SwapUsed, u, Swap_Percent, SwapTotal, u
       }
     }
-  ' <"$1/proc/meminfo"
+  ' <"$meminfo"
   echo -en $heading_separator
 }
 
@@ -562,10 +578,12 @@ STORAGE() {
   elif [[ -r $1/proc/mdstat ]]; then
     mdstat_input=$1/proc/mdstat
   fi
-  # Get raid_components
-  raid_components=$(grep ^md "$mdstat_input" 2>/dev/null | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | awk '{printf "%s|", $1}')
-  # Append software raid component disks to the blacklist
-  scsi_blacklist=$scsi_blacklist$raid_components
+  if [[ -n $mdstat_input ]]; then
+    # Get raid_components
+    raid_components=$(grep ^md "$mdstat_input" 2>/dev/null | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | awk '{printf "%s|", $1}')
+    # Append software raid component disks to the blacklist
+    scsi_blacklist=$scsi_blacklist$raid_components
+  fi
 # FIXME:
 #  scsi_blacklist=$scsi_blacklist$(awk '
 #    /^md./ {
@@ -574,8 +592,9 @@ STORAGE() {
 
   # Yay, let's go.
   [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
-  echo -e "${c_h2}  Disks:${c_0}"
-  egrep -v "${scsi_blacklist%?}" "$1/proc/partitions" |
+  [[ -f $1 ]] && partitions=$1 || partitions=$1/proc/partitions
+  echo -e "  ${c_h2}Disks:${c_0}"
+  egrep -v "${scsi_blacklist%?}" "$partitions" |
     awk -vblacklisted=$bl '
       $4 ~ /^hd.$|^sd[[:alpha:]]{1,2}$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]{1,2}$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd.$|^vd.$/ {
         numdisks ++
@@ -597,7 +616,13 @@ STORAGE() {
 
 
 LSPCI() {
-  [[ -z $1 ]] && lspci_input=$(lspci) || lspci_input=$(<"$1/lspci")
+  if [[ -z $1 ]]; then
+    lspci_input=$(lspci)
+  elif [[ -f $1 ]]; then
+    lspci_input=$(<"$1")
+  else
+    lspci_input=$(<"$1/lspci")
+  fi
   echo -e "${c_h1}LSPCI${c_0}"
   awk -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
     !/Ethernet controller:|Network controller:/ {
@@ -685,8 +710,9 @@ ETHTOOL() {
 
 
 PROC_NET() {
+  [[ -f $1 ]] && netdev=$1 || netdev=$1/proc/net/dev
   echo -e "${c_h1}PROC/NET/DEV${c_0}"
-  tail -n+3 "$1/proc/net/dev" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
+  tail -n+3 "$netdev" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
     awk '
       {
         Iface[$1]     = $1
@@ -713,10 +739,11 @@ PROC_NET() {
           if (NR == 1) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }'
-        
-  echo -e "${c_h1}PROC/NET/SOCKSTAT${c_0}"
-  awk -vS="  " -vH3="$c_h3" -vH0="$c_0" '
-    { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
+  if [[ -d $1 ]]; then
+    echo -e "${c_h1}PROC/NET/SOCKSTAT${c_0}"
+    awk -vS="  " -vH3="$c_h3" -vH0="$c_0" '
+      { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
+  fi
   echo -en $heading_separator
 }
 
@@ -794,8 +821,6 @@ PROC_STAT() {
 }
 
 
-
-
 KERN() {
 echo -e "${c_h1}PROC/${c_0}
   ${c_h2}stat${c_0}\n$(PROC_STAT "$1")
@@ -847,25 +872,17 @@ SYSCTL() {
 # Eventually I'll probably replace all of this with a python loader.
 # Python's argparse is so much better than dealing with all this crap.
 
-# If no SOSREPORT-ROOT provided, run checks against local system
-if [[ -z $sosroot ]]; then
-
-  [[ $UID -eq 0 && -n $bios ]] &&     DMIDECODE
-  [[ -n $os ]] &&                     OSINFO /
-  [[ -n $cpu ]] &&                    CPUINFO /
-  [[ -n $mem ]] &&                    MEMINFO /
-  if [[ -n $mpath ]]; then            STORAGE / --mpath
-  elif [[ -n $disks ]]; then          STORAGE /
-  fi
-  [[ -n $lspci ]] &&                  LSPCI
-  [[ $UID -eq 0 && -n $ethtool ]] &&  ETHTOOL
-  [[ -n $net ]] &&                    PROC_NET /
-  [[ -n $kern ]] &&                   KERN /
-  [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
+# If special options and files were provided ....
+if [[ -n ${sfile[*]} ]]; then
+  [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
+  [[ -r ${sfile[C]} ]] && CPUINFO "${sfile[C]}"
+  [[ -r ${sfile[M]} ]] && MEMINFO "${sfile[M]}"
+  [[ -r ${sfile[D]} ]] && STORAGE "${sfile[D]}"
+  [[ -r ${sfile[L]} ]] && LSPCI "${sfile[L]}"
+  [[ -r ${sfile[N]} ]] && PROC_NET "${sfile[N]}"
   
 # If SOSREPORT-ROOT provided, use that
-else
-
+elif [[ -n $sosroot ]]; then
   if [[ -n $bios ]]; then
     if [[ -r $sosroot/dmidecode ]]; then
       DMIDECODE "$sosroot/dmidecode"
@@ -884,6 +901,22 @@ else
   [[ -n $net && -d $sosroot/proc/net ]] &&                  PROC_NET "$sosroot"
   [[ -n $kern && -d $sosroot/proc ]] &&                     KERN "$sosroot"
   [[ -n $sysctl && -d $sosroot/proc/sys ]] &&               SYSCTL "$sosroot" 2>/dev/null
+  
+# If no SOSREPORT-ROOT provided, run checks against local system
+else
+  [[ $UID -eq 0 && -n $bios ]] &&     DMIDECODE
+  [[ -n $os ]] &&                     OSINFO /
+  [[ -n $cpu ]] &&                    CPUINFO /
+  [[ -n $mem ]] &&                    MEMINFO /
+  if [[ -n $mpath ]]; then            STORAGE / --mpath
+  elif [[ -n $disks ]]; then          STORAGE /
+  fi
+  [[ -n $lspci ]] &&                  LSPCI
+  [[ $UID -eq 0 && -n $ethtool ]] &&  ETHTOOL
+  [[ -n $net ]] &&                    PROC_NET /
+  [[ -n $kern ]] &&                   KERN /
+  [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
+
 fi
 
 
