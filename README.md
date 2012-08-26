@@ -243,9 +243,7 @@ BIOS
 REQUIREMENTS
 -------
 
-* Nothing special for command requirements -- `xsos` needs standard coreutils & util-linux commands, along with:
-  - `gawk`
-  - `sed`
+* Nothing special for command requirements -- `xsos` needs standard coreutils & util-linux commands, along with, of course ... `gawk` and `sed`
 * The script doesn't use absolute paths for cmd names so no problems with Fedora
 * The script will gracefully report as much of what's requested as possible when running as non-root
 
@@ -253,7 +251,8 @@ REQUIREMENTS
 THINGS THAT MIGHT SURPRISE YOU
 -------
 
-* The script can update itself via the internet if run with `--update`.
+* The script does some pretty intensive color-formatting to make the output more easily-readable.
+* The script can update itself via the internet in 10 seconds if run with `--update`.
 * When printing disk info with `-d/--disks`, the script automatically detects linux software raid (md) devices and hides their components.
 * When run with `-m/--mpath`, the script consults the `multipath` command to print info about native multipathd devices. If using this option in concert with `-d/--disks`, the script also detects all multipath device slave paths and hides those device nodes from the disk output.
 * When printing info on pci net devices (`-l/--lspci`), `xsos` simplifies the output in an intelligent way. Example:
