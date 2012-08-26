@@ -7,8 +7,16 @@ There is tons and tons of useful amazing instructive data available to normal us
 
 `xsos` makes it easy, parsing and calculating and formatting data from dozens of files to give you a detailed overview about a system.
 
+
+INSTALLATION
+-------
+
+*"I'm sold"* you say. *"How do I install `xsos`?"* you say.  
+Simply download [this one file](/ryran/xsos/master/xsos) and save it to a directory that's in your $PATH. You can even name the script whatever you want (like `x` or `z`). Make sure it's executable with a `chmod +x /PATH/TO/XSOS` and then run it with a `help` argument to get started!
+
 Jump to ...
 
+* [INSTALLATION](/ryran/xsos#installation)
 * [EXAMPLES IN ACTION](/ryran/xsos#examples-in-action)
 * [REQUIREMENTS](/ryran/xsos#requirements)
 * [THINGS THAT MIGHT SURPRISE YOU](/ryran/xsos#things-that-might-surprise-you)
