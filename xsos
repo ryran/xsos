@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.0y last mod 2012/08/25
+# xsos v0.0.0z last mod 2012/08/26
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -61,7 +61,7 @@ Content options:"
   echo "
  -a, --all@show everything
  -b, --bios@show info from dmidecode
- -o, --os@show os release, kernel version, hostname, uptime
+ -o, --os@show os/kernel release, hostname, uptime, loadavg
  -c, --cpu@show info from /proc/cpuinfo
  -m, --mem@show info from /proc/meminfo
  -d, --disks@show info from /proc/partitions
@@ -295,35 +295,56 @@ DMIDECODE() {
   
 OSINFO() {
   [[ $1 == / ]] && uptime_input=$(uptime) || uptime_input=$(<"$1/uptime")
+  num_cpu=$(awk '/processor/{n++}END{print n}' "$1/proc/cpuinfo")
+  
   echo -e "${c_h1}OS${c_0}"
   echo -e "  ${c_h2}Distro:${c_0}   ${c_imp}$(<"$1/etc/redhat-release")${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}   ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
   echo -e "  ${c_h2}Hostname:${c_0} $(<"$1/proc/sys/kernel/hostname")"
-  awk -vH2="$c_h2" -vH0="$c_0" '
+  awk -vNUM_CPU="$num_cpu" -vH2="$c_h2" -vH0="$c_0" '
     {
-      Time    = $1
-      Uptime  = $3" "$4" "$5; sub(/,$/, "", Uptime)
-      LoadAvg = $6" "$7" "$10" "$11" "$12
-      printf "  %sSys time:%s %s\n  %sUptime:%s   %s\n  %sLoadAvg:%s  %s\n",
-        H2,H0,Time, H2,H0,Uptime, H2,H0,LoadAvg
+      Time     = $1
+      if ($3 ~ /:/) {
+        Uptime = $3
+        Users  = $4" "$5; sub(/,$/, "", Users)
+        Load[1]  = $8
+        Load[5]  = $9
+        Load[15] = $10
+      }
+      else {
+        Uptime = $3" "$4" "$5
+        Users    = $6" "$7; sub(/,$/, "", Users)
+        Load[1]  = $10
+        Load[5]  = $11
+        Load[15] = $12
+      }
+      for (i in Load) {
+        sub(/,$/, "", Load[i])
+        LP[i] = Load[i] * 100 / NUM_CPU
+      }
+      printf "  %sSys time:%s %s\n", H2, H0, Time
+      printf "  %sUptime:%s   %s %s\n", H2, H0, Uptime, Users
+      printf "  %sLoadAvg:%s  %s (%.0f%%), %s (%.0f%%), %s (%.0f%%)\n",
+        H2, H0, Load[1], LP[1], Load[5], LP[5], Load[15], LP[15]
     }' <<<"$uptime_input"
   echo -en $heading_separator
 }
 
 
 CPUINFO() {
-  cpuinfo_input=$1/proc/cpuinfo
-  model_cpu=$(awk -F: '/model name/{print$2}' "$cpuinfo_input" | sort -u | sed -e "s/(R)//g" -e "s/(TM)//g" -e "s/  */ /g")
-  num_cpu=$(grep processor "$cpuinfo_input" | sort -u | wc -l)
-  num_cpu_phys=$(grep "physical id" "$cpuinfo_input" | sort -u | wc -l)
+  cpuinfo=$(<"$1/proc/cpuinfo")
+  model_cpu=$(awk -F: 'BEGIN{n=0} /model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo" | sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g')
+  num_cpu=$(awk '/processor/{n++} END{print n}' <<<"$cpuinfo")
+  num_cpu_phys=$(grep "physical id" <<<"$cpuinfo" | sort -u | wc -l)
   [[ $num_cpu_phys -eq 0 ]] && num_cpu_phys=$num_cpu
   if [[ $num_cpu_phys -ne $num_cpu ]]; then
-    num_cores_per_cpu=$(grep cores "$cpuinfo_input" | head -n1 | awk {print\$4})
+    num_cores_per_cpu=$(awk 'BEGIN{n=0} /cpu cores/{if (n>0) next; n++; print $4}' <<<"$cpuinfo")
     [[ -n $num_cores_per_cpu ]] && cores=", ${num_cores_per_cpu} cores/ea"
   fi
-  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes" "$cpuinfo_input" | sort -u | xargs echo | sed "s/ /,/g")
+  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes" <<<"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   echo -e "${c_h1}CPUs${c_0}"
-  echo -e "  ${c_imp}${num_cpu} logical cpus${c_0} (${cpu_flags})\n  ${num_cpu_phys}${model_cpu}${cores}"
+  echo -e "  ${c_imp}${num_cpu} logical cpus${c_0} (${cpu_flags})"
+  echo -e "  ${num_cpu_phys}${model_cpu}${cores}"
   echo -en $heading_separator
 }
 
@@ -579,7 +600,7 @@ LSPCI() {
   [[ -z $1 ]] && lspci_input=$(lspci) || lspci_input=$(<"$1/lspci")
   echo -e "${c_h1}LSPCI${c_0}"
   awk -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
-    $2 !~ /^Eth|^Net/ {
+    !/Ethernet controller:|Network controller:/ {
       next
     }
     {
@@ -840,7 +861,7 @@ if [[ -z $sosroot ]]; then
   [[ $UID -eq 0 && -n $ethtool ]] &&  ETHTOOL
   [[ -n $net ]] &&                    PROC_NET /
   [[ -n $kern ]] &&                   KERN /
-  [[ -n $sysctl ]] &&                 SYSCTL /
+  [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
   
 # If SOSREPORT-ROOT provided, use that
 else
@@ -862,7 +883,7 @@ else
   [[ -n $ethtool ]] &&                                      ETHTOOL "$sosroot"
   [[ -n $net && -d $sosroot/proc/net ]] &&                  PROC_NET "$sosroot"
   [[ -n $kern && -d $sosroot/proc ]] &&                     KERN "$sosroot"
-  [[ -n $sysctl && -d $sosroot/proc/sys ]] &&               SYSCTL "$sosroot"
+  [[ -n $sysctl && -d $sosroot/proc/sys ]] &&               SYSCTL "$sosroot" 2>/dev/null
 fi
 
 
