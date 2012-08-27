@@ -12,7 +12,7 @@ INSTALLATION
 -------
 
 *"I'm sold"* you say. *"How do I install `xsos`?"* you say.  
-Simply download [this one file](/ryran/xsos/master/xsos) and save it to a directory that's in your $PATH. You can even name the script whatever you want (like `x` or `z`). Make sure it's executable with a `chmod +x /PATH/TO/XSOS` and then run it with a `help` argument to get started!
+Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your $PATH. You can even name the script whatever you want (like `x` or `z`). Make sure it's executable with a `chmod +x /PATH/TO/XSOS` and then run it with a `help` argument to get started!
 
 Jump to ...
 
