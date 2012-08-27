@@ -5,7 +5,7 @@ The goal of `xsos` is to make it easy to gather information about a system toget
 
 There is tons and tons of useful amazing instructive data available to normal users (not to mention root) on a Linux system, but by design, this information is spread out across myriad files and some of it practically requires specialized commands to parse through.
 
-`xsos` makes it easy, parsing and calculating and formatting data from dozens of files to give you a detailed overview about a system.
+`xsos` attempts to make it easy, parsing and calculating and formatting data from dozens of files to give you a detailed overview about a system. Note: We're adding more features to it all the time -- see [the tracker](/ryran/xsos/issues) to have a look at some of the things that are already in line to be worked on.
 
 
 INSTALLATION
@@ -233,7 +233,9 @@ Finally, here's example of using one of the Special options, which allow you to 
 
 ```
 [rsaw@sawzall:~]$ xsos --B /tmp/dmidecode.txt
-BIOS
+DMIDECODE
+  BIOS:
+    HP, version P66, 06/24/2011
   System:
     HP ProLiant DL980 G7, version Not Specified
   CPUs:
