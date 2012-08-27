@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.1 last mod 2012/08/26
+# xsos v0.0.1b last mod 2012/08/27
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -187,7 +187,7 @@ getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
 
 # Parse command-line arguments
 PARSE() {
-  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool net kern sysctl B C M D L N sfile
+  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool net kern sysctl sfile
   until [[ $1 = -- ]]; do
     case $1 in
       -x|--nocolor) shift; nocolor=y          ;;
@@ -223,7 +223,7 @@ PARSE $(getopt -u --name=$pzero -o $sopts -l $lopts -- "$@")
 
 # If at least one special option was used appropriately with a file,
 # we'll do that instead of other content
-if [[ -n ${sfile[@]} ]]; then
+if [[ -n ${sfile[*]} ]]; then
   :
 # Set default view if no content options specified
 elif [[ -z $opts ]]; then
@@ -259,12 +259,21 @@ heading_separator="$c_sep-------------------------------------------------------
 
 DMIDECODE() {
   [[ -z $1 ]] && dmidecode=$(dmidecode 2>/dev/null) || dmidecode=$(<"$1")
-  echo -e "${c_h1}BIOS${c_0}"
+  echo -e "${c_h1}DMIDECODE${c_0}"
+  # Prints "<BIOS_VENDOR> <BIOS_VERSION, <BIOS_DATE>"
+  echo -e "${c_h2}  BIOS:${c_0}"
+  awk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode" |
+    awk -F: '
+      /Vendor:/       { Vendor      = $2 }
+      /Version:/      { Version     = $2 }
+      /Release Date:/ { ReleaseDate = $2 }
+      END { printf "   %s, version%s,%s\n", Vendor, Version, ReleaseDate }
+    '
   # Prints "<Manufacturer> <Product Name>, <Version>"
   echo -e "${c_h2}  System:${c_0}"
   awk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode" |
     awk -F: '
-      /Manufacturer:/ { Mfr = $2 }
+      /Manufacturer:/ { Mfr     = $2 }
       /Product Name:/ { Product = $2 }
       /Version:/      { Version = $2 }
       END { printf "   %s%s, version%s\n", Mfr, Product, Version }
@@ -275,13 +284,13 @@ DMIDECODE() {
   awk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode" |
     awk -F: '
       /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
-      /Core Count:/   { SumCores += $2; CoresPerCpu = $2 }
+      /Core Count:/   { SumCores   += $2; CoresPerCpu = $2 }
       /Thread Count:/ { SumThreads += $2; ThreadsPerCpu = $2 }
-      /Manufacturer:/ { Mfr = $2 }
-      /Family:/       { Family = $2 }
-      /Current Speed:/{ CpuFreq = $2 }
-      /Max Speed:/    { CpuFreqMax = $2 }
-      /Version:/      { Version = $2 }
+      /Manufacturer:/ { Mfr         = $2; gsub(/  */, " ", Mfr) }
+      /Family:/       { Family      = $2; gsub(/  */, " ", Family) }
+      /Current Speed:/{ CpuFreq     = $2; gsub(/  */, " ", CpuFreq) }
+      /Max Speed:/    { CpuFreqMax  = $2 }
+      /Version:/      { Version     = $2 }
       END {
         printf "   %s%s @%s (max supported CPU frequency%s)\n",
           Mfr, Family, CpuFreq, CpuFreqMax
@@ -918,5 +927,4 @@ else
   [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
 
 fi
-
 
