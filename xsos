@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.1b last mod 2012/08/27
+# xsos v0.0.1c last mod 2012/08/28
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -61,7 +61,7 @@ Content options:"
   echo "
  -a, --all@show everything
  -b, --bios@show info from dmidecode
- -o, --os@show os/kernel release, hostname, uptime, loadavg
+ -o, --os@show release, hostname, uptime, loadavg
  -c, --cpu@show info from /proc/cpuinfo
  -m, --mem@show info from /proc/meminfo
  -d, --disks@show info from /proc/partitions
@@ -318,15 +318,55 @@ DMIDECODE() {
       
   
 OSINFO() {
-  [[ $1 == / ]] && uptime_input=$(uptime) || uptime_input=$(<"$1/uptime")
+  if [[ $1 == / ]]; then
+    uptime_input=$(uptime)
+    runlevel=$(runlevel)
+    initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
+    initdefault=${initdefault%.target} ||
+    initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
+  else
+    uptime_input=$(<"$1/uptime")
+    [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
+    [[ -r $1/etc/inittab ]] && initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab")
+  fi
   num_cpu=$(awk '/processor/{n++}END{print n}' "$1/proc/cpuinfo")
   
   echo -e "${c_h1}OS${c_0}"
   echo -e "  ${c_h2}Distro:${c_0}   ${c_imp}$(<"$1/etc/redhat-release")${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}   ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
   echo -e "  ${c_h2}Hostname:${c_0} $(<"$1/proc/sys/kernel/hostname")"
-  awk -vNUM_CPU="$num_cpu" -vH2="$c_h2" -vH0="$c_0" '
-    {
+  awk -vNUM_CPU="$num_cpu" -vREDB="$RED" -vRED="$red" -vORANGE="$orange" -vGREEN="$green" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+      !/load average/ { next }
+      {
+      Time = $1
+      
+      Uptime = gensub(/^ *[[:graph:]]+ up +(.+users?),.+/, "\\1", 1)
+      
+      Load[15] = $(NF)
+      Load[5]  = $(NF-1)
+      Load[1]  = $(NF-2)
+      for (i in Load) {
+        sub(/,/, "", Load[i])
+        LP[i] = Load[i] * 100 / NUM_CPU
+      }
+      for (i in LP) {
+        if (LP[i] < 70) Color[i] = GREEN
+        if (LP[i] > 69) Color[i] = ORANGE
+        if (LP[i] > 89) Color[i] = RED
+        if (LP[i] > 99) Color[i] = REDB
+      }
+      
+      printf "  %sSys time:%s %s\n", H2, H0, Time
+      printf "  %sUptime:%s   %s\n", H2, H0, Uptime
+      printf "  %sLoadAvg:%s  %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
+        H2, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
+    }' <<<"$uptime_input"
+  [[ -n $runlevel ]] &&
+  echo -e "  ${c_h2}Runlevel:${c_0} $runlevel (default: $initdefault)"
+  echo -en $heading_separator
+}
+
+cat >/dev/null <<\EOF
       Time     = $1
       if ($3 ~ /:/) {
         Uptime = $3
@@ -350,10 +390,7 @@ OSINFO() {
       printf "  %sUptime:%s   %s %s\n", H2, H0, Uptime, Users
       printf "  %sLoadAvg:%s  %s (%.0f%%), %s (%.0f%%), %s (%.0f%%)\n",
         H2, H0, Load[1], LP[1], Load[5], LP[5], Load[15], LP[15]
-    }' <<<"$uptime_input"
-  echo -en $heading_separator
-}
-
+EOF
 
 CPUINFO() {
   [[ -f $1 ]] && cpuinfo=$(<"$1") || cpuinfo=$(<"$1/proc/cpuinfo")
