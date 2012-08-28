@@ -44,7 +44,7 @@ Display options:
 Content options:
  -a, --all      show everything
  -b, --bios     show info from dmidecode
- -o, --os       show os/kernel release, hostname, uptime, loadavg
+ -o, --os       show release, hostname, uptime, loadavg
  -c, --cpu      show info from /proc/cpuinfo
  -m, --mem      show info from /proc/meminfo
  -d, --disks    show info from /proc/partitions
@@ -84,10 +84,10 @@ argument. These options can be used together, but cannot be used in concert
 with regular 'Content options' -- Content opts are ignored if Special options
 are detected. Also note: the '=' can be replaced with a space if desired.
  
-Version info: xsos v0.0.1 last mod 2012/08/26
+Version info: xsos v0.0.1d last mod 2012/08/28
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
-Alternatively, run xsos with '--update'
+Alternatively, run xsos with '--update|-U'
 ```
 
 Run on a sosreport with no options:
@@ -101,6 +101,7 @@ OS
   Sys time: 12:27:51
   Uptime:   12 days, 1:37, 5 users
   LoadAvg:  1.23 (2%), 1.11 (2%), 0.77 (1%)
+  Runlevel: N 3 (default: 3)
 -------------------------------------------------------------------------------
 CPUs
   64 logical cpus (ht,lm,pae,vmx)
