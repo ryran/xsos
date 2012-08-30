@@ -31,7 +31,7 @@ The help page:
 
 ```
 [rsaw@sawzall:~]$ xsos help
-Usage: xsos [-xKMabocmdplenks] [SOSREPORT-ROOT]
+Usage: xsos [-xKMabocmdplens] [SOSREPORT-ROOT]
   or:  xsos [--B FILE] [--C FILE] [--M FILE] [--D FILE] [--L FILE] [--N FILE]
   or:  xsos [-?|-h|--help]
 Extract useful data about system from SOSREPORT-ROOT or else localhost
@@ -44,7 +44,7 @@ Display options:
 Content options:
  -a, --all      show everything
  -b, --bios     show info from dmidecode
- -o, --os       show release, hostname, uptime, loadavg
+ -o, --os       show release, hostname, uptime, loadavg, cmdline
  -c, --cpu      show info from /proc/cpuinfo
  -m, --mem      show info from /proc/meminfo
  -d, --disks    show info from /proc/partitions
@@ -52,7 +52,6 @@ Content options:
  -l, --lspci    show info from lspci
  -e, --ethtool  show info from ethtool
  -n, --net      show info from /proc/net/dev
- -k, --kern     show add'l /proc entries, e.g. stat, cmdline
  -s, --sysctl   show important kernel sysctls
 
 Note that xsos argument parsing is performed by GNU getopt, so order of args
@@ -84,7 +83,7 @@ argument. These options can be used together, but cannot be used in concert
 with regular 'Content options' -- Content opts are ignored if Special options
 are detected. Also note: the '=' can be replaced with a space if desired.
  
-Version info: xsos v0.0.1d last mod 2012/08/28
+Version info: xsos v0.0.2 last mod 2012/08/30
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
 Alternatively, run xsos with '--update|-U'
@@ -95,13 +94,20 @@ Run on a sosreport with no options:
 ```
 [rsaw@sawzall:~]$ xsos aczx998pinkle/
 OS
-  Distro:   Red Hat Enterprise Linux Server release 5.8 (Tikanga)
-  Kernel:   2.6.18-308.1.1.el5
-  Hostname: aczx998pinkle
-  Sys time: 12:27:51
-  Uptime:   12 days, 1:37, 5 users
-  LoadAvg:  1.23 (2%), 1.11 (2%), 0.77 (1%)
-  Runlevel: N 3 (default: 3)
+  Distro:    Red Hat Enterprise Linux Server release 5.8 (Tikanga)
+  Kernel:    2.6.18-308.1.1.el5
+  Hostname:  aczx998pinkle
+  Runlevel:  N 3 (default: 3)
+  Sys time:  12:27:51
+  LoadAvg:   1.23 (2%), 1.11 (2%), 0.77 (1%)
+  Boot time: Thu May 17 05:50:39 EDT 2012
+  Uptime:    12 days,  1:37,  5 users
+  Cpu time since boot:
+    us 8%, ni 3%, sys 2%, idle 81%, iowait 6%, irq 0%, sftirq 0%, steal 0%
+  procs_running (procs_blocked):
+    1 (0)
+  Kernel cmdline:
+    ro root=/dev/vg01/lv01
 -------------------------------------------------------------------------------
 CPUs
   64 logical cpus (ht,lm,pae,vmx)
@@ -132,16 +138,40 @@ LSPCI
 Run on localhost with a couple options:
 
 ```
-[rsaw@sawzall:~]$ sudo xsos --kern --ethtool
-PROC/
-  stat
-    b[oot]time: Thu Aug 23 20:22:57 EDT 2012
-    cpu [time distribution since last boot]:
-      us 8%, ni 0%, sys 2%, idle 89%, iowait 1%, irq 0%, sftirq 0%, steal 0%
-    procs_running: 1
-    procs_blocked: 0
-  cmdline
-    BOOT_IMAGE=/vmlinuz-3.5.2-3.fc17.x86_64 root=/dev/mapper/vg_sawzall-root ro rd.lvm.lv=vg_sawzall/root rd.md=0 rd.dm=0 SYSFONT=True KEYTABLE=us rd.lvm.lv=vg_sawzall/swap rd.luks.uuid=luks-8adf0ec9-441a-4099-9b07-215904d0e431 LANG=en_US.UTF-8 rhgb quiet
+[rsaw@sawzall:~]$ sudo xsos --os --ethtool --net
+OS
+  Distro:    Fedora release 17 (Beefy Miracle)
+  Kernel:    3.5.2-3.fc17.x86_64
+  Hostname:  sawzall
+  Runlevel:  N 5 (default: runlevel5)
+  Sys time:  00:23:36
+  LoadAvg:   0.11 (3%), 0.20 (5%), 0.22 (6%)
+  Boot time: Wed Aug 29 09:59:55 EDT 2012
+  Uptime:    14:23,  6 users
+  Cpu time since boot:
+    us 7%, ni 0%, sys 2%, idle 90%, iowait 1%, irq 0%, sftirq 0%, steal 0%
+  procs_running (procs_blocked):
+    3 (0)
+  Kernel cmdline:
+    BOOT_IMAGE=/vmlinuz-3.5.2-3.fc17.x86_64 root=/dev/mapper/vg_sawzall-root ro 
+    rd.lvm.lv=vg_sawzall/root rd.md=0 rd.dm=0 SYSFONT=True KEYTABLE=us 
+    rd.lvm.lv=vg_sawzall/swap 
+    rd.luks.uuid=luks-8adf0ec9-441a-4099-9b07-215904d0e431 LANG=en_US.UTF-8 
+    rhgb quiet
+-------------------------------------------------------------------------------
+PROC/NET/DEV
+  Iface       RxMBytes  RxPackets  RxErrs  RxDrop  TxMBytes  TxPackets  TxErrs  TxDrop
+  em1         471       729239     0       0       71        458227     0       0
+  virbr0      0         0          0       0       0         0          0       0
+  virbr0-nic  0         0          0       0       0         0          0       0
+  wlan0       158       163703     0       0       11        87281      0       0
+PROC/NET/SOCKSTAT
+  sockets: used 690
+  TCP: inuse 11 orphan 1 tw 0 alloc 14 mem 3
+  UDP: inuse 14 mem 4
+  UDPLITE: inuse 0
+  RAW: inuse 0
+  FRAG: inuse 0 memory 0
 -------------------------------------------------------------------------------
 ETHTOOL
   em1         link=DOWN                        drv e1000e v2.0.0-k / fw 0.13-3
@@ -238,10 +268,14 @@ DMIDECODE
   BIOS:
     HP, version P66, 06/24/2011
   System:
-    HP ProLiant DL980 G7, version Not Specified
+    Manfr:   HP
+    Product: ProLiant DL980 G7
+    Version: Not Specified
+    Serial:  CZ314XXXXXXX      
+    UUID:    35344D41-4131-5A43-3331-XXXXXXXXXXX
   CPUs:
-    Intel Xeon @ 2133 MHz (max supported CPU frequency 4800 MHz)
-    version  Intel(R) Xeon(R) CPU E7- 2830 @ 2.13GHz        
+    Intel Xeon @ 2133 MHz (max supported freq 4800 MHz)
+    Version: Intel(R) Xeon(R) CPU E7- 2830 @ 2.13GHz        
     8 of 8 CPU sockets populated, 8 cores/16 threads per CPU
     64 total cores, 128 total threads
   Memory:
