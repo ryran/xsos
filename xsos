@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.1d last mod 2012/08/28
+# xsos v0.0.2 last mod 2012/08/30
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -46,7 +46,7 @@ C[cyan]='\033[0;36m';   C[CYAN]='\033[1;36m'
 
 
 USAGE() {
-  echo "Usage: $pzero [-xKMabocmdplenks] [SOSREPORT-ROOT]"
+  echo "Usage: $pzero [-xKMabocmdplens] [SOSREPORT-ROOT]"
   echo "  or:  $pzero [--B FILE] [--C FILE] [--M FILE] [--D FILE] [--L FILE] [--N FILE]"
   echo "  or:  $pzero [-?|-h|--help]"
 }
@@ -66,7 +66,7 @@ Content options:"
   echo "
  -a, --all@show everything
  -b, --bios@show info from dmidecode
- -o, --os@show release, hostname, uptime, loadavg
+ -o, --os@show release, hostname, uptime, loadavg, cmdline
  -c, --cpu@show info from /proc/cpuinfo
  -m, --mem@show info from /proc/meminfo
  -d, --disks@show info from /proc/partitions
@@ -74,7 +74,6 @@ Content options:"
  -l, --lspci@show info from lspci
  -e, --ethtool@show info from ethtool
  -n, --net@show info from /proc/net/dev
- -k, --kern@show add'l /proc entries, e.g. stat, cmdline
  -s, --sysctl@show important kernel sysctls" | column -ts@
   echo "
 Note that $pzero argument parsing is performed by GNU getopt, so order of args
@@ -184,15 +183,15 @@ esac
 
 
 # GNU getopt short and long options:
-sopts='xKMabocmdplenks'
-lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,net,kern,sysctl,B:,C:,M:,D:,L:,N:'
+sopts='xKMabocmdplens'
+lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,net,sysctl,B:,C:,M:,D:,L:,N:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
 
 # Parse command-line arguments
 PARSE() {
-  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool net kern sysctl sfile
+  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool net sysctl sfile
   until [[ $1 = -- ]]; do
     case $1 in
       -x|--nocolor) shift; nocolor=y          ;;
@@ -208,7 +207,6 @@ PARSE() {
       -l|--lspci)   shift; opts=y; lspci=y    ;;
       -e|--ethtool) shift; opts=y; ethtool=y  ;;
       -n|--net)     shift; opts=y; net=y      ;;
-      -k|--kern)    shift; opts=y; kern=y     ;;
       -s|--sysctl)  shift; opts=y; sysctl=y   ;;
       --B)  declare -gA sfile; sfile[B]=$2; shift 2  ;;
       --C)  declare -gA sfile; sfile[C]=$2; shift 2  ;;
@@ -281,7 +279,12 @@ DMIDECODE() {
       /Manufacturer:/ { Mfr     = $2 }
       /Product Name:/ { Product = $2 }
       /Version:/      { Version = $2 }
-      END { printf "   %s%s, version%s\n", Mfr, Product, Version }
+      /Serial Number:/{ Serial  = $2 }
+      /UUID:/         { UUID    = $2 }
+      END {
+        printf "    Manfr:  %s\n    Product:%s\n    Version:%s\n", Mfr, Product, Version
+        printf "    Serial: %s\n    UUID:   %s\n", Serial, UUID
+      }
     '
   # Prints "<N> of <N> CPU sockets populated, <N> cores/<N> threads per CPU"
   # Prints "<N> total cores, <N> total threads"
@@ -297,9 +300,9 @@ DMIDECODE() {
       /Max Speed:/    { CpuFreqMax  = $2 }
       /Version:/      { Version     = $2 }
       END {
-        printf "   %s%s @%s (max supported CPU frequency%s)\n",
+        printf "   %s%s @%s (max supported freq%s)\n",
           Mfr, Family, CpuFreq, CpuFreqMax
-        printf "    version%s\n", Version
+        printf "    Version:%s\n", Version
         printf "    %d of %d CPU sockets populated, %d cores/%d threads per CPU\n",
           PopulatedSockets, SumSockets, CoresPerCpu, ThreadsPerCpu
         printf "    %d total cores, %d total threads\n", SumCores, SumThreads
@@ -323,6 +326,8 @@ DMIDECODE() {
       
   
 OSINFO() {
+  num_cpu=$(awk '/processor/{n++} END{print n}' <"$1/proc/cpuinfo")
+  btime=$(date --date=@$(awk '/btime/{print $2}' <"$1/proc/stat"))
   if [[ $1 == / ]]; then
     uptime_input=$(uptime)
     runlevel=$(runlevel)
@@ -334,13 +339,15 @@ OSINFO() {
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] && initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab")
   fi
-  num_cpu=$(awk '/processor/{n++}END{print n}' "$1/proc/cpuinfo")
+
   
   echo -e "${c_h1}OS${c_0}"
-  echo -e "  ${c_h2}Distro:${c_0}   ${c_imp}$(<"$1/etc/redhat-release")${c_0}"
-  echo -e "  ${c_h2}Kernel:${c_0}   ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
-  echo -e "  ${c_h2}Hostname:${c_0} $(<"$1/proc/sys/kernel/hostname")"
-  awk -vNUM_CPU="$num_cpu" -vREDB="${C[RED]}" -vRED="${C[red]}" -vORANGE="${C[orange]}" -vGREEN="${C[green]}" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+  echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$(<"$1/etc/redhat-release")${c_0}"
+  echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
+  echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
+  [[ -n $runlevel ]] &&
+  echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel (default: $initdefault)"
+  awk -vBTIME="$btime" -vNUM_CPU="$num_cpu" -vREDB="${C[RED]}" -vRED="${C[red]}" -vORANGE="${C[orange]}" -vGREEN="${C[green]}" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
       !/load average/ { next }
       {
       Time = $1
@@ -361,41 +368,41 @@ OSINFO() {
         if (LP[i] > 99) Color[i] = REDB
       }
       
-      printf "  %sSys time:%s %s\n", H2, H0, Time
-      printf "  %sUptime:%s   %s\n", H2, H0, Uptime
-      printf "  %sLoadAvg:%s  %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
+      printf "  %sSys time:%s  %s\n", H2, H0, Time
+      printf "  %sLoadAvg:%s   %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
         H2, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
+      printf "  %sBoot time:%s %s\n", H2, H0, BTIME
+      printf "  %sUptime:%s    %s\n", H2, H0, Uptime
     }' <<<"$uptime_input"
-  [[ -n $runlevel ]] &&
-  echo -e "  ${c_h2}Runlevel:${c_0} $runlevel (default: $initdefault)"
+
+  awk -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+    /^cpu / {
+      TotalTime = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9 + $10 + $11
+      user    = $2 * 100 / TotalTime
+      nice    = $3 * 100 / TotalTime
+      sys     = $4 * 100 / TotalTime
+      idle    = $5 * 100 / TotalTime
+      iowait  = $6 * 100 / TotalTime
+      irq     = $7 * 100 / TotalTime
+      softirq = $8 * 100 / TotalTime
+      steal   = $9 * 100 / TotalTime
+     #guest      = $10
+     #guest_nice = $11
+    }
+    /procs_running/ { procs_running = $2 }
+    /procs_blocked/ { procs_blocked = $2 }
+   
+    END {
+      printf "  %sCpu time since boot:%s\n    us %0.f%%, ni %0.f%%, sys %0.f%%, idle %0.f%%, iowait %0.f%%, irq %0.f%%, sftirq %0.f%%, steal %0.f%%\n",
+      H2, H0, user, nice, sys, idle, iowait, irq, softirq, steal
+      printf "  %sprocs_running (procs_blocked):%s\n    %d (%d)\n",
+        H2, H0, procs_running, procs_blocked
+    }
+  ' <"$1/proc/stat"
+  echo -e "  ${c_h2}Kernel cmdline:${c_0}\n$(fold -sw76 <"$1/proc/cmdline" | sed 's,^,    ,')"
   echo -en $heading_separator
 }
 
-cat >/dev/null <<\EOF
-      Time     = $1
-      if ($3 ~ /:/) {
-        Uptime = $3
-        Users  = $4" "$5; sub(/,$/, "", Users)
-        Load[1]  = $8
-        Load[5]  = $9
-        Load[15] = $10
-      }
-      else {
-        Uptime = $3" "$4" "$5
-        Users    = $6" "$7; sub(/,$/, "", Users)
-        Load[1]  = $10
-        Load[5]  = $11
-        Load[15] = $12
-      }
-      for (i in Load) {
-        sub(/,$/, "", Load[i])
-        LP[i] = Load[i] * 100 / NUM_CPU
-      }
-      printf "  %sSys time:%s %s\n", H2, H0, Time
-      printf "  %sUptime:%s   %s %s\n", H2, H0, Uptime, Users
-      printf "  %sLoadAvg:%s  %s (%.0f%%), %s (%.0f%%), %s (%.0f%%)\n",
-        H2, H0, Load[1], LP[1], Load[5], LP[5], Load[15], LP[15]
-EOF
 
 CPUINFO() {
   [[ -f $1 ]] && cpuinfo=$(<"$1") || cpuinfo=$(<"$1/proc/cpuinfo")
@@ -841,46 +848,6 @@ TAINTCHECK() {
 }
 
 
-PROC_STAT() {
-  btime=$(date --date=@$(awk '/btime/{print $2}' <"$1/proc/stat"))
-  awk -vS="$H2INDENT" -vBTIME="$btime" -vH3="$c_h3" -vH0="$c_0" '
-    BEGIN {
-      printf "%s%sb[oot]time:%s %s\n", S, H3, H0, BTIME
-    }
-    /^cpu / {
-      TotalTime = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9 + $10 + $11
-      user    = $2 * 100 / TotalTime
-      nice    = $3 * 100 / TotalTime
-      sys     = $4 * 100 / TotalTime
-      idle    = $5 * 100 / TotalTime
-      iowait  = $6 * 100 / TotalTime
-      irq     = $7 * 100 / TotalTime
-      softirq = $8 * 100 / TotalTime
-      steal   = $9 * 100 / TotalTime
-     #guest      = $10
-     #guest_nice = $11 
-      printf "%s%scpu [time distribution since last boot]:%s\n%s  us %0.f%%, ni %0.f%%, sys %0.f%%, idle %0.f%%, iowait %0.f%%, irq %0.f%%, sftirq %0.f%%, steal %0.f%%\n",
-      S, H3, H0, S, user, nice, sys, idle, iowait, irq, softirq, steal
-    }
-    /procs_running/ {
-      printf "%s%sprocs_running:%s %d\n", S, H3, H0, $2
-    }
-    /procs_blocked/ {
-      printf "%s%sprocs_blocked:%s %d\n", S, H3, H0, $2
-    }
-  ' <"$1/proc/stat"
-}
-
-
-KERN() {
-echo -e "${c_h1}PROC/${c_0}
-  ${c_h2}stat${c_0}\n$(PROC_STAT "$1")
-  ${c_h2}cmdline${c_0}
-    $(<"$1/proc/cmdline")"
-  echo -en $heading_separator
-}
-
-
 SYSCTL() {
   # VM PageSize (don't know how to find this from a sosreport,
   # but I doubt that will often be a problem)
@@ -941,7 +908,7 @@ elif [[ -n $sosroot ]]; then
       DMIDECODE "$sosroot/sos_commands/kernel.dmidecode"
     fi
   fi
-  [[ -n $os && -d $sosroot/proc/sys ]] &&                   OSINFO "$sosroot"
+  [[ -n $os && -d $sosroot/proc ]] &&                       OSINFO "$sosroot"
   [[ -n $cpu   && -r $sosroot/proc/cpuinfo ]] &&            CPUINFO "$sosroot"
   [[ -n $mem   && -r $sosroot/proc/meminfo ]] &&            MEMINFO "$sosroot"
   if [[ -n $mpath && -r $sosroot/proc/partitions ]]; then   STORAGE "$sosroot" --mpath
@@ -950,7 +917,6 @@ elif [[ -n $sosroot ]]; then
   [[ -n $lspci && -r $sosroot/lspci ]] &&                   LSPCI "$sosroot"
   [[ -n $ethtool ]] &&                                      ETHTOOL "$sosroot"
   [[ -n $net && -d $sosroot/proc/net ]] &&                  PROC_NET "$sosroot"
-  [[ -n $kern && -d $sosroot/proc ]] &&                     KERN "$sosroot"
   [[ -n $sysctl && -d $sosroot/proc/sys ]] &&               SYSCTL "$sosroot" 2>/dev/null
   
 # If no SOSREPORT-ROOT provided, run checks against local system
@@ -965,7 +931,6 @@ else
   [[ -n $lspci ]] &&                  LSPCI
   [[ $UID -eq 0 && -n $ethtool ]] &&  ETHTOOL
   [[ -n $net ]] &&                    PROC_NET /
-  [[ -n $kern ]] &&                   KERN /
   [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
 
 fi
