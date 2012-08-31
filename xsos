@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.2 last mod 2012/08/30
+# xsos v0.0.2a last mod 2012/08/30
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -56,12 +56,6 @@ XHELP() {
   USAGE
   echo "Extract useful data about system from SOSREPORT-ROOT or else localhost
 
-Display options:"
-  echo "
- -x, --nocolor@disable coloring of output
- -K, --kb@show /proc/meminfo in KiB
- -M, --mb@show /proc/meminfo in MiB" | column -ts@
- echo "
 Content options:"
   echo "
  -a, --all@show everything
@@ -76,6 +70,12 @@ Content options:"
  -n, --net@show info from /proc/net/dev
  -s, --sysctl@show important kernel sysctls" | column -ts@
   echo "
+Display options:"
+  echo "
+ -x, --nocolor@disable coloring of output
+ -K, --kb@show /proc/meminfo in KiB
+ -M, --mb@show /proc/meminfo in MiB" | column -ts@
+ echo "
 Note that $pzero argument parsing is performed by GNU getopt, so order of args
 is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
 
@@ -135,13 +135,13 @@ UPDATE() {
   # Compare currently running xsos with downloaded file
   if ! diff $0 $latest_version_file >/dev/null; then
     echo -e "${C[blue]}The version you are running reports as:\n\t${C[orange]}${version:2}${C[blue]}\nThe version on github appears to be different and reports as:\n\t${C[ORANGE]}${latest_version:2}${C[blue]}"
-    echo -e "Would you like to see differences between them? (${C[GREEN]}y${C[blue]} or ${C[GREEN]}n${C[blue]})${C[reset]}"
+    echo -e "Would you like to see differences between them? (${C[GREEN]}y${C[blue]} or ${C[GREEN]}n${C[blue]})${C[GREEN]}"
     read -p "> "
     if [[ $REPLY == y ]]; then
       if [[ -n $DISPLAY ]] && command -v meld >/dev/null; then
-        meld $0 $latest_version_file
+        meld $0 $latest_version_file 2>/dev/null
       elif [[ -n $DISPLAY ]] && command -v gvimdiff >/dev/null; then
-        gvimdiff $0 $latest_version_file
+        gvimdiff $0 $latest_version_file 2>/dev/null
       elif command -v vimdiff; then
         vimdiff $0 $latest_version_file
       else
@@ -150,15 +150,15 @@ UPDATE() {
         # create a diff file
         diff -u $0 $latest_version_file > $diff_file
         if [[ -n $DISPLAY ]] && command -v gedit >/dev/null; then
-          gedit $diff_file
+          gedit $diff_file 2>/dev/null
         else
           less $diff_file
         fi
       fi
     fi
-    echo -e "${C[blue]}If you are sure you know what you are doing, type ${C[GREEN]}update${C[blue]}\nto replace $0 with the latest version${C[GREEN]}"
+    echo -e "${C[blue]}If you are sure you know what you are doing, type ${C[GREEN]}u${C[blue]}\nto replace $0 with the latest version${C[GREEN]}"
     read -p "> "
-    if [[ $REPLY == update ]]; then
+    if [[ $REPLY == u ]]; then
       echo -e "${C[blue]}Backing up current version and replacing it with downloaded version ...${C[cyan]}"
       cp -v $0 /tmp/xsos.orig
       cp -v $latest_version_file $0
@@ -326,6 +326,9 @@ DMIDECODE() {
       
   
 OSINFO() {
+  grep -q 'Red Hat Enterprise Linux .* release [456]' <"$1/etc/redhat-release" &&
+    redhat_release=$(<"$1/etc/redhat-release") ||
+      redhat_release=${C[ORANGE]}$(<"$1/etc/redhat-release")
   num_cpu=$(awk '/processor/{n++} END{print n}' <"$1/proc/cpuinfo")
   btime=$(date --date=@$(awk '/btime/{print $2}' <"$1/proc/stat"))
   if [[ $1 == / ]]; then
@@ -339,10 +342,8 @@ OSINFO() {
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] && initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab")
   fi
-
-  
   echo -e "${c_h1}OS${c_0}"
-  echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$(<"$1/etc/redhat-release")${c_0}"
+  echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$redhat_release${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
   echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
   [[ -n $runlevel ]] &&
@@ -425,7 +426,7 @@ CPUINFO() {
 MEMINFO() {
   [[ -f $1 ]] && meminfo=$1 || meminfo=$1/proc/meminfo
   echo -e "${c_h1}MEMORY${c_0}"
-  awk -vu="$mem_unit" -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
+  awk -vu="$mem_unit" -vORANGE="${C[orange]}" -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
     
     # Grab variables from meminfo
     /^MemTotal:/        { MemTotal  = $2 }
@@ -537,7 +538,10 @@ MEMINFO() {
         printf    "    %s%.1f%s total%s [%.1f%s (%.0f%%) used]\n", H_IMP, MemTotal, u, H0, MemUsed, u, Mem_Percent
        #printf    "    %.1f%s (%.0f%%) used\n", MemUsed, u, Mem_Percent
         printf    "    %s%.1f%s (%.0f%%) used excluding buffers/cache%s\n", H_IMP, MemUsedNoBC, u, MemNoBC_Percent, H0
-        printf    "    %.2f%s (%.0f%%) dirty\n", Dirty, u, Dirty_Percent
+        if (Dirty_Percent > 5)
+          printf  "    %s%.2f%s (%.0f%%) dirty%s\n", ORANGE, Dirty, u, Dirty_Percent, H0
+        else
+          printf  "    %.2f%s (%.0f%%) dirty\n", Dirty, u, Dirty_Percent
         
         printf    "  %sHugePages:%s\n", H2, H0
         if (HugepagesTotal == 0)
@@ -557,7 +561,7 @@ MEMINFO() {
         
         printf    "  %sSwap:%s\n", H2, H0
         if (SwapTotal == 0)
-          printf  "    %sZERO system swap space configured%s\n", H_IMP, H0
+          printf  "    %sZERO system swap space configured%s\n", ORANGE, H0
         else
           printf  "    %.1f%s (%.0f%%) used of %.1f%s total\n", SwapUsed, u, Swap_Percent, SwapTotal, u
       }
@@ -571,7 +575,10 @@ MEMINFO() {
         printf    "    %s%.0f%s total%s [%.0f%s (%.1f%%) used]\n", H_IMP, MemTotal, u, H0, MemUsed, u, Mem_Percent
        #printf    "    %.0f%s (%.1f%%) used\n", MemUsed, u, Mem_Percent
         printf    "    %s%.0f%s (%.1f%%) used excluding buffers/cache%s\n", H_IMP, MemUsedNoBC, u, MemNoBC_Percent, H0
-        printf    "    %.0f%s (%.1f%%) dirty\n", Dirty, u, Dirty_Percent
+        if (Dirty_Percent > 5)
+          printf  "    %s%.0f%s (%.1f%%) dirty%s\n", ORANGE, Dirty, u, Dirty_Percent, H0
+        else
+          printf  "    %.0f%s (%.1f%%) dirty\n", Dirty, u, Dirty_Percent
         
         printf    "  %sHugePages:%s\n", H2, H0
         if (HugepagesTotal == 0)
@@ -591,7 +598,7 @@ MEMINFO() {
         
         printf    "  %sSwap:%s\n", H2, H0
         if (SwapTotal == 0)
-          printf  "    %sZERO system swap space configured%s\n", H_IMP, H0
+          printf  "    %sZERO system swap space configured%s\n", ORANGE, H0
         else
           printf  "    %.0f%s (%.1f%%) used of %.0f%s total\n", SwapUsed, u, Swap_Percent, SwapTotal, u
       }
@@ -858,7 +865,7 @@ SYSCTL() {
     ${c_h3}tainted:${c_0} $(TAINTCHECK "$1")
     ${c_h3}random.boot_id:${c_0} $(<"$1/proc/sys/kernel/random/boot_id")
     ${c_h3}random.entropy_avail:${c_0} $(<"$1/proc/sys/kernel/random/entropy_avail")
-    ${c_h3}panic (seconds til reboot):${c_0} $(<"$1/proc/sys/kernel/panic")
+    ${c_h3}panic:${c_0} $(<"$1/proc/sys/kernel/panic") (seconds til reboot after panic)
     ${c_h3}hung_task_panic:${c_0} $(<"$1/proc/sys/kernel/hung_task_panic")
     ${c_h3}panic_on_oops:${c_0} $(<"$1/proc/sys/kernel/panic_on_oops")
     ${c_h3}panic_on_unrecovered_nmi:${c_0} $(<"$1/proc/sys/kernel/panic_on_unrecovered_nmi")
@@ -868,8 +875,15 @@ SYSCTL() {
     ${c_h3}shmmax (bytes):${c_0} $(<"$1/proc/sys/kernel/shmmax") ($(awk '{printf "%.2f G max segment size\n", $1/1024/1024/1024}' <"$1/proc/sys/kernel/shmmax"))
     ${c_h3}shmmni (segments):${c_0} $(<"$1/proc/sys/kernel/shmmni") (max number of segs)
   ${c_h2}vm.${c_0}
-    ${c_h3}nr_hugepages:${c_0} $(<"$1/proc/sys/vm/nr_hugepages")
-    ${c_h3}overcommit_{memory,ratio}:${c_0} $(<"$1/proc/sys/vm/overcommit_memory") / $(<"$1/proc/sys/vm/overcommit_ratio")
+    ${c_h3}dirty_ratio:${c_0} $(<"$1/proc/sys/vm/dirty_ratio") %
+    ${c_h3}dirty_background_ratio:${c_0} $(<"$1/proc/sys/vm/dirty_background_ratio") %
+    ${c_h3}dirty_bytes:${c_0} $(<"$1/proc/sys/vm/dirty_bytes") b
+    ${c_h3}dirty_background_bytes:${c_0} $(<"$1/proc/sys/vm/dirty_background_bytes") b
+    ${c_h3}dirty_expire_centisecs:${c_0} $(<"$1/proc/sys/vm/dirty_expire_centisecs")
+    ${c_h3}dirty_writeback_centisecs:${c_0} $(<"$1/proc/sys/vm/dirty_writeback_centisecs")
+    ${c_h3}nr_hugepages:${c_0} $(<"$1/proc/sys/vm/nr_hugepages") pages
+    ${c_h3}overcommit_memory:${c_0} $(<"$1/proc/sys/vm/overcommit_memory")
+    ${c_h3}overcommit_ratio:${c_0} $(<"$1/proc/sys/vm/overcommit_ratio") %
     ${c_h3}panic_on_oom:${c_0} $(<"$1/proc/sys/vm/panic_on_oom")
   ${c_h2}net.${c_0}
     ${c_h3}ipv4.icmp_echo_ignore_all:${c_0} $(<"$1/proc/sys/net/ipv4/icmp_echo_ignore_all")
