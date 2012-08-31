@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.2a last mod 2012/08/30
+# xsos v0.0.2b last mod 2012/08/31
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -326,9 +326,14 @@ DMIDECODE() {
       
   
 OSINFO() {
-  grep -q 'Red Hat Enterprise Linux .* release [456]' <"$1/etc/redhat-release" &&
-    redhat_release=$(<"$1/etc/redhat-release") ||
-      redhat_release=${C[ORANGE]}$(<"$1/etc/redhat-release")
+  OS_INDENT="             "
+  if grep -q 'Red Hat Enterprise Linux .* release [456]' <"$1/etc/redhat-release"; then
+    [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
+      redhat_release=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
+        redhat_release=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+  else
+    redhat_release=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+  fi
   num_cpu=$(awk '/processor/{n++} END{print n}' <"$1/proc/cpuinfo")
   btime=$(date --date=@$(awk '/btime/{print $2}' <"$1/proc/stat"))
   if [[ $1 == / ]]; then
