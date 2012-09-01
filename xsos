@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.2d last mod 2012/09/01
+# xsos v0.0.2e last mod 2012/09/01
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -288,7 +288,7 @@ DMIDECODE() {
     '
   # Prints "<N> of <N> CPU sockets populated, <N> cores/<N> threads per CPU"
   # Prints "<N> total cores, <N> total threads"
-  echo -e "${c_h2}  CPUs:${c_0}"
+  echo -e "${c_h2}  CPU:${c_0}"
   awk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode" |
     awk -F: '
       /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
@@ -329,14 +329,23 @@ OSINFO() {
   OS_INDENT="             "
   
   # Get disto from redhat-release
-  if grep -qs 'Red Hat Enterprise Linux .* release [456]' "$1/etc/redhat-release"; then
-    [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
-      redhat_release=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
-        redhat_release=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+  if [[ -r $1/etc/redhat-release ]]; then
+    if grep -qs 'Red Hat Enterprise Linux .* release [456]' "$1/etc/redhat-release"; then
+      [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
+        distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
+          distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+    else
+      distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
+    fi
   else
-    redhat_release=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
+    if source "$1/etc/os-release" 2>/dev/null; then
+      distrorelease=${C[ORANGE]}$PRETTY_NAME
+    elif [[ -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null) ]]; then
+      distrorelease=${C[ORANGE]}$(echo -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null | sed 's,^.*/etc,etc,g'))
+    else
+      distrorelease="${C[RED]}Unable to detect"
+    fi
   fi
-  
   # Get kernel build from dmesg somehow or another
   # 1st: if running on localhost and find it via `dmesg`, good
   if [[ $1 == / ]] && kernel_build=$(dmesg 2>/dev/null | grep 'Linux version'); then
@@ -360,6 +369,7 @@ OSINFO() {
     
   # Grab number of cpus from cpuinfo
   num_cpu=$(awk '/processor/{n++} END{print n}' "$1/proc/cpuinfo" 2>/dev/null)
+  
   # Grab btime (in seconds since U.Epoch) from proc/stat
   btime=$(awk '/btime/{print $2}' "$1/proc/stat" 2>/dev/null)
   
@@ -384,7 +394,7 @@ OSINFO() {
   
   # Start printing stuff
   echo -e "${c_h1}OS${c_0}"
-  echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$redhat_release${c_0}"
+  echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$distrorelease${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
   echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
   [[ -n $runlevel ]] &&
@@ -452,7 +462,7 @@ OSINFO() {
   # Print and format dmesg kernel build from above
   echo -e "  ${c_h2}Kernel build from dmesg:${c_0}"
   [[ -n $kernel_build ]] &&
-    sed 's,^\[.*\] Linux,Linux,' <<<"$kernel_build" | fold -sw76 | sed 's,^,    ,' ||
+    sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build" | fold -sw76 | sed 's,^,    ,' ||
       echo -e "    Unable to detect"   
   echo -en $heading_separator
 }
@@ -469,7 +479,7 @@ CPUINFO() {
     [[ -n $num_cores_per_cpu ]] && cores=", ${num_cores_per_cpu} cores/ea"
   fi
   cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes" <<<"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
-  echo -e "${c_h1}CPUs${c_0}"
+  echo -e "${c_h1}CPU${c_0}"
   echo -e "  ${c_imp}${num_cpu} logical cpus${c_0} (${cpu_flags})"
   echo -e "  ${num_cpu_phys}${model_cpu}${cores}"
   echo -en $heading_separator
