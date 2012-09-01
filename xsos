@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.2c last mod 2012/08/31
+# xsos v0.0.2d last mod 2012/09/01
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -327,51 +327,73 @@ DMIDECODE() {
   
 OSINFO() {
   OS_INDENT="             "
-  if grep -q 'Red Hat Enterprise Linux .* release [456]' <"$1/etc/redhat-release"; then
+  
+  # Get disto from redhat-release
+  if grep -qs 'Red Hat Enterprise Linux .* release [456]' "$1/etc/redhat-release"; then
     [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
       redhat_release=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
         redhat_release=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
   else
-    redhat_release=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+    redhat_release=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
   fi
-  num_cpu=$(awk '/processor/{n++} END{print n}' <"$1/proc/cpuinfo")
-  btime=$(date --date=@$(awk '/btime/{print $2}' <"$1/proc/stat"))
+  
+  # Get kernel build from dmesg somehow or another
+  # 1st: if running on localhost and find it via `dmesg`, good
+  if [[ $1 == / ]] && kernel_build=$(dmesg 2>/dev/null | grep 'Linux version'); then
+    :
+  # 2nd: if running on sosreport and find it via `dmesg` output file, good
+  elif [[ $1 != / ]] && kernel_build=$(grep 'Linux version' "$1/sos_commands/general/dmesg" 2>/dev/null); then
+    :
+  # 3rd: if find it in var/log/dmesg, yay
+  elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
+    kernel_build=$(grep 'Linux version' <"$1/var/log/dmesg" | tail -n1)
+  # 4th: if find it in var/log/messages, woo hoo
+  elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
+    kernel_build=$(grep 'kernel: Linux version' <"$1/var/log/messages" | tail -n1)
+  # 5th and final: search in all old messages files -- this might be a bad idea
+  else
+    # To explain this last one: The goal is to find the most recent instance of "Linux version"
+    # So this reverse-sorts by filename, searches through all files ending with the most recent file
+    # This is obviously not very efficient, but it's the only way I've thought of to do it so far
+    kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep -sh 'kernel: Linux version' 2>/dev/null | tail -n1)
+  fi
+    
+  # Grab number of cpus from cpuinfo
+  num_cpu=$(awk '/processor/{n++} END{print n}' "$1/proc/cpuinfo" 2>/dev/null)
+  # Grab btime (in seconds since U.Epoch) from proc/stat
+  btime=$(awk '/btime/{print $2}' "$1/proc/stat" 2>/dev/null)
+  
+  # If running on localhost
   if [[ $1 == / ]]; then
-    if kernel_build=$(dmesg 2>/dev/null | grep 'Linux version'); then
-      :
-    elif grep -q 'Linux version' /var/log/dmesg 2>/dev/null; then
-      kernel_build=$(grep 'kernel: Linux version' </var/log/dmesg | tail -n1)
-    elif grep -q 'kernel: Linux version' /var/log/messages 2>/dev/null; then
-      kernel_build=$(grep 'kernel: Linux version' /var/log/messages | tail -n1)
-    else
-      kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep -h 'kernel: Linux version' 2>/dev/null | tail -n1)
-    fi
+    systime=$(date)
+    boottime=$(echo $(date --date=@$btime 2>/dev/null && echo " ($btime)"))
     uptime_input=$(uptime)
     runlevel=$(runlevel)
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
-    initdefault=${initdefault%.target} ||
-    initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
+      initdefault=${initdefault%.target} ||
+        initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
+
+  # Otherwise, running on sosreport
   else
-    if kernel_build=$(grep 'Linux version' "$1/sos_commands/general/dmesg" 2>/dev/null); then
-      :
-    elif grep -q 'Linux version' "$1/var/log/dmesg" 2>/dev/null; then
-      kernel_build=$(grep 'Linux version' <"$1/var/log/dmesg" | tail -n1)
-    elif grep -q 'kernel: Linux version' "$1/var/log/messages" 2>/dev/null; then
-      kernel_build=$(grep 'kernel: Linux version' <"$1/var/log/messages" | tail -n1)
-    else
-      kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep 'kernel: Linux version' 2>/dev/null | tail -n1)
-    fi
+    [[ -r $1/date ]] && systime=$(<"$1/date")
+    boottime=$(echo $(TZ=$(awk {print\$5} "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
     uptime_input=$(<"$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] && initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab")
   fi
+  
+  # Start printing stuff
   echo -e "${c_h1}OS${c_0}"
   echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$redhat_release${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
   echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
   [[ -n $runlevel ]] &&
   echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel (default: $initdefault)"
-  awk -vBTIME="$btime" -vNUM_CPU="$num_cpu" -vREDB="${C[RED]}" -vRED="${C[red]}" -vORANGE="${C[orange]}" -vGREEN="${C[green]}" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+  [[ -n $systime ]] &&
+  echo -e "  ${c_h2}Sys time:${c_0}  $systime"
+  # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
+  [[ -n $uptime_input && -n $num_cpu ]] &&
+  awk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDB="${C[RED]}" -vRED="${C[red]}" -vORANGE="${C[orange]}" -vGREEN="${C[green]}" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
       !/load average/ { next }
       {
       Time = $1
@@ -392,13 +414,15 @@ OSINFO() {
         if (LP[i] > 99) Color[i] = REDB
       }
       
-      printf "  %sSys time:%s  %s\n", H2, H0, Time
-      printf "  %sLoadAvg:%s   %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
+      if (SYSTIME == "")
+        printf "  %sSys time:%s  %s\n", H2, H0, Time
+      printf   "  %sBoot time:%s %s\n", H2, H0, BTIME
+      printf   "  %sUptime:%s    %s\n", H2, H0, Uptime
+      printf   "  %sLoadAvg:%s   %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
         H2, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
-      printf "  %sBoot time:%s %s\n", H2, H0, BTIME
-      printf "  %sUptime:%s    %s\n", H2, H0, Uptime
     }' <<<"$uptime_input"
-
+  # Print info from proc/stat
+  [[ -n $btime ]] &&
   awk -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
     /^cpu / {
       TotalTime = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9 + $10 + $11
@@ -423,7 +447,9 @@ OSINFO() {
         H2, H0, procs_running, procs_blocked
     }
   ' <"$1/proc/stat"
-  echo -e "  ${c_h2}Kernel cmdline:${c_0}\n$(fold -sw76 <"$1/proc/cmdline" | sed 's,^,    ,')"
+  # Print kernel cmdline from proc/cmdline
+  echo -e "  ${c_h2}Kernel cmdline:${c_0}\n$(fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,')"
+  # Print and format dmesg kernel build from above
   echo -e "  ${c_h2}Kernel build from dmesg:${c_0}"
   [[ -n $kernel_build ]] &&
     sed 's,^\[.*\] Linux,Linux,' <<<"$kernel_build" | fold -sw76 | sed 's,^,    ,' ||
