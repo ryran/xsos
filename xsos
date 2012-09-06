@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.2e last mod 2012/09/01
+# xsos v0.0.2f last mod 2012/09/06
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -263,7 +263,7 @@ heading_separator="$c_sep-------------------------------------------------------
 DMIDECODE() {
   [[ -z $1 ]] && dmidecode=$(dmidecode 2>/dev/null) || dmidecode=$(<"$1")
   echo -e "${c_h1}DMIDECODE${c_0}"
-  # Prints "<BIOS_VENDOR> <BIOS_VERSION, <BIOS_DATE>"
+  # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
   echo -e "${c_h2}  BIOS:${c_0}"
   awk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode" |
     awk -F: '
@@ -272,7 +272,7 @@ DMIDECODE() {
       /Release Date:/ { ReleaseDate = $2 }
       END { printf "   %s, version%s,%s\n", Vendor, Version, ReleaseDate }
     '
-  # Prints "<Manufacturer> <Product Name>, <Version>"
+  # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
   echo -e "${c_h2}  System:${c_0}"
   awk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode" |
     awk -F: '
@@ -282,10 +282,11 @@ DMIDECODE() {
       /Serial Number:/{ Serial  = $2 }
       /UUID:/         { UUID    = $2 }
       END {
-        printf "    Manfr:  %s\n    Product:%s\n    Version:%s\n", Mfr, Product, Version
-        printf "    Serial: %s\n    UUID:   %s\n", Serial, UUID
+        printf "    Mfr: %s\n    Prod:%s\n    Vers:%s\n", Mfr, Product, Version
+        printf "    Ser: %s\n    UUID:%s\n", Serial, UUID
       }
     '
+  # Prints <CPU Manufacturer>, <CPU Family>, <CPU Current Speed>, <CPU Version>
   # Prints "<N> of <N> CPU sockets populated, <N> cores/<N> threads per CPU"
   # Prints "<N> total cores, <N> total threads"
   echo -e "${c_h2}  CPU:${c_0}"
@@ -294,15 +295,13 @@ DMIDECODE() {
       /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
       /Core Count:/   { SumCores   += $2; CoresPerCpu = $2 }
       /Thread Count:/ { SumThreads += $2; ThreadsPerCpu = $2 }
-      /Manufacturer:/ { Mfr         = $2; gsub(/  */, " ", Mfr) }
-      /Family:/       { Family      = $2; gsub(/  */, " ", Family) }
-      /Current Speed:/{ CpuFreq     = $2; gsub(/  */, " ", CpuFreq) }
-      /Max Speed:/    { CpuFreqMax  = $2 }
-      /Version:/      { Version     = $2 }
+      /Manufacturer:/ { if ($2 ~ /^ *$/)         next; Mfr         = $2; gsub(/  */, " ", Mfr) }
+      /Family:/       { if ($2 ~ /^ *$|Other/)   next; Family      = $2; gsub(/  */, " ", Family) }
+      /Current Speed:/{ if ($2 ~ /^ *$|Unknown/) next; CpuFreq     = $2; gsub(/  */, " ", CpuFreq) }
+      /Version:/      { if ($2 ~ /^ *$/)         next; Version     = $2; gsub(/  */, " ", Version) }
       END {
-        printf "   %s%s @%s (max supported freq%s)\n",
-          Mfr, Family, CpuFreq, CpuFreqMax
-        printf "    Version:%s\n", Version
+        printf "    Mfr: %s\n    Fam: %s\n    Freq:%s\n    Vers:%s\n",
+          Mfr, Family, CpuFreq, Version
         printf "    %d of %d CPU sockets populated, %d cores/%d threads per CPU\n",
           PopulatedSockets, SumSockets, CoresPerCpu, ThreadsPerCpu
         printf "    %d total cores, %d total threads\n", SumCores, SumThreads
@@ -458,7 +457,8 @@ OSINFO() {
     }
   ' <"$1/proc/stat"
   # Print kernel cmdline from proc/cmdline
-  echo -e "  ${c_h2}Kernel cmdline:${c_0}\n$(fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,')"
+  echo -e "  ${c_h2}Kernel cmdline:${c_0}"
+  echo "$(fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,')"
   # Print and format dmesg kernel build from above
   echo -e "  ${c_h2}Kernel build from dmesg:${c_0}"
   [[ -n $kernel_build ]] &&
@@ -470,12 +470,18 @@ OSINFO() {
 
 CPUINFO() {
   [[ -f $1 ]] && cpuinfo=$(<"$1") || cpuinfo=$(<"$1/proc/cpuinfo")
-  model_cpu=$(awk -F: 'BEGIN{n=0} /model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo" | sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g')
+  model_cpu=$(awk -F: '/model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo" | sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g')
+  [[ -z $model_cpu ]] && {
+    vendor=$(awk -F: '/^vendor/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
+    family=$(awk -F: '/^family/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
+    model_cpu="$vendor$family"
+  }
   num_cpu=$(awk '/processor/{n++} END{print n}' <<<"$cpuinfo")
   num_cpu_phys=$(grep "physical id" <<<"$cpuinfo" | sort -u | wc -l)
   [[ $num_cpu_phys -eq 0 ]] && num_cpu_phys=$num_cpu
   if [[ $num_cpu_phys -ne $num_cpu ]]; then
-    num_cores_per_cpu=$(awk 'BEGIN{n=0} /cpu cores/{if (n>0) next; n++; print $4}' <<<"$cpuinfo")
+    num_cores_per_cpu=$(grep "core id" <<<"$cpuinfo" | sort -u | wc -l)
+#    num_cores_per_cpu=$(awk 'BEGIN{n=0} /cpu cores/{if (n>0) next; n++; print $4}' <<<"$cpuinfo")
     [[ -n $num_cores_per_cpu ]] && cores=", ${num_cores_per_cpu} cores/ea"
   fi
   cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes" <<<"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
