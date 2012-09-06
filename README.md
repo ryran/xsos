@@ -36,11 +36,6 @@ Usage: xsos [-xKMabocmdplens] [SOSREPORT-ROOT]
   or:  xsos [-?|-h|--help]
 Extract useful data about system from SOSREPORT-ROOT or else localhost
 
-Display options:
- -x, --nocolor  disable coloring of output
- -K, --kb       show /proc/meminfo in KiB
- -M, --mb       show /proc/meminfo in MiB
-
 Content options:
  -a, --all      show everything
  -b, --bios     show info from dmidecode
@@ -53,6 +48,11 @@ Content options:
  -e, --ethtool  show info from ethtool
  -n, --net      show info from /proc/net/dev
  -s, --sysctl   show important kernel sysctls
+
+Display options:
+ -x, --nocolor  disable coloring of output
+ -K, --kb       show /proc/meminfo in KiB
+ -M, --mb       show /proc/meminfo in MiB
 
 Note that xsos argument parsing is performed by GNU getopt, so order of args
 is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
@@ -83,7 +83,7 @@ argument. These options can be used together, but cannot be used in concert
 with regular 'Content options' -- Content opts are ignored if Special options
 are detected. Also note: the '=' can be replaced with a space if desired.
  
-Version info: xsos v0.0.2e last mod 2012/09/01
+Version info: xsos v0.0.2f last mod 2012/09/06
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
 Alternatively, run xsos with '--update|-U'
@@ -109,13 +109,13 @@ OS
   Kernel cmdline:
     ro root=/dev/vg01/lv01
   Kernel build from dmesg:
-    May  8 22:19:15 gibux342 kernel: Linux version 2.6.18-308.1.1.el5 
-    (mockbuild@hs20-bc2-3.build.redhat.com) (gcc version 4.1.2 20080704 (Red 
-    Hat 4.1.2-52)) #1 SMP Fri Feb 17 16:51:01 EST 2012
+    Linux version 2.6.18-308.1.1.el5 (mockbuild@hs20-bc2-3.build.redhat.com) 
+    (gcc version 4.1.2 20080704 (Red Hat 4.1.2-52)) #1 SMP Fri Feb 17 16:51:01 
+    EST 2012
 -------------------------------------------------------------------------------
-CPUs
+CPU
   64 logical cpus (ht,lm,pae,vmx)
-  8 Intel Xeon CPU E7- 2830 @ 2.13GHz, 8 cores/ea
+  8 Intel Xeon CPU E7- 2830 @ 2.13GHz, 10 cores/ea
 -------------------------------------------------------------------------------
 MEMORY
   RAM:
@@ -145,26 +145,26 @@ Run on localhost with a couple options:
 [rsaw@sawzall:~]$ sudo xsos --os --ethtool --net
 OS
   Distro:    Fedora release 17 (Beefy Miracle)
-  Kernel:    3.5.2-3.fc17.x86_64
+  Kernel:    3.5.3-1.fc17.x86_64
   Hostname:  sawzall
   Runlevel:  N 5 (default: runlevel5)
-  Sys time:  Sat Sep  1 15:35:11 EDT 2012
-  Boot time: Fri Aug 31 09:19:04 EDT 2012 (1346419144)
-  Uptime:    1 day,  6:16,  3 users
-  LoadAvg:   0.40 (10%), 0.94 (24%), 1.01 (25%)
+  Sys time:  Thu Sep 6 01:11:09 EDT 2012
+  Boot time: Tue Sep 4 09:32:04 EDT 2012 (1346765524)
+  Uptime:    1 day, 15:39,  5 users
+  LoadAvg:   0.26 (6%), 0.26 (6%), 0.22 (6%)
   Cpu time since boot:
-    us 6%, ni 0%, sys 1%, idle 92%, iowait 1%, irq 0%, sftirq 0%, steal 0%
+    us 5%, ni 0%, sys 2%, idle 92%, iowait 1%, irq 0%, sftirq 0%, steal 0%
   procs_running (procs_blocked):
     1 (0)
   Kernel cmdline:
-    BOOT_IMAGE=/vmlinuz-3.5.2-3.fc17.x86_64 root=/dev/mapper/vg_sawzall-root ro 
+    BOOT_IMAGE=/vmlinuz-3.5.3-1.fc17.x86_64 root=/dev/mapper/vg_sawzall-root ro 
     rd.lvm.lv=vg_sawzall/root rd.md=0 rd.dm=0 SYSFONT=True KEYTABLE=us 
     rd.lvm.lv=vg_sawzall/swap 
     rd.luks.uuid=luks-8adf0ec9-441a-4099-9b07-215904d0e431 LANG=en_US.UTF-8 
     rhgb quiet
   Kernel build from dmesg:
-    Linux version 3.5.2-3.fc17.x86_64 (mockbuild@) (gcc version 4.7.0 20120507 
-    (Red Hat 4.7.0-5) (GCC) ) #1 SMP Tue Aug 21 19:06:52 UTC 2012
+    Linux version 3.5.3-1.fc17.x86_64 (mockbuild@) (gcc version 4.7.0 20120507 
+    (Red Hat 4.7.0-5) (GCC) ) #1 SMP Wed Aug 29 18:46:34 UTC 2012
 -------------------------------------------------------------------------------
 PROC/NET/DEV
   Iface       RxMBytes  RxPackets  RxErrs  RxDrop  TxMBytes  TxPackets  TxErrs  TxDrop
@@ -285,14 +285,16 @@ DMIDECODE
   BIOS:
     HP, version P66, 06/24/2011
   System:
-    Manfr:   HP
-    Product: ProLiant DL980 G7
-    Version: Not Specified
-    Serial:  CZ314XXXXXXX      
-    UUID:    35344D41-4131-5A43-3331-XXXXXXXXXXX
-  CPUs:
-    Intel Xeon @ 2133 MHz (max supported freq 4800 MHz)
-    Version: Intel(R) Xeon(R) CPU E7- 2830 @ 2.13GHz        
+    Mfr:  HP
+    Prod: ProLiant DL980 G7
+    Vers: Not Specified
+    Ser:  CZ3140XXXX      
+    UUID: 35344D41-4131-5A43-3331-XXXXXXXXXXX
+  CPU:
+    Mfr:  Intel
+    Fam:  Xeon
+    Freq: 2133 MHz
+    Vers: Intel(R) Xeon(R) CPU E7- 2830 @ 2.13GHz 
     8 of 8 CPU sockets populated, 8 cores/16 threads per CPU
     64 total cores, 128 total threads
   Memory:
@@ -314,8 +316,8 @@ REQUIREMENTS
 THINGS THAT MIGHT SURPRISE YOU
 -------
 
-* The script does some pretty intensive color-formatting to make the output more easily-readable.
-* The script can update itself via the internet in 10 seconds if run with `--update`.
+* The script does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
+* The script can update itself via the internet in 10 seconds if run with `--update` or `-U`.
 * When printing disk info with `-d/--disks`, the script automatically detects linux software raid (md) devices and hides their components.
 * When run with `-m/--mpath`, the script consults the `multipath` command to print info about native multipathd devices. If using this option in concert with `-d/--disks`, the script also detects all multipath device slave paths and hides those device nodes from the disk output.
 * When printing info on pci net devices (`-l/--lspci`), `xsos` simplifies the output in an intelligent way. Example:
