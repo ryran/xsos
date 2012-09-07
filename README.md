@@ -31,8 +31,8 @@ The help page:
 
 ```
 [rsaw@sawzall:~]$ xsos help
-Usage: xsos [-xKMabocmdplens] [SOSREPORT-ROOT]
-  or:  xsos [--B FILE] [--C FILE] [--M FILE] [--D FILE] [--L FILE] [--N FILE]
+Usage: xsos [-xKMabocmdpleins] [SOSREPORT-ROOT]
+  or:  xsos [--B|--C|--M|--D|--L|--I|--N FILE]...
   or:  xsos [-?|-h|--help]
 Extract useful data about system from SOSREPORT-ROOT or else localhost
 
@@ -46,6 +46,7 @@ Content options:
  -p, --mpath    show info from multipath
  -l, --lspci    show info from lspci
  -e, --ethtool  show info from ethtool
+ -i, --ip       show info from `ip addr`
  -n, --net      show info from /proc/net/dev
  -s, --sysctl   show important kernel sysctls
 
@@ -60,7 +61,7 @@ is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
 If no content options are specified, xsos only shows some information,
 equivalent to:
 
-  xsos --os --cpu --mem --lspci
+  xsos --os --cpu --mem
   
 If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
@@ -76,6 +77,7 @@ Special options:
  --M=FILE  FILE must contain /proc/meminfo dump
  --D=FILE  FILE must contain /proc/partitions dump
  --L=FILE  FILE must contain lspci dump
+ --I=FILE  FILE must contain ip addr dump
  --N=FILE  FILE must contain /proc/net/dev dump
 
 As is hopefully clear, each of these options requires a filename as an
@@ -83,7 +85,7 @@ argument. These options can be used together, but cannot be used in concert
 with regular 'Content options' -- Content opts are ignored if Special options
 are detected. Also note: the '=' can be replaced with a space if desired.
  
-Version info: xsos v0.0.2f last mod 2012/09/06
+Version info: xsos v0.0.3 last mod 2012/09/07
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
 Alternatively, run xsos with '--update|-U'
@@ -112,6 +114,9 @@ OS
     Linux version 2.6.18-308.1.1.el5 (mockbuild@hs20-bc2-3.build.redhat.com) 
     (gcc version 4.1.2 20080704 (Red Hat 4.1.2-52)) #1 SMP Fri Feb 17 16:51:01 
     EST 2012
+  Kernel taint-check: 64 1 
+      Userspace-defined naughtiness
+      Proprietary module has been loaded
 -------------------------------------------------------------------------------
 CPU
   64 logical cpus (ht,lm,pae,vmx)
@@ -131,31 +136,25 @@ MEMORY
   Swap:
     0.0g (0%) used of 32.0g total
 -------------------------------------------------------------------------------
-LSPCI
-  Netdevs:
-    8 NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42) {2,4-port}
-  Graphics:
-    Advanced Micro Devices [AMD] nee ATI ES1000 (rev 02)
--------------------------------------------------------------------------------
 ```
 
 Run on localhost with a couple options:
 
 ```
-[rsaw@sawzall:~]$ sudo xsos --os --ethtool --net
+[rsaw@sawzall:~]$ sudo xsos --ip --os --ethtool --net
 OS
   Distro:    Fedora release 17 (Beefy Miracle)
   Kernel:    3.5.3-1.fc17.x86_64
   Hostname:  sawzall
   Runlevel:  N 5 (default: runlevel5)
-  Sys time:  Thu Sep 6 01:11:09 EDT 2012
+  Sys time:  Fri Sep  7 02:31:15 EDT 2012
   Boot time: Tue Sep 4 09:32:04 EDT 2012 (1346765524)
-  Uptime:    1 day, 15:39,  5 users
-  LoadAvg:   0.26 (6%), 0.26 (6%), 0.22 (6%)
+  Uptime:    2 days, 16:59,  8 users
+  LoadAvg:   0.65 (16%), 0.53 (13%), 0.52 (13%)
   Cpu time since boot:
-    us 5%, ni 0%, sys 2%, idle 92%, iowait 1%, irq 0%, sftirq 0%, steal 0%
+    us 6%, ni 0%, sys 2%, idle 91%, iowait 1%, irq 0%, sftirq 0%, steal 0%
   procs_running (procs_blocked):
-    1 (0)
+    3 (0)
   Kernel cmdline:
     BOOT_IMAGE=/vmlinuz-3.5.3-1.fc17.x86_64 root=/dev/mapper/vg_sawzall-root ro 
     rd.lvm.lv=vg_sawzall/root rd.md=0 rd.dm=0 SYSFONT=True KEYTABLE=us 
@@ -163,37 +162,49 @@ OS
     rd.luks.uuid=luks-8adf0ec9-441a-4099-9b07-215904d0e431 LANG=en_US.UTF-8 
     rhgb quiet
   Kernel build from dmesg:
-    Linux version 3.5.3-1.fc17.x86_64 (mockbuild@) (gcc version 4.7.0 20120507 
-    (Red Hat 4.7.0-5) (GCC) ) #1 SMP Wed Aug 29 18:46:34 UTC 2012
--------------------------------------------------------------------------------
-PROC/NET/DEV
-  Iface       RxMBytes  RxPackets  RxErrs  RxDrop  TxMBytes  TxPackets  TxErrs  TxDrop
-  em1         471       729239     0       0       71        458227     0       0
-  tun0        0         273        0       0       0         238        0       0
-  virbr0      0         0          0       0       0         0          0       0
-  virbr0-nic  0         0          0       0       0         0          0       0
-  wlan0       158       163703     0       0       11        87281      0       0
-PROC/NET/SOCKSTAT
-  sockets: used 690
-  TCP: inuse 11 orphan 1 tw 0 alloc 14 mem 3
-  UDP: inuse 14 mem 4
-  UDPLITE: inuse 0
-  RAW: inuse 0
-  FRAG: inuse 0 memory 0
+    Unable to detect
+  Kernel taint-check: 0 (kernel untainted)
 -------------------------------------------------------------------------------
 ETHTOOL
   em1         link=DOWN                        drv e1000e v2.0.0-k / fw 0.13-3
   tun0        link=UP 10Mb/s full (autoneg=N)  drv tun v1.6
   virbr0      link=DOWN                        drv bridge v2.3 / fw N/A
   virbr0-nic  link=DOWN                        drv tun v1.6
-  wlan0       link=UP                          drv iwlwifi v3.5.2-3.fc17.x86_64 / fw 9.221.4.1
+  wlan0       link=UP                          drv iwlwifi v3.5.3-1.fc17.x86_64 / fw 9.221.4.1
+-------------------------------------------------------------------------------
+IP
+  Interface   Slave Of  MAC Address        State  IPv4 Address
+  =========   ========  =================  =====  ==================
+  lo          -         -                  up     127.0.0.1/8
+  em1         -         f0:de:f1:ba:cf:c4  up     -
+  wlan0       -         24:77:03:41:41:18  up     10.7.7.111/24
+  virbr0      -         52:54:00:97:e3:ee  up     192.168.122.1/24
+  virbr0-nic  -         52:54:00:97:e3:ee  DOWN   -
+  tun0        -         -                  up     10.11.10.10/32
+-------------------------------------------------------------------------------
+NETDEV
+  Interface   RxMBytes  RxPackets  RxErrs  RxDrop  TxMBytes  TxPackets  TxErrs  TxDrop
+  =========   ========  =========  ======  ======  ========  =========  ======  ======
+  em1         1110      1618247    0       0       508       1293102    0       0
+  tun0        2         4681       0       0       0         4275       0       0
+  virbr0      0         0          0       0       0         0          0       0
+  virbr0-nic  0         0          0       0       0         0          0       0
+  wlan0       456       485879     0       0       54        292131     0       0
+-------------------------------------------------------------------------------
+SOCKSTAT
+  sockets: used 833
+  TCP: inuse 16 orphan 0 tw 1 alloc 19 mem 4
+  UDP: inuse 15 mem 4
+  UDPLITE: inuse 0
+  RAW: inuse 0
+  FRAG: inuse 0 memory 0
 -------------------------------------------------------------------------------
 ```
 
 Run on another sosreport with some options:
 
 ```
-[rsaw@sawzall:~]$ xsos -p 8308201prodserv -mM 
+[rsaw@sawzall:~]$ xsos -p 8308201prodserv -mMl
 MEMORY
   RAM:
     16051m total [15691m (97.8%) used]
@@ -224,6 +235,12 @@ STORAGE
     (Multipath and/or software raid components hidden)
     1 disks, totaling 272 GiB (0.27 TiB)
     sda   271.9 G
+-------------------------------------------------------------------------------
+LSPCI
+  Net:
+    8 NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42) {2,4-port}
+  VGA:
+    Advanced Micro Devices [AMD] nee ATI ES1000 (rev 02)
 -------------------------------------------------------------------------------
 ```
 
@@ -280,7 +297,7 @@ SYSCTLS
 Finally, here's example of using one of the Special options, which allow you to specify a specific file instead of a full sosreport or having `xsos` run on your local system:
 
 ```
-[rsaw@sawzall:~]$ xsos --B /tmp/dmidecode.txt
+[rsaw@sawzall:~]$ xsos --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump
 DMIDECODE
   BIOS:
     HP, version P66, 06/24/2011
@@ -300,6 +317,21 @@ DMIDECODE
   Memory:
     262144 MB (256 GB) total
     32 of 128 DIMMs populated (system max capacity 512 GB)
+-------------------------------------------------------------------------------
+IP
+  Interface  Slave Of  MAC Address        State  IPv4 Address
+  =========  ========  =================  =====  ==================
+  lo         -         -                  up     127.0.0.1/8
+  lo:0       -         -                  up     192.168.160.20/32
+  eth0       -         ZZ:xy:56:01:12:qr  up     192.168.160.11/24
+  eth1       -         ZZ:xy:9a:1a:19:qr  up     10.79.4.68/23
+  eth1:1     -         ZZ:xy:9a:1a:19:qr  up     10.79.4.70/23
+  eth2       -         ZZ:xy:28:fd:19:qr  up     10.10.10.8/28
+  eth4       -         ZZ:xy:9e:0b:19:qr  up     192.168.254.8/28
+  eth5       bond0     ZZ:xy:b5:0b:19:qq  up     -
+  eth6       bond0     ZZ:xy:b5:0b:1a:qq  up     -
+  eth7       -         ZZ:xy:35:00:99:qq  DOWN   -
+  bond0      -         ZZ:zz:ZZ:zz:ZZ:zz  up     10.180.162.22/24
 -------------------------------------------------------------------------------
 ```
 
