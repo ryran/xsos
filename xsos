@@ -842,7 +842,7 @@ IPADDR() {
       if grep -q "inet .* $i:" <<<"${ip_input[$i]}"; then
         for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${ip_input[$i]}"); do
           ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${ip_input[$i]}")
-          echo "  $alias~-~${mac[${i%:*}]}~up~${ipv4_alias[$alias]}"
+          echo "  $alias~-~-~up~${ipv4_alias[$alias]}"
         done
       fi
     done
