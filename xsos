@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.3 last mod 2012/09/07
+# xsos v0.0.3a last mod 2012/09/07
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -812,18 +812,18 @@ IPADDR() {
   fi
 
   ip_addr=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"$ip_addr")
-  ipdevs=$(sed -e 's,^[0-9]*: ,\n&,' <<<"$ip_addr" | awk -F: 'BEGIN { RS="\n\n" } {print $2}' | egrep -v 'sit0')
+  ipdevs=$(awk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"$ip_addr" | egrep -v 'sit0')
 
   declare -A ip_input mac state ipv4 ipv4_alias slaveof
 
   echo -e "${c_h1}IP${c_0}"
   {
-    echo "  Interface@Slave Of@MAC Address@State@IPv4 Address"
-    echo "  =========@========@=================@=====@=================="
+    echo "  Interface~Slave Of~MAC Address~State~IPv4 Address"
+    echo "  =========~========~=================~=====~=================="
 
     for i in $ipdevs; do
 
-      ip_input[$i]=$(awk "BEGIN { RS=\"\n\n\" } /^[0-9]+: $i:/" <<<"$ip_addr")
+      ip_input[$i]=$(awk "BEGIN {RS=\"\n\n\"} /^[0-9]+: $i:/" <<<"$ip_addr")
 
       slaveof[$i]=$(grep -q SLAVE <<<"${ip_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${ip_input[$i]}" | awk '{print $2}' || echo "-")
       
@@ -831,22 +831,22 @@ IPADDR() {
 
       state[$i]=$(grep -q "$i: .*,UP"  <<<"${ip_input[$i]}" && echo up || echo DOWN)
 
-      if grep -q "inet .* $i\$" <<<"${ip_input[$i]}"; then
-        ipv4[$i]=$(awk "/inet .* $i\$/ {print \$2}" <<<"${ip_input[$i]}")
-        echo "  $i@${slaveof[$i]}@${mac[$i]}@${state[$i]}@${ipv4[$i]}"
+      if grep -q "inet .* ${i%@*}\$" <<<"${ip_input[$i]}"; then
+        ipv4[$i]=$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${ip_input[$i]}")
+        echo "  $i~${slaveof[$i]}~${mac[$i]}~${state[$i]}~${ipv4[$i]}"
       else
         ipv4[$i]="-"
-        echo "  $i@${slaveof[$i]}@${mac[$i]}@${state[$i]}@${ipv4[$i]}"
+        echo "  $i~${slaveof[$i]}~${mac[$i]}~${state[$i]}~${ipv4[$i]}"
         continue
       fi
       if grep -q "inet .* $i:" <<<"${ip_input[$i]}"; then
         for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${ip_input[$i]}"); do
           ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${ip_input[$i]}")
-          echo "  $alias@-@${mac[${i%:*}]}@up@${ipv4_alias[$alias]}"
+          echo "  $alias~-~${mac[${i%:*}]}~up~${ipv4_alias[$alias]}"
         done
       fi
     done
-  } | column -ts@ |
+  } | column -ts~ |
     awk -vH0="$c_0" -vH2="$c_h2" -vH3="$c_h3" '
       {
         if (NR <= 2) print H2 $0 H0
