@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.2f last mod 2012/09/06
+# xsos v0.0.3 last mod 2012/09/07
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -46,8 +46,8 @@ C[cyan]='\033[0;36m';   C[CYAN]='\033[1;36m'
 
 
 USAGE() {
-  echo "Usage: $pzero [-xKMabocmdplens] [SOSREPORT-ROOT]"
-  echo "  or:  $pzero [--B FILE] [--C FILE] [--M FILE] [--D FILE] [--L FILE] [--N FILE]"
+  echo "Usage: $pzero [-xKMabocmdpleins] [SOSREPORT-ROOT]"
+  echo "  or:  $pzero [--B|--C|--M|--D|--L|--I|--N FILE]..."
   echo "  or:  $pzero [-?|-h|--help]"
 }
 
@@ -67,6 +67,7 @@ Content options:"
  -p, --mpath@show info from multipath
  -l, --lspci@show info from lspci
  -e, --ethtool@show info from ethtool
+ -i, --ip@show info from \`ip addr\`
  -n, --net@show info from /proc/net/dev
  -s, --sysctl@show important kernel sysctls" | column -ts@
   echo "
@@ -82,7 +83,7 @@ is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
 If no content options are specified, $pzero only shows some information,
 equivalent to:
 
-  $pzero --os --cpu --mem --lspci
+  $pzero --os --cpu --mem
   
 If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
@@ -99,6 +100,7 @@ Special options:"
  --M=FILE@FILE must contain /proc/meminfo dump
  --D=FILE@FILE must contain /proc/partitions dump
  --L=FILE@FILE must contain lspci dump
+ --I=FILE@FILE must contain ip addr dump
  --N=FILE@FILE must contain /proc/net/dev dump" | column -ts@
   echo "
 As is hopefully clear, each of these options requires a filename as an
@@ -183,15 +185,15 @@ esac
 
 
 # GNU getopt short and long options:
-sopts='xKMabocmdplens'
-lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,net,sysctl,B:,C:,M:,D:,L:,N:'
+sopts='xKMabocmdpleins'
+lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,ip,net,sysctl,B:,C:,M:,D:,L:,I:,N:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
 
 # Parse command-line arguments
 PARSE() {
-  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool net sysctl sfile
+  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool ip net sysctl sfile
   until [[ $1 = -- ]]; do
     case $1 in
       -x|--nocolor) shift; nocolor=y          ;;
@@ -206,6 +208,7 @@ PARSE() {
       -p|--mpath)   shift; opts=y; mpath=y    ;;
       -l|--lspci)   shift; opts=y; lspci=y    ;;
       -e|--ethtool) shift; opts=y; ethtool=y  ;;
+      -i|--ip)      shift; opts=y; ip=y       ;;
       -n|--net)     shift; opts=y; net=y      ;;
       -s|--sysctl)  shift; opts=y; sysctl=y   ;;
       --B)  declare -gA sfile; sfile[B]=$2; shift 2  ;;
@@ -213,6 +216,7 @@ PARSE() {
       --M)  declare -gA sfile; sfile[M]=$2; shift 2  ;;
       --D)  declare -gA sfile; sfile[D]=$2; shift 2  ;;
       --L)  declare -gA sfile; sfile[L]=$2; shift 2  ;;
+      --I)  declare -gA sfile; sfile[I]=$2; shift 2  ;;
       --N)  declare -gA sfile; sfile[N]=$2; shift 2  ;;
     esac
   done
@@ -230,10 +234,10 @@ if [[ -n ${sfile[*]} ]]; then
   :
 # Set default view if no content options specified
 elif [[ -z $opts ]]; then
-  os=y; cpu=y; mem=y; lspci=y
+  os=y; cpu=y; mem=y
 # Else, if "all" option specified, set full view
 elif [[ -n $all ]]; then
-  bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; net=y; kern=y; sysctl=y
+  bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y
 fi
 
 
@@ -464,6 +468,7 @@ OSINFO() {
   [[ -n $kernel_build ]] &&
     sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build" | fold -sw76 | sed 's,^,    ,' ||
       echo -e "    Unable to detect"   
+  echo -e "  ${c_h2}Kernel taint-check:${c_0} $(TAINTCHECK "$1")"
   echo -en $heading_separator
 }
 
@@ -774,7 +779,7 @@ LSPCI() {
       }
     }
     END {
-      printf "%s  Netdevs:%s\n", H2, H0
+      printf "%s  Net:%s\n", H2, H0
       for (ifacetype in iface) {
         slotc = slotcount[ifacetype]
         typec = iface[ifacetype]
@@ -785,10 +790,71 @@ LSPCI() {
       }
     }
   ' <<<"$lspci_input"
-  echo -e "${c_h2}  Graphics:${c_0}"
+  echo -e "${c_h2}  VGA:${c_0}"
   awk -F: '$2 ~ /^.... VGA/ { print "   "$3}' <<<"$lspci_input"
   echo -en $heading_separator
 }
+
+
+
+# I spent a long time wondering how I would end up implementing ip-addr functionality
+# I couldn't come up with a lovely elegant awk-way
+# In the end, this is probably one of the most expensive of the functions
+# And certainly the most esoteric and complex...
+# I'll make sure to add comments eventually, but who knows -- maybe I'll think of a better way to do it
+IPADDR() {
+  if [[ -z $1 ]]; then
+    ip_addr=$(ip a)
+  elif [[ -f $1 ]]; then
+    ip_addr=$(<"$1")
+  else
+    ip_addr=$(<"$1/sos_commands/networking/ip_address")
+  fi
+
+  ip_addr=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"$ip_addr")
+  ipdevs=$(sed -e 's,^[0-9]*: ,\n&,' <<<"$ip_addr" | awk -F: 'BEGIN { RS="\n\n" } {print $2}' | egrep -v 'sit0')
+
+  declare -A ip_input mac state ipv4 ipv4_alias slaveof
+
+  echo -e "${c_h1}IP${c_0}"
+  {
+    echo "  Interface@Slave Of@MAC Address@State@IPv4 Address"
+    echo "  =========@========@=================@=====@=================="
+
+    for i in $ipdevs; do
+
+      ip_input[$i]=$(awk "BEGIN { RS=\"\n\n\" } /^[0-9]+: $i:/" <<<"$ip_addr")
+
+      slaveof[$i]=$(grep -q SLAVE <<<"${ip_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${ip_input[$i]}" | awk '{print $2}' || echo "-")
+      
+      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${ip_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${ip_input[$i]}" || echo "-")
+
+      state[$i]=$(grep -q "$i: .*,UP"  <<<"${ip_input[$i]}" && echo up || echo DOWN)
+
+      if grep -q "inet .* $i\$" <<<"${ip_input[$i]}"; then
+        ipv4[$i]=$(awk "/inet .* $i\$/ {print \$2}" <<<"${ip_input[$i]}")
+        echo "  $i@${slaveof[$i]}@${mac[$i]}@${state[$i]}@${ipv4[$i]}"
+      else
+        ipv4[$i]="-"
+        echo "  $i@${slaveof[$i]}@${mac[$i]}@${state[$i]}@${ipv4[$i]}"
+        continue
+      fi
+      if grep -q "inet .* $i:" <<<"${ip_input[$i]}"; then
+        for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${ip_input[$i]}"); do
+          ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${ip_input[$i]}")
+          echo "  $alias@-@${mac[${i%:*}]}@up@${ipv4_alias[$alias]}"
+        done
+      fi
+    done
+  } | column -ts@ |
+    awk -vH0="$c_0" -vH2="$c_h2" -vH3="$c_h3" '
+      {
+        if (NR <= 2) print H2 $0 H0
+        else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
+      }'
+  echo -en $heading_separator
+}
+
 
 
 ETHTOOL() {
@@ -845,11 +911,11 @@ ETHTOOL() {
 
 PROC_NET() {
   [[ -f $1 ]] && netdev=$1 || netdev=$1/proc/net/dev
-  echo -e "${c_h1}PROC/NET/DEV${c_0}"
+  echo -e "${c_h1}NETDEV${c_0}"
   tail -n+3 "$netdev" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
     awk '
       {
-        Iface[$1]     = $1
+        Interface[$1] = $1
         RxMBytes[$1]  = $2 / 1024 / 1024
         RxPackets[$1] = $3
         RxErrs[$1]    = $4
@@ -860,8 +926,9 @@ PROC_NET() {
         TxDrop[$1]    = $13
       }
       END {
-        print "  Iface~RxMBytes~RxPackets~RxErrs~RxDrop~TxMBytes~TxPackets~TxErrs~TxDrop"
-        n = asorti(Iface, IF)
+        print "  Interface~RxMBytes~RxPackets~RxErrs~RxDrop~TxMBytes~TxPackets~TxErrs~TxDrop"
+        print "  =========~========~=========~======~======~========~=========~======~======"
+        n = asorti(Interface, IF)
         for (i = 1; i <= n; i++)
           printf "  %s~%0.f~%d~%d~%d~%0.f~%d~%d~%d\n",
             IF[i], RxMBytes[IF[i]], RxPackets[IF[i]], RxErrs[IF[i]], RxDrop[IF[i]],
@@ -870,11 +937,12 @@ PROC_NET() {
     ' | column -ts~ |
       awk -vH0="$c_0" -vH2="$c_h2" -vH3="$c_h3" '
         {
-          if (NR == 1) print H2 $0 H0
+          if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }'
   if [[ -d $1 ]]; then
-    echo -e "${c_h1}PROC/NET/SOCKSTAT${c_0}"
+    echo -en $heading_separator
+    echo -e "${c_h1}SOCKSTAT${c_0}"
     awk -vS="  " -vH3="$c_h3" -vH0="$c_0" '
       { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
   fi
@@ -980,6 +1048,7 @@ if [[ -n ${sfile[*]} ]]; then
   [[ -r ${sfile[M]} ]] && MEMINFO "${sfile[M]}"
   [[ -r ${sfile[D]} ]] && STORAGE "${sfile[D]}"
   [[ -r ${sfile[L]} ]] && LSPCI "${sfile[L]}"
+  [[ -r ${sfile[I]} ]] && IPADDR "${sfile[I]}"
   [[ -r ${sfile[N]} ]] && PROC_NET "${sfile[N]}"
   
 # If SOSREPORT-ROOT provided, use that
@@ -999,6 +1068,8 @@ elif [[ -n $sosroot ]]; then
   fi
   [[ -n $lspci && -r $sosroot/lspci ]] &&                   LSPCI "$sosroot"
   [[ -n $ethtool ]] &&                                      ETHTOOL "$sosroot"
+  [[ -n $ip && -r $sosroot/sos_commands/networking/ip_address ]] &&
+                                                            IPADDR "$sosroot"
   [[ -n $net && -d $sosroot/proc/net ]] &&                  PROC_NET "$sosroot"
   [[ -n $sysctl && -d $sosroot/proc/sys ]] &&               SYSCTL "$sosroot" 2>/dev/null
   
@@ -1013,6 +1084,7 @@ else
   fi
   [[ -n $lspci ]] &&                  LSPCI
   [[ $UID -eq 0 && -n $ethtool ]] &&  ETHTOOL
+  [[ -n $ip ]] &&                     IPADDR
   [[ -n $net ]] &&                    PROC_NET /
   [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
 
