@@ -5,15 +5,17 @@ The goal of `xsos` is to make it easy to gather information about a system toget
 
 There is tons and tons of useful amazing instructive data available to normal users (not to mention root) on a Linux system, but by design, this information is spread out across myriad files and some of it practically requires specialized commands to parse through.
 
-`xsos` will attempt to make it easy, parsing and calculating and formatting data from dozens of files to give you a detailed overview about a system. Or if requested, it will only parse one file (e.g. with `--mem`) or one output from one command (e.g. with `--ip`).  We're adding more features to `xsos` all the time -- see [the tracker](/ryran/xsos/issues) to have a look at some of the things that are already in line to be worked on.
+`xsos` will attempt to make it easy, parsing and calculating and formatting data from dozens of files to give you a detailed overview about a system, or -- if requested -- `xsos` will only parse one file (e.g. with `--mem`) or output from one command (e.g. with `--ip`).
 
-Also, see the answer to a common question: [Why another tool? Why not add stuff to `sxconsole`?](https://github.com/ryran/xsos/issues/9)
+New features are being added all the time -- see [the tracker](/ryran/xsos/issues) to have a look at some of the things that are already in line to be worked on.
+
+**[Why another tool? Why not add stuff to `sxconsole`?](https://github.com/ryran/xsos/issues/9)**
 
 
 INSTALLATION
 -------
 
-*"I'm sold"* you say. *"How do I install `xsos`?"* you say.  
+*"I'm sold"* you say. *"How do I install xsos?"* you say.  
 Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your $PATH. You can even name the script whatever you want (like `x` or `z`). Make sure it's executable with a `chmod +x /PATH/TO/XSOS` and then run it with a `help` argument to get started!
 
 Jump to ...
