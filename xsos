@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.3a last mod 2012/09/07
+# xsos v0.0.4 last mod 2012/09/14
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -67,7 +67,7 @@ Content options:"
  -p, --mpath@show info from multipath
  -l, --lspci@show info from lspci
  -e, --ethtool@show info from ethtool
- -i, --ip@show info from \`ip addr\`
+ -i, --ip@show info from ip addr
  -n, --net@show info from /proc/net/dev
  -s, --sysctl@show important kernel sysctls" | column -ts@
   echo "
@@ -279,15 +279,18 @@ DMIDECODE() {
   # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
   echo -e "${c_h2}  System:${c_0}"
   awk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode" |
-    awk -F: '
+    awk -F: -vH3="$c_h3" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
       /Manufacturer:/ { Mfr     = $2 }
       /Product Name:/ { Product = $2 }
       /Version:/      { Version = $2 }
       /Serial Number:/{ Serial  = $2 }
       /UUID:/         { UUID    = $2 }
       END {
-        printf "    Mfr: %s\n    Prod:%s\n    Vers:%s\n", Mfr, Product, Version
-        printf "    Ser: %s\n    UUID:%s\n", Serial, UUID
+        printf "    %sMfr:%s %s\n", H3, H0, Mfr
+        printf "    %sProd:%s%s\n", H3, H0, Product
+        printf "    %sVers:%s%s\n", H3, H0, Version
+        printf "    %sSer:%s %s\n", H3, H0, Serial
+        printf "    %sUUID:%s%s\n", H3, H0, UUID
       }
     '
   # Prints <CPU Manufacturer>, <CPU Family>, <CPU Current Speed>, <CPU Version>
@@ -295,7 +298,7 @@ DMIDECODE() {
   # Prints "<N> total cores, <N> total threads"
   echo -e "${c_h2}  CPU:${c_0}"
   awk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode" |
-    awk -F: '
+    awk -F: -vH3="$c_h3" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
       /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
       /Core Count:/   { SumCores   += $2; CoresPerCpu = $2 }
       /Thread Count:/ { SumThreads += $2; ThreadsPerCpu = $2 }
@@ -304,18 +307,20 @@ DMIDECODE() {
       /Current Speed:/{ if ($2 ~ /^ *$|Unknown/) next; CpuFreq     = $2; gsub(/  */, " ", CpuFreq) }
       /Version:/      { if ($2 ~ /^ *$/)         next; Version     = $2; gsub(/  */, " ", Version) }
       END {
-        printf "    Mfr: %s\n    Fam: %s\n    Freq:%s\n    Vers:%s\n",
-          Mfr, Family, CpuFreq, Version
-        printf "    %d of %d CPU sockets populated, %d cores/%d threads per CPU\n",
-          PopulatedSockets, SumSockets, CoresPerCpu, ThreadsPerCpu
-        printf "    %d total cores, %d total threads\n", SumCores, SumThreads
+        printf "    %s%d of %d CPU sockets populated, %d cores/%d threads per CPU\n",
+          H_IMP, PopulatedSockets, SumSockets, CoresPerCpu, ThreadsPerCpu
+        printf "    %d total cores, %d total threads\n", SumCores, SumThreads, H0
+        printf "    %sMfr:%s %s\n", H3, H0, Mfr
+        printf "    %sFam:%s %s\n", H3, H0, Family
+        printf "    %sFreq:%s%s\n", H3, H0, CpuFreq
+        printf "    %sVers:%s%s\n", H3, H0, Version
       }
     '
   # Prints "<N> MB (<N> GB) total"
   # Prints "<N> of <N> DIMMs populated (max capacity <N>)"
   echo -e "${c_h2}  Memory:${c_0}"
   awk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode" |
-    awk '
+    awk -vH3="$c_h3" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
       /Size:/ { NumDimmSlots ++; if ($2 ~ /^[0-9]/) { NumDimms ++; SumRam+=$2 } }
       /Maximum Capacity:/ { MaxRam = $3" "$4 }
       END {
@@ -327,7 +332,69 @@ DMIDECODE() {
   echo -en $heading_separator
 }
       
-  
+
+_SELINUX() {
+  # Localhost?
+  if [[ $1 == / ]]; then
+    sestatus=$(sestatus)
+  # Else, sosreport root
+  else
+    [[ -r $1/sestatus ]] && sestatus=$(<"$1/sestatus") || {
+      [[ -r $1/etc/selinux/config ]] && sestatus2=$(<"$1/etc/selinux/config")
+      eval $(egrep -io 'selinux=.|enforcing=.' "$1/proc/cmdline" | tr 'A-Z' 'a-z')
+    }
+  fi
+  # We have definitive sestatus command output
+  if [[ -n $sestatus ]]; then
+    awk '
+      /SELinux status/                    { status  = $NF }
+      /Current mode/                      { mode    = $NF }
+      /Mode from config file/             { cfgmode = $NF }
+      /Loaded policy|Policy from config/  { policy  = $NF }
+      END { 
+        if (status == "disabled") print status
+        else printf "%s (default: %s)\n", mode, cfgmode
+      }
+    ' <<<"$sestatus"
+  # Have /etc/selinux/config output
+  elif [[ -n $sestatus2 ]]; then
+    awk -F= -vselinux="$selinux" -venforcing="$enforcing" '
+      /^SELINUX=/     { mode = $2 }
+      /^SELINUXTYPE=/ { policy = $2 }
+      END {
+        if (mode == "disabled") {
+          if (selinux == 1)
+            printf "enforcing via kernel arg (default: %s)\n", mode
+          else
+            print "disabled"
+        }
+        else {
+          if (selinux == 0)
+            printf "disabled via kernel arg (default: %s)\n", mode
+          else if (enforcing == 0)
+            printf "permissive via kernel arg (default: %s)\n", mode
+          else if (enforcing == 1)
+            printf "enforcing via kernel arg (default: %s)\n", mode
+          else
+            printf "status unknown (default: %s)\n", mode
+        }
+      }
+    ' <<<"$sestatus2"
+  # Only have /proc/cmdline
+  else
+    if [[ -n $selinux ]]; then
+      [[ $selinux -eq 0 ]] && echo "disabled via kernel arg (default: unknown)"
+      [[ $selinux -eq 1 ]] && echo "enforcing via kernel arg (default: unknown)"
+    elif [[ -n $enforcing ]]; then
+      [[ $enforcing -eq 0 ]] && echo "permissive via kernel arg (default: unknown)"
+      [[ $enforcing -eq 1 ]] && echo "enforcing via kernel arg (default: unknown)"
+    else
+      echo "status unknown (default: unknown)"
+    fi
+  fi
+}
+
+
 OSINFO() {
   OS_INDENT="             "
   
@@ -385,7 +452,7 @@ OSINFO() {
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
       initdefault=${initdefault%.target} ||
         initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
-
+    
   # Otherwise, running on sosreport
   else
     [[ -r $1/date ]] && systime=$(<"$1/date")
@@ -402,6 +469,7 @@ OSINFO() {
   echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
   [[ -n $runlevel ]] &&
   echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel (default: $initdefault)"
+  echo -e "  ${c_h2}SELinux:${c_0}   $(_SELINUX "$1")"
   [[ -n $systime ]] &&
   echo -e "  ${c_h2}Sys time:${c_0}  $systime"
   # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
@@ -462,13 +530,13 @@ OSINFO() {
   ' <"$1/proc/stat"
   # Print kernel cmdline from proc/cmdline
   echo -e "  ${c_h2}Kernel cmdline:${c_0}"
-  echo "$(fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,')"
+    fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
   # Print and format dmesg kernel build from above
   echo -e "  ${c_h2}Kernel build from dmesg:${c_0}"
   [[ -n $kernel_build ]] &&
     sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build" | fold -sw76 | sed 's,^,    ,' ||
       echo -e "    Unable to detect"   
-  echo -e "  ${c_h2}Kernel taint-check:${c_0} $(TAINTCHECK "$1")"
+  echo -e "  ${c_h2}Kernel taint-check:${c_0} $(_TAINTCHECK "$1" H2)"
   echo -en $heading_separator
 }
 
@@ -940,22 +1008,28 @@ PROC_NET() {
           if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }'
-  if [[ -d $1 ]]; then
-    echo -en $heading_separator
-    echo -e "${c_h1}SOCKSTAT${c_0}"
-    awk -vS="  " -vH3="$c_h3" -vH0="$c_0" '
-      { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
-  fi
+#  if [[ -d $1 ]]; then
+#    echo -en $heading_separator
+#    echo -e "${c_h1}SOCKSTAT${c_0}"
+#    awk -vS="  " -vH3="$c_h3" -vH0="$c_0" '
+#      { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
+#  fi
   echo -en $heading_separator
 }
 
 
-TAINTCHECK() {
+_TAINTCHECK() {
   tainted=$(<"$1/proc/sys/kernel/tainted")
   if [[ $tainted -eq 0 ]]; then
     echo "0 (kernel untainted)"
     return
   else
+    case $2 in
+      H0) unset indent   ;;
+      H1) indent="  "    ;;
+      H2) indent="    "  ;;
+      H3) indent="      "
+    esac
     taintvals=$(
       for taint in 536870912 268435456 4096 2048 1024 512 256 128 64 32 16 8 4 2 1; do
         if [[ $tainted -gt $taint ]]; then
@@ -987,7 +1061,7 @@ TAINTCHECK() {
   t[536870912]="Technology Preview code is loaded"
   echo "$taintvals"
   for n in $taintvals; do
-    echo "$H3INDENT${t[$n]}"
+    echo "$indent${t[$n]}"
   done
 }
 
@@ -999,7 +1073,7 @@ SYSCTL() {
   echo -e "${c_h1}SYSCTLS${c_0}
   ${c_h2}kernel.${c_0}
     ${c_h3}osrelease:${c_0} $(<"$1/proc/sys/kernel/osrelease")
-    ${c_h3}tainted:${c_0} $(TAINTCHECK "$1")
+    ${c_h3}tainted:${c_0} $(_TAINTCHECK "$1" H3)
     ${c_h3}random.boot_id:${c_0} $(<"$1/proc/sys/kernel/random/boot_id")
     ${c_h3}random.entropy_avail:${c_0} $(<"$1/proc/sys/kernel/random/entropy_avail")
     ${c_h3}panic:${c_0} $(<"$1/proc/sys/kernel/panic") (seconds til reboot after panic)
