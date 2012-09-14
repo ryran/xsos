@@ -31,70 +31,6 @@ Jump to ...
 EXAMPLES IN ACTION
 -------
 
-The help page:
-
-```
-[rsaw@sawzall:~]$ xsos help
-Usage: xsos [-xKMabocmdpleins] [SOSREPORT-ROOT]
-  or:  xsos [--B|--C|--M|--D|--L|--I|--N FILE]...
-  or:  xsos [-?|-h|--help]
-Extract useful data about system from SOSREPORT-ROOT or else localhost
-
-Content options:
- -a, --all      show everything
- -b, --bios     show info from dmidecode
- -o, --os       show release, hostname, uptime, loadavg, cmdline
- -c, --cpu      show info from /proc/cpuinfo
- -m, --mem      show info from /proc/meminfo
- -d, --disks    show info from /proc/partitions
- -p, --mpath    show info from multipath
- -l, --lspci    show info from lspci
- -e, --ethtool  show info from ethtool
- -i, --ip       show info from `ip addr`
- -n, --net      show info from /proc/net/dev
- -s, --sysctl   show important kernel sysctls
-
-Display options:
- -x, --nocolor  disable coloring of output
- -K, --kb       show /proc/meminfo in KiB
- -M, --mb       show /proc/meminfo in MiB
-
-Note that xsos argument parsing is performed by GNU getopt, so order of args
-is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
-
-If no content options are specified, xsos only shows some information,
-equivalent to:
-
-  xsos --os --cpu --mem
-  
-If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
-however, bios, multipath, and ethtool output will only be displayed if running
-as root (UID 0). When executing in this manner as non-root, those modules will
-be silently skipped, even if explicitly requested.
-
-Sometimes a full sosreport isn't available; sometimes you simply have a
-dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
-
-Special options:
- --B=FILE  FILE must contain dmidecode dump
- --C=FILE  FILE must contain /proc/cpuinfo dump
- --M=FILE  FILE must contain /proc/meminfo dump
- --D=FILE  FILE must contain /proc/partitions dump
- --L=FILE  FILE must contain lspci dump
- --I=FILE  FILE must contain ip addr dump
- --N=FILE  FILE must contain /proc/net/dev dump
-
-As is hopefully clear, each of these options requires a filename as an
-argument. These options can be used together, but cannot be used in concert
-with regular 'Content options' -- Content opts are ignored if Special options
-are detected. Also note: the '=' can be replaced with a space if desired.
- 
-Version info: xsos v0.0.3 last mod 2012/09/07
-Report bugs or suggestions to <rsaw@redhat.com>
-Or see <github.com/ryran/xsos> for bug tracker & latest version
-Alternatively, run xsos with '--update|-U'
-```
-
 Run on a sosreport with no options:
 
 ```
@@ -103,6 +39,7 @@ OS
   Distro:    Red Hat Enterprise Linux Server release 5.8 (Tikanga)
   Kernel:    2.6.18-308.1.1.el5
   Hostname:  aczx998pinkle
+  SELinux:   permissive via kernel args (default: enforcing)
   Runlevel:  N 3 (default: 3)
   Sys time:  Tue May 29 12:27:51 BST 2012
   Boot time: Thu May 17 09:50:39 BST 2012 (1337248239)
@@ -113,14 +50,14 @@ OS
   procs_running (procs_blocked):
     1 (0)
   Kernel cmdline:
-    ro root=/dev/vg01/lv01
+    ro root=/dev/vg01/lv01 enforcing=0
   Kernel build from dmesg:
     Linux version 2.6.18-308.1.1.el5 (mockbuild@hs20-bc2-3.build.redhat.com) 
     (gcc version 4.1.2 20080704 (Red Hat 4.1.2-52)) #1 SMP Fri Feb 17 16:51:01 
     EST 2012
   Kernel taint-check: 64 1 
-      Userspace-defined naughtiness
-      Proprietary module has been loaded
+    Userspace-defined naughtiness
+    Proprietary module has been loaded
 -------------------------------------------------------------------------------
 CPU
   64 logical cpus (ht,lm,pae,vmx)
@@ -142,33 +79,11 @@ MEMORY
 -------------------------------------------------------------------------------
 ```
 
-Run on localhost with a couple options:
+
+Run on localhost with a few options:
 
 ```
-[rsaw@sawzall:~]$ sudo xsos --ip --os --ethtool --net
-OS
-  Distro:    Fedora release 17 (Beefy Miracle)
-  Kernel:    3.5.3-1.fc17.x86_64
-  Hostname:  sawzall
-  Runlevel:  N 5 (default: runlevel5)
-  Sys time:  Fri Sep  7 02:31:15 EDT 2012
-  Boot time: Tue Sep 4 09:32:04 EDT 2012 (1346765524)
-  Uptime:    2 days, 16:59,  8 users
-  LoadAvg:   0.65 (16%), 0.53 (13%), 0.52 (13%)
-  Cpu time since boot:
-    us 6%, ni 0%, sys 2%, idle 91%, iowait 1%, irq 0%, sftirq 0%, steal 0%
-  procs_running (procs_blocked):
-    3 (0)
-  Kernel cmdline:
-    BOOT_IMAGE=/vmlinuz-3.5.3-1.fc17.x86_64 root=/dev/mapper/vg_sawzall-root ro 
-    rd.lvm.lv=vg_sawzall/root rd.md=0 rd.dm=0 SYSFONT=True KEYTABLE=us 
-    rd.lvm.lv=vg_sawzall/swap 
-    rd.luks.uuid=luks-8adf0ec9-441a-4099-9b07-215904d0e431 LANG=en_US.UTF-8 
-    rhgb quiet
-  Kernel build from dmesg:
-    Unable to detect
-  Kernel taint-check: 0 (kernel untainted)
--------------------------------------------------------------------------------
+[rsaw@sawzall:~]$ sudo xsos --ip --ethtool --net
 ETHTOOL
   em1         link=DOWN                        drv e1000e v2.0.0-k / fw 0.13-3
   tun0        link=UP 10Mb/s full (autoneg=N)  drv tun v1.6
@@ -195,20 +110,13 @@ NETDEV
   virbr0-nic  0         0          0       0       0         0          0       0
   wlan0       456       485879     0       0       54        292131     0       0
 -------------------------------------------------------------------------------
-SOCKSTAT
-  sockets: used 833
-  TCP: inuse 16 orphan 0 tw 1 alloc 19 mem 4
-  UDP: inuse 15 mem 4
-  UDPLITE: inuse 0
-  RAW: inuse 0
-  FRAG: inuse 0 memory 0
--------------------------------------------------------------------------------
 ```
+
 
 Run on another sosreport with some options:
 
 ```
-[rsaw@sawzall:~]$ xsos -p 8308201prodserv -mMl
+[rsaw@sawzall:~]$ xsos 8308201prodserv --disks --mpath --mem --mb --lspci
 MEMORY
   RAM:
     16051m total [15691m (97.8%) used]
@@ -247,6 +155,7 @@ LSPCI
     Advanced Micro Devices [AMD] nee ATI ES1000 (rev 02)
 -------------------------------------------------------------------------------
 ```
+
 
 Run on a sosreport again, showing sysctls:
 
@@ -295,10 +204,75 @@ SYSCTLS
     ipv4.udp_rmem_min (bytes): 4096 (4 K)
     ipv4.udp_wmem_min (bytes): 4096 (4 K)
 -------------------------------------------------------------------------------
-
 ```
 
-Finally, here's example of using one of the Special options, which allow you to specify a specific file instead of a full sosreport or having `xsos` run on your local system:
+
+The help page:
+
+```
+[rsaw@sawzall:~]$ xsos help
+Usage: xsos [-xKMabocmdpleins] [SOSREPORT-ROOT]
+  or:  xsos [--B|--C|--M|--D|--L|--I|--N FILE]...
+  or:  xsos [-?|-h|--help]
+Extract useful data about system from SOSREPORT-ROOT or else localhost
+
+Content options:
+ -a, --all      show everything
+ -b, --bios     show info from dmidecode
+ -o, --os       show release, hostname, uptime, loadavg, cmdline
+ -c, --cpu      show info from /proc/cpuinfo
+ -m, --mem      show info from /proc/meminfo
+ -d, --disks    show info from /proc/partitions
+ -p, --mpath    show info from multipath
+ -l, --lspci    show info from lspci
+ -e, --ethtool  show info from ethtool
+ -i, --ip       show info from ip addr
+ -n, --net      show info from /proc/net/dev
+ -s, --sysctl   show important kernel sysctls
+
+Display options:
+ -x, --nocolor  disable coloring of output
+ -K, --kb       show /proc/meminfo in KiB
+ -M, --mb       show /proc/meminfo in MiB
+
+Note that xsos argument parsing is performed by GNU getopt, so order of args
+is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
+
+If no content options are specified, xsos only shows some information,
+equivalent to:
+
+  xsos --os --cpu --mem
+  
+If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
+however, bios, multipath, and ethtool output will only be displayed if running
+as root (UID 0). When executing in this manner as non-root, those modules will
+be silently skipped, even if explicitly requested.
+
+Sometimes a full sosreport isn't available; sometimes you simply have a
+dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
+
+Special options:
+ --B=FILE  FILE must contain dmidecode dump
+ --C=FILE  FILE must contain /proc/cpuinfo dump
+ --M=FILE  FILE must contain /proc/meminfo dump
+ --D=FILE  FILE must contain /proc/partitions dump
+ --L=FILE  FILE must contain lspci dump
+ --I=FILE  FILE must contain ip addr dump
+ --N=FILE  FILE must contain /proc/net/dev dump
+
+As is hopefully clear, each of these options requires a filename as an
+argument. These options can be used together, but cannot be used in concert
+with regular 'Content options' -- Content opts are ignored if Special options
+are detected. Also note: the '=' can be replaced with a space if desired.
+ 
+Version info: xsos v0.0.4 last mod 2012/09/07
+Report bugs or suggestions to <rsaw@redhat.com>
+Or see <github.com/ryran/xsos> for bug tracker & latest version
+Alternatively, run xsos with '--update|-U'
+```
+
+
+Finally, here's example of using some of the Special options, which allow you to specify a specific file instead of a full sosreport or having `xsos` run on your local system:
 
 ```
 [rsaw@sawzall:~]$ xsos --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump
@@ -312,12 +286,12 @@ DMIDECODE
     Ser:  CZ3140XXXX      
     UUID: 35344D41-4131-5A43-3331-XXXXXXXXXXX
   CPU:
+    8 of 8 CPU sockets populated, 8 cores/16 threads per CPU
+    64 total cores, 128 total threads
     Mfr:  Intel
     Fam:  Xeon
     Freq: 2133 MHz
     Vers: Intel(R) Xeon(R) CPU E7- 2830 @ 2.13GHz 
-    8 of 8 CPU sockets populated, 8 cores/16 threads per CPU
-    64 total cores, 128 total threads
   Memory:
     262144 MB (256 GB) total
     32 of 128 DIMMs populated (system max capacity 512 GB)
@@ -343,19 +317,19 @@ IP
 REQUIREMENTS
 -------
 
-* Nothing too special for command requirements -- `xsos` uses standard coreutils & util-linux commands, along with, of course ... `gawk` and `sed`
-* Additionally, BASH 4 features are utilized -- various things might not work on RHEL5, for example
-* The script doesn't use absolute paths for cmd names so no problems with Fedora
-* The script will gracefully report as much of what's requested as possible when running as non-root
+* BASH version 4 is required (rhel 6+).
+* Nothing too special for command requirements -- `xsos` uses standard coreutils & util-linux commands, along with, of course ... `gawk` and `sed`.
+* No absolute paths used for commands.
+* Gracefully reports as much of what's requested as possible when running as non-root.
 
 
 THINGS THAT MIGHT SURPRISE YOU
 -------
 
-* The script does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
-* The script can update itself via the internet in 10 seconds if run with `--update` or `-U`.
-* When printing disk info with `-d/--disks`, the script automatically detects linux software raid (md) devices and hides their components.
-* When run with `-m/--mpath`, the script consults the `multipath` command to print info about native multipathd devices. If using this option in concert with `-d/--disks`, the script also detects all multipath device slave paths and hides those device nodes from the disk output.
+* `xsos` does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
+* `xsos` can update itself via the internet in 10 seconds if run with `--update` or `-U`.
+* When printing disk info with `-d/--disks`, `xsos` automatically detects linux software raid (md) devices and hides their components.
+* When run with `-m/--mpath`, the `multipath` command is consulted to print info about native multipathd devices. If using this option in concert with `-d/--disks`, all multipath device slave paths are also hidden from the disk output.
 * When printing info on pci net devices (`-l/--lspci`), `xsos` simplifies the output in an intelligent way. Example:
 
 ```
