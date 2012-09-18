@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.4 last mod 2012/09/14
+# xsos v0.0.4a last mod 2012/09/18
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -331,9 +331,57 @@ DMIDECODE() {
     '
   echo -en $heading_separator
 }
-      
 
-_SELINUX() {
+
+_CHECK_DISTRO() {
+  OS_INDENT="             "
+  # Get disto from redhat-release
+  if [[ -r $1/etc/redhat-release ]]; then
+    if grep -qs 'Red Hat Enterprise Linux .* release [456]' "$1/etc/redhat-release"; then
+      [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
+        distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
+          distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+    else
+      distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
+    fi
+  # Otherwise, get it from /etc/os-release; otherwise, print the file names of release files
+  else
+    if source "$1/etc/os-release" 2>/dev/null; then
+      distrorelease=${C[ORANGE]}$PRETTY_NAME
+    elif [[ -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null) ]]; then
+      distrorelease=${C[ORANGE]}$(echo -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null | sed 's,^.*/etc,etc,g'))
+    else
+      distrorelease="${C[RED]}Unable to detect"
+    fi
+  fi
+}
+
+
+_CHECK_KERNELBUILD() {
+  # Get kernel build from dmesg somehow or another
+  # 1st: if running on localhost and find it via `dmesg`, good
+  if [[ $1 == / ]] && kernel_build=$(dmesg 2>/dev/null | grep 'Linux version'); then
+    :
+  # 2nd: if running on sosreport and find it via `dmesg` output file, good
+  elif [[ $1 != / ]] && kernel_build=$(grep 'Linux version' "$1/sos_commands/general/dmesg" 2>/dev/null); then
+    :
+  # 3rd: if find it in var/log/dmesg, yay
+  elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
+    kernel_build=$(grep 'Linux version' <"$1/var/log/dmesg" | tail -n1)
+  # 4th: if find it in var/log/messages, woo hoo
+  elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
+    kernel_build=$(grep 'kernel: Linux version' <"$1/var/log/messages" | tail -n1)
+  # 5th and final: search in all old messages files -- this might be a bad idea
+  else
+    # To explain this last one: The goal is to find the most recent instance of "Linux version"
+    # So this reverse-sorts by filename, searches through all files ending with the most recent file
+    # This is obviously not very efficient, but it's the only way I've thought of to do it so far
+    kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep -sh 'kernel: Linux version' 2>/dev/null | tail -n1)
+  fi
+}
+
+
+_CHECK_SELINUX() {
   # Localhost?
   if [[ $1 == / ]]; then
     sestatus=$(sestatus)
@@ -396,47 +444,11 @@ _SELINUX() {
 
 
 OSINFO() {
-  OS_INDENT="             "
   
-  # Get disto from redhat-release
-  if [[ -r $1/etc/redhat-release ]]; then
-    if grep -qs 'Red Hat Enterprise Linux .* release [456]' "$1/etc/redhat-release"; then
-      [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
-        distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
-          distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
-    else
-      distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
-    fi
-  else
-    if source "$1/etc/os-release" 2>/dev/null; then
-      distrorelease=${C[ORANGE]}$PRETTY_NAME
-    elif [[ -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null) ]]; then
-      distrorelease=${C[ORANGE]}$(echo -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null | sed 's,^.*/etc,etc,g'))
-    else
-      distrorelease="${C[RED]}Unable to detect"
-    fi
-  fi
-  # Get kernel build from dmesg somehow or another
-  # 1st: if running on localhost and find it via `dmesg`, good
-  if [[ $1 == / ]] && kernel_build=$(dmesg 2>/dev/null | grep 'Linux version'); then
-    :
-  # 2nd: if running on sosreport and find it via `dmesg` output file, good
-  elif [[ $1 != / ]] && kernel_build=$(grep 'Linux version' "$1/sos_commands/general/dmesg" 2>/dev/null); then
-    :
-  # 3rd: if find it in var/log/dmesg, yay
-  elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
-    kernel_build=$(grep 'Linux version' <"$1/var/log/dmesg" | tail -n1)
-  # 4th: if find it in var/log/messages, woo hoo
-  elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
-    kernel_build=$(grep 'kernel: Linux version' <"$1/var/log/messages" | tail -n1)
-  # 5th and final: search in all old messages files -- this might be a bad idea
-  else
-    # To explain this last one: The goal is to find the most recent instance of "Linux version"
-    # So this reverse-sorts by filename, searches through all files ending with the most recent file
-    # This is obviously not very efficient, but it's the only way I've thought of to do it so far
-    kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep -sh 'kernel: Linux version' 2>/dev/null | tail -n1)
-  fi
-    
+  # These functions just set variables for later use
+  _CHECK_DISTRO "$1"
+  _CHECK_KERNELBUILD "$1"
+  
   # Grab number of cpus from cpuinfo
   num_cpu=$(awk '/processor/{n++} END{print n}' "$1/proc/cpuinfo" 2>/dev/null)
   
@@ -464,12 +476,12 @@ OSINFO() {
   
   # Start printing stuff
   echo -e "${c_h1}OS${c_0}"
+  echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
   echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$distrorelease${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
-  echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
   [[ -n $runlevel ]] &&
   echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel (default: $initdefault)"
-  echo -e "  ${c_h2}SELinux:${c_0}   $(_SELINUX "$1")"
+  echo -e "  ${c_h2}SELinux:${c_0}   $(_CHECK_SELINUX "$1")"
   [[ -n $systime ]] &&
   echo -e "  ${c_h2}Sys time:${c_0}  $systime"
   # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
@@ -528,6 +540,8 @@ OSINFO() {
         H2, H0, procs_running, procs_blocked
     }
   ' <"$1/proc/stat"
+  # Print kernel tainted-status
+  echo -e "  ${c_h2}Kernel taint-check:${c_0} $(_CHECK_TAINTED "$1" H2)"
   # Print kernel cmdline from proc/cmdline
   echo -e "  ${c_h2}Kernel cmdline:${c_0}"
     fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
@@ -535,8 +549,7 @@ OSINFO() {
   echo -e "  ${c_h2}Kernel build from dmesg:${c_0}"
   [[ -n $kernel_build ]] &&
     sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build" | fold -sw76 | sed 's,^,    ,' ||
-      echo -e "    Unable to detect"   
-  echo -e "  ${c_h2}Kernel taint-check:${c_0} $(_TAINTCHECK "$1" H2)"
+      echo -e "    Unable to detect"
   echo -en $heading_separator
 }
 
@@ -1018,7 +1031,7 @@ PROC_NET() {
 }
 
 
-_TAINTCHECK() {
+_CHECK_TAINTED() {
   tainted=$(<"$1/proc/sys/kernel/tainted")
   if [[ $tainted -eq 0 ]]; then
     echo "0 (kernel untainted)"
@@ -1073,7 +1086,7 @@ SYSCTL() {
   echo -e "${c_h1}SYSCTLS${c_0}
   ${c_h2}kernel.${c_0}
     ${c_h3}osrelease:${c_0} $(<"$1/proc/sys/kernel/osrelease")
-    ${c_h3}tainted:${c_0} $(_TAINTCHECK "$1" H3)
+    ${c_h3}tainted:${c_0} $(_CHECK_TAINTED "$1" H3)
     ${c_h3}random.boot_id:${c_0} $(<"$1/proc/sys/kernel/random/boot_id")
     ${c_h3}random.entropy_avail:${c_0} $(<"$1/proc/sys/kernel/random/entropy_avail")
     ${c_h3}panic:${c_0} $(<"$1/proc/sys/kernel/panic") (seconds til reboot after panic)
