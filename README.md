@@ -36,9 +36,9 @@ Run on a sosreport with no options:
 ```
 [rsaw@sawzall:~]$ xsos aczx998pinkle/
 OS
+  Hostname:  aczx998pinkle
   Distro:    Red Hat Enterprise Linux Server release 5.8 (Tikanga)
   Kernel:    2.6.18-308.1.1.el5
-  Hostname:  aczx998pinkle
   SELinux:   permissive via kernel args (default: enforcing)
   Runlevel:  N 3 (default: 3)
   Sys time:  Tue May 29 12:27:51 BST 2012
@@ -49,15 +49,15 @@ OS
     us 8%, ni 3%, sys 2%, idle 81%, iowait 6%, irq 0%, sftirq 0%, steal 0%
   procs_running (procs_blocked):
     1 (0)
+  Kernel taint-check: 64 1 
+    Userspace-defined naughtiness
+    Proprietary module has been loaded
   Kernel cmdline:
     ro root=/dev/vg01/lv01 enforcing=0
   Kernel build from dmesg:
     Linux version 2.6.18-308.1.1.el5 (mockbuild@hs20-bc2-3.build.redhat.com) 
     (gcc version 4.1.2 20080704 (Red Hat 4.1.2-52)) #1 SMP Fri Feb 17 16:51:01 
     EST 2012
-  Kernel taint-check: 64 1 
-    Userspace-defined naughtiness
-    Proprietary module has been loaded
 -------------------------------------------------------------------------------
 CPU
   64 logical cpus (ht,lm,pae,vmx)
