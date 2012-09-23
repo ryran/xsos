@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.4a last mod 2012/09/18
+# xsos v0.0.5 last mod 2012/09/23
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -191,9 +191,13 @@ lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,ip,net,sysctl
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
 
+# Setup assoc array for single-file options
+unset sfile
+declare -A sfile
+
 # Parse command-line arguments
 PARSE() {
-  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool ip net sysctl sfile
+  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool ip net sysctl
   until [[ $1 = -- ]]; do
     case $1 in
       -x|--nocolor) shift; nocolor=y          ;;
@@ -211,13 +215,13 @@ PARSE() {
       -i|--ip)      shift; opts=y; ip=y       ;;
       -n|--net)     shift; opts=y; net=y      ;;
       -s|--sysctl)  shift; opts=y; sysctl=y   ;;
-      --B)  declare -gA sfile; sfile[B]=$2; shift 2  ;;
-      --C)  declare -gA sfile; sfile[C]=$2; shift 2  ;;
-      --M)  declare -gA sfile; sfile[M]=$2; shift 2  ;;
-      --D)  declare -gA sfile; sfile[D]=$2; shift 2  ;;
-      --L)  declare -gA sfile; sfile[L]=$2; shift 2  ;;
-      --I)  declare -gA sfile; sfile[I]=$2; shift 2  ;;
-      --N)  declare -gA sfile; sfile[N]=$2; shift 2  ;;
+      --B)  sfile[B]=$2; shift 2  ;;
+      --C)  sfile[C]=$2; shift 2  ;;
+      --M)  sfile[M]=$2; shift 2  ;;
+      --D)  sfile[D]=$2; shift 2  ;;
+      --L)  sfile[L]=$2; shift 2  ;;
+      --I)  sfile[I]=$2; shift 2  ;;
+      --N)  sfile[N]=$2; shift 2  ;;
     esac
   done
   shift #(to get rid of the '--')
@@ -816,7 +820,7 @@ STORAGE() {
   echo -e "  ${c_h2}Disks:${c_0}"
   egrep -v "${scsi_blacklist%?}" "$partitions" |
     awk -vblacklisted=$bl '
-      $4 ~ /^hd.$|^sd[[:alpha:]]{1,2}$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]{1,2}$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd.$|^vd.$/ {
+      $4 ~ /^hd.$|^sd[[:alpha:]]+$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]+$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd[[:alpha:]]+$|^vd[[:alpha:]]+$/ {
         numdisks ++
         disksize =  $3/1024/1024
         sum_gb   += disksize
@@ -1137,7 +1141,7 @@ if [[ -n ${sfile[*]} ]]; then
   [[ -r ${sfile[L]} ]] && LSPCI "${sfile[L]}"
   [[ -r ${sfile[I]} ]] && IPADDR "${sfile[I]}"
   [[ -r ${sfile[N]} ]] && PROC_NET "${sfile[N]}"
-  
+
 # If SOSREPORT-ROOT provided, use that
 elif [[ -n $sosroot ]]; then
   if [[ -n $bios ]]; then
