@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.5 last mod 2012/09/23
+# xsos v0.0.5a last mod 2012/10/01
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -560,20 +560,30 @@ OSINFO() {
 
 CPUINFO() {
   [[ -f $1 ]] && cpuinfo=$(<"$1") || cpuinfo=$(<"$1/proc/cpuinfo")
+  # Get model of cpu and remove any extraneous crud
   model_cpu=$(awk -F: '/model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo" | sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g')
+  # If no model detected (e.g. on Itanium), try to use vendor+family
   [[ -z $model_cpu ]] && {
     vendor=$(awk -F: '/^vendor/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
     family=$(awk -F: '/^family/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
     model_cpu="$vendor$family"
   }
+  # Get number of logical processors
   num_cpu=$(awk '/processor/{n++} END{print n}' <<<"$cpuinfo")
+  # Get number of physical processors
   num_cpu_phys=$(grep "physical id" <<<"$cpuinfo" | sort -u | wc -l)
+  # If number of physical cpus == 0, set it from number of logical
   [[ $num_cpu_phys -eq 0 ]] && num_cpu_phys=$num_cpu
-  if [[ $num_cpu_phys -ne $num_cpu ]]; then
-    num_cores_per_cpu=$(grep "core id" <<<"$cpuinfo" | sort -u | wc -l)
-#    num_cores_per_cpu=$(awk 'BEGIN{n=0} /cpu cores/{if (n>0) next; n++; print $4}' <<<"$cpuinfo")
-    [[ -n $num_cores_per_cpu ]] && cores=", ${num_cores_per_cpu} cores/ea"
+  # If number of logical != number of physical, get info on cores
+  if [[ $num_cpu -ne $num_cpu_phys ]]; then
+    core_id=$(grep "core id" <<<"$cpuinfo" | sort -u | wc -l)
+    cpu_cores=$(awk -F: '/cpu cores/{print $2}' <<<"$cpuinfo" | sort -u | head -n1)
+    [[ -n $cpu_cores ]] && num_cores_per_cpu=$cpu_cores || num_cores_per_cpu=$core_id
+    [[ -n $num_cores_per_cpu ]] && cores=",${num_cores_per_cpu} cores/ea"
   fi
+  # Check important cpu flags
+  # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt
+  # svm=AMD hw-virt  *  ht=hyper-threading  *  aes=AES-NI
   cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes" <<<"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   echo -e "${c_h1}CPU${c_0}"
   echo -e "  ${c_imp}${num_cpu} logical cpus${c_0} (${cpu_flags})"
