@@ -37,45 +37,46 @@ Run on a sosreport with no options:
 [rsaw@sawzall:~]$ xsos aczx998pinkle/
 OS
   Hostname:  aczx998pinkle
-  Distro:    Red Hat Enterprise Linux Server release 5.8 (Tikanga)
-  Kernel:    2.6.18-308.1.1.el5
-  SELinux:   permissive via kernel args (default: enforcing)
+  Distro:    Red Hat Enterprise Linux Server release 5.7 (Tikanga)
+  Kernel:    2.6.18-274.18.1.el5
   Runlevel:  N 3 (default: 3)
-  Sys time:  Tue May 29 12:27:51 BST 2012
-  Boot time: Thu May 17 09:50:39 BST 2012 (1337248239)
-  Uptime:    12 days,  1:37,  5 users
-  LoadAvg:   1.23 (2%), 1.11 (2%), 0.77 (1%)
+  SELinux:   permissive via kernel args (default: enforcing)
+  Sys time:  Thu Jun 28 16:07:20 EDT 2012
+  Boot time: Thu Jun 28 18:59:55 EDT 2012 (1340909995)
+  Uptime:    1:07,  3 users
+  LoadAvg:   5.56 (23%), 3.10 (13%), 3.90 (16%)
   Cpu time since boot:
-    us 8%, ni 3%, sys 2%, idle 81%, iowait 6%, irq 0%, sftirq 0%, steal 0%
+    us 3%, ni 0%, sys 1%, idle 87%, iowait 8%, irq 0%, sftirq 0%, steal 0%
   procs_running (procs_blocked):
-    1 (0)
+    9 (1)
   Kernel taint-check: 64 1 
     Userspace-defined naughtiness
     Proprietary module has been loaded
   Kernel cmdline:
-    ro root=/dev/vg01/lv01 enforcing=0
+    ro root=/dev/rootvg/rootlv rhgb quiet crashkernel=512M@16M
   Kernel build from dmesg:
-    Linux version 2.6.18-308.1.1.el5 (mockbuild@hs20-bc2-3.build.redhat.com) 
-    (gcc version 4.1.2 20080704 (Red Hat 4.1.2-52)) #1 SMP Fri Feb 17 16:51:01 
+    Linux version 2.6.18-274.18.1.el5 (mockbuild@x86-001.build.bos.redhat.com) 
+    (gcc version 4.1.2 20080704 (Red Hat 4.1.2-51)) #1 SMP Fri Jan 20 15:11:18 
     EST 2012
 -------------------------------------------------------------------------------
 CPU
-  64 logical cpus (ht,lm,pae,vmx)
-  8 Intel Xeon CPU E7- 2830 @ 2.13GHz, 10 cores/ea
+  24 logical processors (12 CPU cores)
+  2 Intel Xeon CPU X5650 @ 2.67GHz (flags: ht,lm,pae,vmx)
+  └─12 threads, 6 cores each
 -------------------------------------------------------------------------------
 MEMORY
   RAM:
-    252.0g total [14.6g (6%) used]
-    1.6g (1%) used excluding buffers/cache
-    0.24g (0%) dirty
+    99.8g total [51.1g (51%) used]
+    11.4g (11%) used excluding buffers/cache
+    0.00g (0%) dirty
   HugePages:
     ZERO ram pre-allocated to HugePages
   LowMem/Slab/PageTables/Shmem:
-    14.6g (6%) of 252.0g LowMem in-use
-    0.58g (0%) of total ram used for Slab
-    0.66g (0%) of total ram used for PageTables
+    51.1g (51%) of 99.8g LowMem in-use
+    0.90g (1%) of total ram used for Slab
+    0.44g (0%) of total ram used for PageTables
   Swap:
-    0.0g (0%) used of 32.0g total
+    0.0g (0%) used of 96.0g total
 -------------------------------------------------------------------------------
 ```
 
