@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.6b last mod 2012/10/03
+# xsos v0.0.6c last mod 2012/10/04
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -594,16 +594,25 @@ CPUINFO() {
     if [[ -n $cpu_cores ]]; then
       num_cores_per_cpu=$cpu_cores
     
-    # If the "cpu cores" doesn't work, "core id" method might (e.g. Itanium)
+    # If "cpu cores" doesn't work, "core id" method might (e.g. Itanium)
     elif [[ $core_id -gt 0 ]]; then
       num_cores_per_cpu=$core_id
     fi
     
-    # If find cores & threads, setup the printing variables from them
-    [[ -n $num_cores_per_cpu ]] && {
-      cores=" ($((num_cpu_phys*num_cores_per_cpu)) CPU cores)"
-      coresNthreads="\n  └─$num_threads_per_cpu threads, $num_cores_per_cpu cores each"
-    }
+    # If found info on cores, setup core variables for printing
+    if [[ -n $num_cores_per_cpu ]]; then
+      cores1=" ($((num_cpu_phys*num_cores_per_cpu)) CPU cores)"
+      cores2=" / $num_cores_per_cpu cores"
+    
+    # If didn't find info on cores, assume single-core cpu(s)
+    else
+      cores1=" ($num_cpu_phys CPUs)"
+      cores2=" / 1 core"
+    fi
+    
+    # If found siblings (threads), setup the variable for the final line
+    [[ -n $num_threads_per_cpu ]] &&
+      coresNthreads="\n  └─$num_threads_per_cpu threads${cores2} each"
   fi
   
   # Check important cpu flags
@@ -614,7 +623,7 @@ CPUINFO() {
   
   # Print it all out
   echo -e "${c_h1}CPU${c_0}"
-  echo -e "  ${c_imp}${num_cpu} logical processors${c_0}${cores}"
+  echo -e "  ${c_imp}${num_cpu} logical processors${c_0}${cores1}"
   echo -e "  ${num_cpu_phys}${model_cpu} ${cpu_flags}${coresNthreads}"
   echo -en $heading_separator
 }
