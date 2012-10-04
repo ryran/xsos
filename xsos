@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.6a last mod 2012/10/03
+# xsos v0.0.6b last mod 2012/10/03
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -391,7 +391,7 @@ _CHECK_SELINUX() {
     sestatus=$(sestatus)
   # Else, sosreport root
   else
-    [[ -r $1/sestatus ]] && sestatus=$(<"$1/sestatus") || {
+    [[ -r $1/sestatus ]] && sestatus=$(grep -v '/.*bin' <"$1/sestatus") || {
       [[ -r $1/etc/selinux/config ]] && sestatus2=$(<"$1/etc/selinux/config")
       eval $(egrep -io 'selinux=.|enforcing=.' "$1/proc/cmdline" | tr 'A-Z' 'a-z')
     }
@@ -471,9 +471,9 @@ OSINFO() {
     
   # Otherwise, running on sosreport
   else
-    [[ -r $1/date ]] && systime=$(grep -v '/bin' <"$1/date")
-    boottime=$(echo $(TZ=$(awk '!/\/bin/ {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
-    uptime_input=$(grep -v '/bin' <"$1/uptime")
+    [[ -r $1/date ]] && systime=$(grep -v '/.*bin' <"$1/date")
+    boottime=$(echo $(TZ=$(awk '!/\/.*bin/ {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
+    uptime_input=$(grep -v '/.*bin' <"$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] && initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab")
   fi
