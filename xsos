@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.6c last mod 2012/10/04
+# xsos v0.0.6d last mod 2012/10/04
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -561,8 +561,8 @@ OSINFO() {
 CPUINFO() {
   [[ -f $1 ]] && cpuinfo=$(<"$1") || cpuinfo=$(<"$1/proc/cpuinfo")
   
-  # Get model of cpu and remove any extraneous crud
-  model_cpu=$(awk -F: '/model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo" | sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g')
+  # Get model of cpu
+  model_cpu=$(awk -F: '/model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
   
   # If no model detected (e.g. on Itanium), try to use vendor+family
   [[ -z $model_cpu ]] && {
@@ -571,16 +571,21 @@ CPUINFO() {
     model_cpu="$vendor$family"
   }
   
+  # Clean up cpu model string
+  model_cpu=$(sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g' -e 's,^ ,,' <<<"$model_cpu")
+  
   # Get number of logical processors
   num_cpu=$(awk '/processor/{n++} END{print n}' <<<"$cpuinfo")
   
   # Get number of physical processors
   num_cpu_phys=$(grep "physical id" <<<"$cpuinfo" | sort -u | wc -l)
   
-  # If "physical id" not found, assume 1 physical cpu
-  [[ $num_cpu_phys -eq 0 ]] && num_cpu_phys=1
+  # If "physical id" not found, we cannot make any assumptions (VMWare--)
+  # But still, multiplying by 0 in some crazy corner case is bad, so set it to 1
+  # If num of physical *was* detected, add it to the beginning of the model string
+  [[ $num_cpu_phys -eq 0 ]] && num_cpu_phys=1 || model_cpu="$num_cpu_phys $model_cpu"
   
-  # If number of logical != number of physical, get info on cores & threads
+  # If number of logical != number of physical, try to get info on cores & threads
   if [[ $num_cpu -ne $num_cpu_phys ]]; then
     
     # Detect number of threads (logical) per cpu
@@ -601,12 +606,10 @@ CPUINFO() {
     
     # If found info on cores, setup core variables for printing
     if [[ -n $num_cores_per_cpu ]]; then
-      cores1=" ($((num_cpu_phys*num_cores_per_cpu)) CPU cores)"
+      cores1="($((num_cpu_phys*num_cores_per_cpu)) CPU cores)"
       cores2=" / $num_cores_per_cpu cores"
-    
     # If didn't find info on cores, assume single-core cpu(s)
     else
-      cores1=" ($num_cpu_phys CPUs)"
       cores2=" / 1 core"
     fi
     
@@ -623,8 +626,8 @@ CPUINFO() {
   
   # Print it all out
   echo -e "${c_h1}CPU${c_0}"
-  echo -e "  ${c_imp}${num_cpu} logical processors${c_0}${cores1}"
-  echo -e "  ${num_cpu_phys}${model_cpu} ${cpu_flags}${coresNthreads}"
+  echo -e "  ${c_imp}${num_cpu} logical processors${c_0} ${cores1}"
+  echo -e "  ${model_cpu} ${cpu_flags} ${coresNthreads}"
   echo -en $heading_separator
 }
 
