@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.6d last mod 2012/10/04
+# xsos v0.0.6e last mod 2012/10/06
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -339,21 +339,38 @@ DMIDECODE() {
 
 _CHECK_DISTRO() {
   OS_INDENT="             "
-  # Get disto from redhat-release
+  # Get disto from redhat-release if have redhat-release file
   if [[ -r $1/etc/redhat-release ]]; then
+  
+    # If release is RHEL 4,5,6 ...
     if grep -qs 'Red Hat Enterprise Linux .* release [456]' "$1/etc/redhat-release"; then
+    
+      # ... And if redhat-release file has more than 1 line ...
       [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
+      
+        # ... Then print it in orange
         distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
+        
+          # Otherwise, print it normally
           distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+          
+    # If release is not RHEL 4,5,6 print in orange
     else
       distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
     fi
-  # Otherwise, get it from /etc/os-release; otherwise, print the file names of release files
+    
+  # If no redhat-release file, check for other things
   else
+  
+    # If able to source the new standard /etc/os-release, use that
     if source "$1/etc/os-release" 2>/dev/null; then
       distrorelease=${C[ORANGE]}$PRETTY_NAME
+      
+    # Otherwise, if any /etc/*-release or /etc/*_version files, just list their names
     elif [[ -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null) ]]; then
       distrorelease=${C[ORANGE]}$(echo -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null | sed 's,^.*/etc,etc,g'))
+    
+    # Else, warn about no distro detected
     else
       distrorelease="${C[RED]}Unable to detect"
     fi
@@ -362,20 +379,28 @@ _CHECK_DISTRO() {
 
 
 _CHECK_KERNELBUILD() {
-  # Get kernel build from dmesg somehow or another
-  # 1st: if running on localhost and find it via `dmesg`, good
-  if [[ $1 == / ]] && kernel_build=$(dmesg 2>/dev/null | grep 'Linux version'); then
+  # Get kernel build version somehow or another
+  
+  # if localhost: get it from the best place, yay
+  if [[ $1 == / ]]; then
+    kernel_build=$(</proc/version)
+  
+  # sosreport: sosreports don't normally contain this.. yet
+  elif [[ -r "$1/proc/version" ]]; then
+    kernel_build=$(<"$1/proc/version")
+  
+  # sosreport: if find it via `dmesg` output file, great
+  elif kernel_build=$(grep 'Linux version' "$1/sos_commands/general/dmesg" 2>/dev/null); then
     :
-  # 2nd: if running on sosreport and find it via `dmesg` output file, good
-  elif [[ $1 != / ]] && kernel_build=$(grep 'Linux version' "$1/sos_commands/general/dmesg" 2>/dev/null); then
-    :
-  # 3rd: if find it in var/log/dmesg, yay
+  # sosreport: if find it in var/log/dmesg, woo hoo
   elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
     kernel_build=$(grep 'Linux version' <"$1/var/log/dmesg" | tail -n1)
-  # 4th: if find it in var/log/messages, woo hoo
+  
+  # sosreport: if find it in var/log/messages, lovely
   elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
     kernel_build=$(grep 'kernel: Linux version' <"$1/var/log/messages" | tail -n1)
-  # 5th and final: search in all old messages files -- this might be a bad idea
+  
+  # sosreport: final option: search in all old messages files -- this might be a bad idea
   else
     # To explain this last one: The goal is to find the most recent instance of "Linux version"
     # So this reverse-sorts by filename, searches through all files ending with the most recent file
@@ -386,16 +411,19 @@ _CHECK_KERNELBUILD() {
 
 
 _CHECK_SELINUX() {
-  # Localhost?
+  # Grab input from sestatus command if localhost
   if [[ $1 == / ]]; then
     sestatus=$(sestatus)
-  # Else, sosreport root
+    
+  # Else, from $sosroot/sestatus or $sosroot/etc/selinux/config
   else
     [[ -r $1/sestatus ]] && sestatus=$(grep -v '/.*bin' <"$1/sestatus") || {
       [[ -r $1/etc/selinux/config ]] && sestatus2=$(<"$1/etc/selinux/config")
+      # Set "selinux" and "enforcing" variables per $sosroot's kernel args
       eval $(egrep -io 'selinux=.|enforcing=.' "$1/proc/cmdline" | tr 'A-Z' 'a-z')
     }
   fi
+  
   # We have definitive sestatus command output
   if [[ -n $sestatus ]]; then
     awk '
@@ -408,6 +436,7 @@ _CHECK_SELINUX() {
         else printf "%s (default: %s)\n", mode, cfgmode
       }
     ' <<<"$sestatus"
+    
   # Have /etc/selinux/config output
   elif [[ -n $sestatus2 ]]; then
     awk -F= -vselinux="$selinux" -venforcing="$enforcing" '
@@ -432,6 +461,7 @@ _CHECK_SELINUX() {
         }
       }
     ' <<<"$sestatus2"
+    
   # Only have /proc/cmdline
   else
     if [[ -n $selinux ]]; then
@@ -931,81 +961,115 @@ LSPCI() {
 }
 
 
-
-# I spent a long time wondering how I would end up implementing ip-addr functionality
-# I couldn't come up with a lovely elegant awk-way
-# In the end, this is probably one of the most expensive of the functions
-# And certainly the most esoteric and complex...
-# I'll make sure to add comments eventually, but who knows -- maybe I'll think of a better way to do it
 IPADDR() {
+# I spent a long time wondering how I would end up implementing ip-addr functionality
+# I couldn't come up with a lovely elegant gawk-way
+# In the end, this is probably one of the most expensive of the functions
+
+  # If localhost, use ip addr
   if [[ -z $1 ]]; then
     ip_addr=$(ip a)
+  # If passed a file (i.e. xsos --I <file>), use that
   elif [[ -f $1 ]]; then
     ip_addr=$(<"$1")
+  # Otherwise, use file from $sosroot
   else
     ip_addr=$(<"$1/sos_commands/networking/ip_address")
   fi
-
+  
+  # Prepare input for awk by separating each interface block
   ip_addr=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"$ip_addr")
+  
+  # Grab a list of the interface names
   ipdevs=$(awk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"$ip_addr" | egrep -v 'sit0')
-
+  
+  # Declare our 6 associative arrays
   declare -A ip_input mac state ipv4 ipv4_alias slaveof
-
+  
+  # Begin ...
   echo -e "${c_h1}IP${c_0}"
+  
+  # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   {
+    # Header info ("~" is used later by `column` to columnize the output)
     echo "  Interface~Slave Of~MAC Address~State~IPv4 Address"
     echo "  =========~========~=================~=====~=================="
-
+    
+    # For each interface ($i) found in ip addr output
     for i in $ipdevs; do
-
+      
+      # Pull out input for specific interface and save to interface key in array
       ip_input[$i]=$(awk "BEGIN {RS=\"\n\n\"} /^[0-9]+: $i:/" <<<"$ip_addr")
-
+      
+      # Figure out if $i is a slave of some bond device
       slaveof[$i]=$(grep -q SLAVE <<<"${ip_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${ip_input[$i]}" | awk '{print $2}' || echo "-")
       
+      # Get macaddr for $i (don't show if all zeros)
       mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${ip_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${ip_input[$i]}" || echo "-")
-
+      
+      # Get up/down state for $i
       state[$i]=$(grep -q "$i: .*,UP"  <<<"${ip_input[$i]}" && echo up || echo DOWN)
-
+      
+      # Get ipv4 address of $i
       if grep -q "inet .* ${i%@*}\$" <<<"${ip_input[$i]}"; then
         ipv4[$i]=$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${ip_input[$i]}")
+        # Print out all info for $i
         echo "  $i~${slaveof[$i]}~${mac[$i]}~${state[$i]}~${ipv4[$i]}"
+      
+      # If no ipv4 addr for $i...
       else
+        # ... Print all info for $i with ipv4 set to "-" ...
         ipv4[$i]="-"
         echo "  $i~${slaveof[$i]}~${mac[$i]}~${state[$i]}~${ipv4[$i]}"
+        # ... And Continue on to the next interface, i.e., skip looking for aliases
         continue
       fi
+      
+      # If $i had an ipv4 addr, it's ALIAS time!
       if grep -q "inet .* $i:" <<<"${ip_input[$i]}"; then
+        # For each "alias" (additional address) found ...
         for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${ip_input[$i]}"); do
           ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${ip_input[$i]}")
+          # ... Print out a new line with its ipv4 addr
           echo "  $alias~-~-~up~${ipv4_alias[$alias]}"
         done
       fi
+      
     done
-  } | column -ts~ |
-    awk -vH0="$c_0" -vH2="$c_h2" -vH3="$c_h3" '
-      {
-        if (NR <= 2) print H2 $0 H0
-        else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
-      }'
+  } |
+  
+    # All output from above needs to be columnized
+    column -ts~ |
+    
+      # And then we need to do some color funness!
+      # This colorizes the first 2 lines with the H2 color and the interfaces with H3
+      awk -vH0="$c_0" -vH2="$c_h2" -vH3="$c_h3" '
+        {
+          if (NR <= 2) print H2 $0 H0
+          else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
+        }'
+
   echo -en $heading_separator
 }
 
 
 
 ETHTOOL() {
-  # If running on local system, grab interfaces from /sys, and
-  # prepare to use ethtool command
+  # If localhost, grab interfaces from /sys
   if [[ -z $1 ]]; then
     ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0')
+    # Setup local functions for ethtool & ethtool -i
     __ethtool()   { ethtool $1; }
     __ethtool_i() { ethtool -i $1; }
-  # If running on sosreport-root, grab interfaces from ethtool_iface files, and
-  # prepare to pull ethtool info from same files
+    
+  # If sosreport, determine interfaces from ethtool_<iface> files
   elif ls "$1"/sos_commands/networking/ethtool* &>/dev/null; then
     cd "$1"/sos_commands/networking
     ethdevs=$(ls ethtool_[[:alpha:]]* | cut -d_ -f2)
+    # Setup local functions for ethtool & ethtool -i
     __ethtool()   { cat ethtool_$1; }
     __ethtool_i() { [[ -r ethtool_-i_$1 ]] && cat ethtool_-i_$1; }
+  
   # Otherwise, set ethdevs to null
   else
     ethdevs=
