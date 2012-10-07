@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.6e last mod 2012/10/06
+# xsos v0.0.7 last mod 2012/10/07
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -34,16 +34,17 @@ mem_unit="g"
 H2INDENT="    "
 H3INDENT="      "
 
-# Colors and colors and colors oh my
-declare -A C
-C[reset]='\033[0;0m';   C[grey]='\033[00;30m'; C[GREY]='\033[01;30m'
-C[red]='\033[0;31m';    C[RED]='\033[1;31m';
-C[green]='\033[0;32m';  C[GREEN]='\033[1;32m';
-C[orange]='\033[0;33m'; C[ORANGE]='\033[1;33m';
-C[blue]='\033[0;34m';   C[BLUE]='\033[1;34m';
-C[purple]='\033[0;35m'; C[PURPLE]='\033[1;35m';
-C[cyan]='\033[0;36m';   C[CYAN]='\033[1;36m'
-
+# Colors and colors and colors oh my (but only for bash v4)
+if [[ $BASH_VERSINFO -ge 4 ]]; then
+  declare -A C
+  C[reset]='\033[0;0m';   C[grey]='\033[00;30m'; C[GREY]='\033[01;30m'
+  C[red]='\033[0;31m';    C[RED]='\033[1;31m';
+  C[green]='\033[0;32m';  C[GREEN]='\033[1;32m';
+  C[orange]='\033[0;33m'; C[ORANGE]='\033[1;33m';
+  C[blue]='\033[0;34m';   C[BLUE]='\033[1;34m';
+  C[purple]='\033[0;35m'; C[PURPLE]='\033[1;35m';
+  C[cyan]='\033[0;36m';   C[CYAN]='\033[1;36m'
+fi
 
 USAGE() {
   echo "Usage: $pzero [-xKMabocmdpleins] [SOSREPORT-ROOT]"
@@ -67,13 +68,13 @@ Content options:"
  -p, --mpath@show info from multipath
  -l, --lspci@show info from lspci
  -e, --ethtool@show info from ethtool
- -i, --ip@show info from ip addr
+ -i, --ip@show info from ip addr (BASH v4+ required)
  -n, --net@show info from /proc/net/dev
  -s, --sysctl@show important kernel sysctls" | column -ts@
   echo "
 Display options:"
   echo "
- -x, --nocolor@disable coloring of output
+ -x, --nocolor@disable output colorization
  -K, --kb@show /proc/meminfo in KiB
  -M, --mb@show /proc/meminfo in MiB" | column -ts@
  echo "
@@ -93,7 +94,7 @@ be silently skipped, even if explicitly requested.
 Sometimes a full sosreport isn't available; sometimes you simply have a
 dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
 
-Special options:"
+Special options (BASH v4+ required):"
   echo "
  --B=FILE@FILE must contain dmidecode dump
  --C=FILE@FILE must contain /proc/cpuinfo dump
@@ -107,7 +108,14 @@ As is hopefully clear, each of these options requires a filename as an
 argument. These options can be used together, but cannot be used in concert
 with regular 'Content options' -- Content opts are ignored if Special options
 are detected. Also note: the '=' can be replaced with a space if desired.
- 
+
+Re BASH v4+:
+BASH associative arrays are used for various things. In short, if running $pzero
+on earlier BASH versions (e.g. RHEL5), you get ...
+ * No output colorization
+ * No -i/--ip
+ * No parsing of 'Special options'
+
 Version info: ${version:2}
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
@@ -183,7 +191,6 @@ case $1 in
   -U|--update) UPDATE
 esac
 
-
 # GNU getopt short and long options:
 sopts='xKMabocmdpleins'
 lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,ip,net,sysctl,B:,C:,M:,D:,L:,I:,N:'
@@ -193,7 +200,7 @@ getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
 
 # Setup assoc array for single-file options
 unset sfile
-declare -A sfile
+[[ $BASH_VERSINFO -ge 4 ]] && declare -A sfile 
 
 # Parse command-line arguments
 PARSE() {
@@ -231,11 +238,14 @@ PARSE() {
 # Call the parser
 PARSE $(getopt -u --name=$pzero -o $sopts -l $lopts -- "$@")
 
-
-# If at least one special option was used appropriately with a file,
-# we'll do that instead of other content
-if [[ -n ${sfile[*]} ]]; then
+# If any special option was used appropriately with a file, do that instead of other opts
+if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   :
+# If BASH is not v4+ and special options were used, fail
+elif [[ $BASH_VERSINFO -lt 4 && -n $sfile ]]; then
+  echo "Special options require use of BASH associative arrays" >&2
+  echo "i.e., BASH v4.0 or higher (RHEL6/Fedora11 and above)" >&2
+  exit 255
 # Set default view if no content options specified
 elif [[ -z $opts ]]; then
   os=y; cpu=y; mem=y
@@ -249,7 +259,7 @@ fi
 # nocolor=y
 
 # If color should be disabled, don't initialize colors
-if [[ $nocolor == y ]]; then
+if [[ $nocolor == y || $BASH_VERSINFO -lt 4 ]]; then
   unset C c_0 c_h1 c_h2 c_h3 c_imp c_sep c_up c_down
 # Taste the rainbow
 else
@@ -407,6 +417,9 @@ _CHECK_KERNELBUILD() {
     # This is obviously not very efficient, but it's the only way I've thought of to do it so far
     kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep -sh 'kernel: Linux version' 2>/dev/null | tail -n1)
   fi
+  
+  # Fix format if necessary
+  kernel_build=$(sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build")
 }
 
 
@@ -513,11 +526,14 @@ OSINFO() {
   echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
   echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$distrorelease${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
+  
   [[ -n $runlevel ]] &&
   echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel (default: $initdefault)"
   echo -e "  ${c_h2}SELinux:${c_0}   $(_CHECK_SELINUX "$1")"
+  
   [[ -n $systime ]] &&
   echo -e "  ${c_h2}Sys time:${c_0}  $systime"
+  
   # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
   [[ -n $uptime_input && -n $num_cpu ]] &&
   awk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDB="${C[RED]}" -vRED="${C[red]}" -vORANGE="${C[orange]}" -vGREEN="${C[green]}" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
@@ -548,6 +564,7 @@ OSINFO() {
       printf   "  %sLoadAvg:%s   %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
         H2, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
     }' <<<"$uptime_input"
+    
   # Print info from proc/stat
   [[ -n $btime ]] &&
   awk -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
@@ -574,16 +591,20 @@ OSINFO() {
         H2, H0, procs_running, procs_blocked
     }
   ' <"$1/proc/stat"
+  
   # Print kernel tainted-status
   echo -e "  ${c_h2}Kernel taint-check:${c_0} $(_CHECK_TAINTED "$1" H2)"
+  
   # Print kernel cmdline from proc/cmdline
   echo -e "  ${c_h2}Kernel cmdline:${c_0}"
-    fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
-  # Print and format dmesg kernel build from above
-  echo -e "  ${c_h2}Kernel build from dmesg:${c_0}"
+  fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
+  
+  # Print and format kernel version
+  echo -e "  ${c_h2}Kernel version/build:${c_0}"
   [[ -n $kernel_build ]] &&
-    sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build" | fold -sw76 | sed 's,^,    ,' ||
+    fold -sw76 <<<"$kernel_build" | sed 's,^,    ,' ||
       echo -e "    Unable to detect"
+      
   echo -en $heading_separator
 }
 
@@ -966,6 +987,14 @@ IPADDR() {
 # I couldn't come up with a lovely elegant gawk-way
 # In the end, this is probably one of the most expensive of the functions
 
+  # Require BASH v4
+  if [[ -z $BASH_VERSINFO || $BASH_VERSINFO -lt 4 ]]; then
+    echo "The -i/--ip option requires use of BASH associative arrays" >&2
+    echo "i.e., BASH v4.0 or higher (RHEL6/Fedora11 and above)" >&2
+    echo -en $heading_separator >&2
+    return
+  fi
+
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
     ip_addr=$(ip a)
@@ -1247,7 +1276,7 @@ SYSCTL() {
 # Python's argparse is so much better than dealing with all this crap.
 
 # If special options and files were provided ....
-if [[ -n ${sfile[*]} ]]; then
+if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
   [[ -r ${sfile[C]} ]] && CPUINFO "${sfile[C]}"
   [[ -r ${sfile[M]} ]] && MEMINFO "${sfile[M]}"

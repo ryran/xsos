@@ -227,12 +227,12 @@ Content options:
  -p, --mpath    show info from multipath
  -l, --lspci    show info from lspci
  -e, --ethtool  show info from ethtool
- -i, --ip       show info from ip addr
+ -i, --ip       show info from ip addr (BASH v4+ required)
  -n, --net      show info from /proc/net/dev
  -s, --sysctl   show important kernel sysctls
 
 Display options:
- -x, --nocolor  disable coloring of output
+ -x, --nocolor  disable output colorization
  -K, --kb       show /proc/meminfo in KiB
  -M, --mb       show /proc/meminfo in MiB
 
@@ -252,7 +252,7 @@ be silently skipped, even if explicitly requested.
 Sometimes a full sosreport isn't available; sometimes you simply have a
 dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
 
-Special options:
+Special options (BASH v4+ required):
  --B=FILE  FILE must contain dmidecode dump
  --C=FILE  FILE must contain /proc/cpuinfo dump
  --M=FILE  FILE must contain /proc/meminfo dump
@@ -265,8 +265,15 @@ As is hopefully clear, each of these options requires a filename as an
 argument. These options can be used together, but cannot be used in concert
 with regular 'Content options' -- Content opts are ignored if Special options
 are detected. Also note: the '=' can be replaced with a space if desired.
- 
-Version info: xsos v0.0.4 last mod 2012/09/07
+
+Re BASH v4+:
+BASH associative arrays are used for various things. In short, if running xsos
+on earlier BASH versions (e.g. RHEL5), you get ...
+ * No output colorization
+ * No -i/--ip
+ * No parsing of 'Special options'
+
+Version info: xsos v0.0.7 last mod 2012/10/07
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
 Alternatively, run xsos with '--update|-U'
@@ -318,8 +325,8 @@ IP
 REQUIREMENTS
 -------
 
-* BASH version 4 is required (rhel 6+).
-* Nothing too special for command requirements -- `xsos` uses standard coreutils & util-linux commands, along with, of course ... `gawk` and `sed`.
+* As detailed in the help page, BASH version 4 (rhel 6+) is required for -i/--ip and for any of the "Special options" like `--C` or `--B`. Colorization is also not done unless BASH v4+ is detected.
+* Other than that, nothing special for command requirements -- `xsos` uses standard coreutils & util-linux commands, along with, of course ... `gawk` and `sed`.
 * No absolute paths used for commands.
 * Gracefully reports as much of what's requested as possible when running as non-root.
 
