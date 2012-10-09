@@ -1,11 +1,11 @@
-xsos - Instantly pull the most useful data about a system out of a sosreport
-============================================================================
+xsos - Summarize system info from sosreports
+============================================
 
 The goal of `xsos` is to make it easy to gather information about a system together in an easy-to-read-summary, whether that system is the localhost or a system for which you have an unpacked sosreport.
 
-There is tons and tons of useful amazing instructive data available to normal users (not to mention root) on a Linux system, but by design, this information is spread out across myriad files and some of it practically requires specialized commands to parse through.
+There is tons of useful amazing instructive data available to normal users (not to mention root) on a Linux system, but by design, this information is spread out across myriad files. Some of it even requires commands to parse through.
 
-`xsos` will attempt to make it easy, parsing and calculating and formatting data from dozens of files to give you a detailed overview about a system, or -- if requested -- `xsos` will only parse one file (e.g. with `--mem`) or output from one command (e.g. with `--ip`).
+`xsos` will attempt to make it easy, parsing and calculating and formatting data from dozens of files (and commands) to give you a detailed overview about a system, or -- if requested -- `xsos` will only parse one file (e.g. with `--mem`) or output from one command (e.g. with `--ip`).
 
 New features are being added all the time -- see [the tracker](/ryran/xsos/issues) to have a look at some of the things that are already in line to be worked on.
 
@@ -54,7 +54,7 @@ OS
     Proprietary module has been loaded
   Kernel cmdline:
     ro root=/dev/rootvg/rootlv rhgb quiet crashkernel=512M@16M
-  Kernel build from dmesg:
+  Kernel version/build:
     Linux version 2.6.18-274.18.1.el5 (mockbuild@x86-001.build.bos.redhat.com) 
     (gcc version 4.1.2 20080704 (Red Hat 4.1.2-51)) #1 SMP Fri Jan 20 15:11:18 
     EST 2012
