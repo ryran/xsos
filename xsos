@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.7 last mod 2012/10/07
+# xsos v0.0.7b last mod 2012/10/18
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -352,8 +352,8 @@ _CHECK_DISTRO() {
   # Get disto from redhat-release if have redhat-release file
   if [[ -r $1/etc/redhat-release ]]; then
   
-    # If release is RHEL 4,5,6 ...
-    if grep -qs 'Red Hat Enterprise Linux .* release [456]' "$1/etc/redhat-release"; then
+    # If release is RHEL 5,6 in standard expected format ...
+    if egrep -qs 'Red Hat Enterprise Linux (Workstation|Server) release (6|5).*(Santiago|Tikanga)' "$1/etc/redhat-release"; then
     
       # ... And if redhat-release file has more than 1 line ...
       [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
@@ -361,10 +361,10 @@ _CHECK_DISTRO() {
         # ... Then print it in orange
         distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
         
-          # Otherwise, print it normally
+          # Otherwise, if only 1 line, all is well -- print it normally
           distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
           
-    # If release is not RHEL 4,5,6 print in orange
+    # If release is not RHEL 5,6 in standard expected format, print in orange
     else
       distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
     fi
@@ -514,9 +514,9 @@ OSINFO() {
     
   # Otherwise, running on sosreport
   else
-    [[ -r $1/date ]] && systime=$(grep -v '/.*bin' <"$1/date")
+    systime=$(grep -sv '/.*bin' "$1/date")
     boottime=$(echo $(TZ=$(awk '!/\/.*bin/ {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
-    uptime_input=$(grep -v '/.*bin' <"$1/uptime")
+    uptime_input=$(grep -sv '/.*bin' "$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] && initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab")
   fi
@@ -601,9 +601,17 @@ OSINFO() {
   
   # Print and format kernel version
   echo -e "  ${c_h2}Kernel version/build:${c_0}"
-  [[ -n $kernel_build ]] &&
-    fold -sw76 <<<"$kernel_build" | sed 's,^,    ,' ||
-      echo -e "    Unable to detect"
+  # If kernel build was detected ...
+  if [[ -n $kernel_build ]]; then
+    # Format it to fit properly
+    kernel_build=$(fold -sw76 <<<"$kernel_build" | sed 's,^,    ,')
+    # Change color to orange if can't find "build.redhat.com"
+    egrep -q 'build\.redhat\.com|build\..*\.redhat\.com' <<<"$kernel_build" ||
+      kernel_build="${C[orange]}$kernel_build${c_0}"
+    echo -e "$kernel_build"
+  else
+    echo -e "${C[orange]}    Unable to detect${c_0}"
+  fi
       
   echo -en $heading_separator
 }
