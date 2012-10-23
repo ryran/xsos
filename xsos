@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.7c last mod 2012/10/23
+# xsos v0.0.7d last mod 2012/10/23
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -502,6 +502,10 @@ OSINFO() {
   # Grab btime (in seconds since U.Epoch) from proc/stat
   btime=$(awk '/btime/{print $2}' "$1/proc/stat" 2>/dev/null)
   
+  # Grab system hostname & kernel version from /proc first
+  hostname=$(cat "$1/proc/sys/kernel/hostname" 2>/dev/null)
+  kernel=$(cat "$1/proc/sys/kernel/osrelease" 2>/dev/null)
+  
   # If running on localhost
   if [[ $1 == / ]]; then
     systime=$(date)
@@ -514,6 +518,15 @@ OSINFO() {
     
   # Otherwise, running on sosreport
   else
+    [[ -z $hostname ]] && {
+      hostname=$(cat "$1/hostname" 2>/dev/null) ||
+        hostname=$(awk '{print $2}' "$1/uname" 2>/dev/null) ||
+          hostname='[unknown]'
+    }
+    [[ -z $kernel ]] && {
+      kernel=$(awk '{print $3}' "$1/uname" 2>/dev/null) ||
+        kernel='[unknown]'
+    }
     systime=$(grep -sv '/.*bin' "$1/date")
     boottime=$(echo $(TZ=$(awk '!/\/.*bin/ {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
     uptime_input=$(grep -sv '/.*bin' "$1/uptime")
@@ -523,9 +536,9 @@ OSINFO() {
   
   # Start printing stuff
   echo -e "${c_h1}OS${c_0}"
-  echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$(<"$1/proc/sys/kernel/hostname")${c_0}"
+  echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$hostname${c_0}"
   echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$distrorelease${c_0}"
-  echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$(<"$1/proc/sys/kernel/osrelease")${c_0}"
+  echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$kernel${c_0}"
   
   [[ -n $runlevel ]] &&
   echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel (default: $initdefault)"
