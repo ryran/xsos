@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.7b last mod 2012/10/18
+# xsos v0.0.7c last mod 2012/10/23
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -678,9 +678,9 @@ CPUINFO() {
   fi
   
   # Check important cpu flags
-  # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt
-  # svm=AMD hw-virt  *  ht=hyper-threading  *  aes=AES-NI
-  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes" <<<"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
+  # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
+  # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
+  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc" <<<"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
   
   # Print it all out
