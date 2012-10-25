@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.7d last mod 2012/10/23
+# xsos v0.0.7e last mod 2012/10/25
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -519,12 +519,12 @@ OSINFO() {
   # Otherwise, running on sosreport
   else
     [[ -z $hostname ]] && {
-      hostname=$(cat "$1/hostname" 2>/dev/null) ||
-        hostname=$(awk '{print $2}' "$1/uname" 2>/dev/null) ||
+      hostname=$(grep -sv '/.*bin' "$1/hostname" 2>/dev/null) ||
+        hostname=$(awk '!/\/.*bin/ {print $2}' "$1/uname" 2>/dev/null) ||
           hostname='[unknown]'
     }
     [[ -z $kernel ]] && {
-      kernel=$(awk '{print $3}' "$1/uname" 2>/dev/null) ||
+      kernel=$(awk '!/\/.*bin/ {print $3}' "$1/uname" 2>/dev/null) ||
         kernel='[unknown]'
     }
     systime=$(grep -sv '/.*bin' "$1/date")
