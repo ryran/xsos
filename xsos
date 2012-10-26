@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.7e last mod 2012/10/25
+# xsos v0.0.8 last mod 2012/10/26
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -37,13 +37,14 @@ H3INDENT="      "
 # Colors and colors and colors oh my (but only for bash v4)
 if [[ $BASH_VERSINFO -ge 4 ]]; then
   declare -A C
-  C[reset]='\033[0;0m';   C[grey]='\033[00;30m'; C[GREY]='\033[01;30m'
-  C[red]='\033[0;31m';    C[RED]='\033[1;31m';
-  C[green]='\033[0;32m';  C[GREEN]='\033[1;32m';
-  C[orange]='\033[0;33m'; C[ORANGE]='\033[1;33m';
-  C[blue]='\033[0;34m';   C[BLUE]='\033[1;34m';
-  C[purple]='\033[0;35m'; C[PURPLE]='\033[1;35m';
-  C[cyan]='\033[0;36m';   C[CYAN]='\033[1;36m'
+  C[reset]='\033[0;0m'
+  C[grey]='\033[00;30m';  C[GREY]='\033[01;30m';  C[bg_GREY]='\033[40m'
+  C[red]='\033[0;31m';    C[RED]='\033[1;31m';    C[bg_RED]='\033[41m'
+  C[green]='\033[0;32m';  C[GREEN]='\033[1;32m';  C[bg_GREEN]='\033[42m'
+  C[orange]='\033[0;33m'; C[ORANGE]='\033[1;33m'; C[bg_ORANGE]='\033[43m'
+  C[blue]='\033[0;34m';   C[BLUE]='\033[1;34m';   C[bg_BLUE]='\033[44m'
+  C[purple]='\033[0;35m'; C[PURPLE]='\033[1;35m'; C[bg_PURPLE]='\033[45m'
+  C[cyan]='\033[0;36m';   C[CYAN]='\033[1;36m';   C[bg_CYAN]='\033[46m'
 fi
 
 USAGE() {
@@ -352,8 +353,11 @@ _CHECK_DISTRO() {
   # Get disto from redhat-release if have redhat-release file
   if [[ -r $1/etc/redhat-release ]]; then
   
-    # If release is RHEL 5,6 in standard expected format ...
-    if egrep -qs 'Red Hat Enterprise Linux (Workstation|Server) release (6|5).*(Santiago|Tikanga)' "$1/etc/redhat-release"; then
+    # If release is RHEL 4,5,6 in standard expected format ...
+    if egrep -e 'Red Hat Enterprise Linux (AS|ES|Desktop|WS) release 4 \((Nahant|Nahant Update [1-9])\)' \
+             -e 'Red Hat Enterprise Linux (Client|Server) release 5\.?[0-9]* \(Tikanga\)' \
+             -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 6\.?[0-9]* \(Santiago\)' \
+             -qs "$1/etc/redhat-release"; then
     
       # ... And if redhat-release file has more than 1 line ...
       [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
@@ -364,9 +368,18 @@ _CHECK_DISTRO() {
           # Otherwise, if only 1 line, all is well -- print it normally
           distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
           
-    # If release is not RHEL 5,6 in standard expected format, print in orange
+    # If release is not RHEL 4,5,6 in standard expected format, freak out
     else
-      distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
+      distrorelease=$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
+      if grep -qi fedora <<<"$distrorelease"; then
+        distrorelease=${C[bg_BLUE]}${C[ORANGE]}$distrorelease
+      elif egrep -qi 'oracle|suse|centos' <<<"$distrorelease"; then
+        distrorelease=${C[bg_GREY]}${C[RED]}$distrorelease
+      elif egrep -qi 'alpha|beta' <<<"$distrorelease"; then
+        distrorelease=${C[bg_RED]}${C[ORANGE]}$distrorelease
+      else
+        distrorelease=${C[ORANGE]}$distrorelease
+      fi
     fi
     
   # If no redhat-release file, check for other things
@@ -419,7 +432,10 @@ _CHECK_KERNELBUILD() {
   fi
   
   # Fix format if necessary
-  kernel_build=$(sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build")
+  if [[ -n $kernel_build ]]; then
+    kernel_build=$(sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build")
+    kernel_buildhost=$(awk '{print $4}' <<<"$kernel_build")
+  fi
 }
 
 
@@ -430,7 +446,7 @@ _CHECK_SELINUX() {
     
   # Else, from $sosroot/sestatus or $sosroot/etc/selinux/config
   else
-    [[ -r $1/sestatus ]] && sestatus=$(grep -v '/.*bin' <"$1/sestatus") || {
+    sestatus=$(awk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null) || {
       [[ -r $1/etc/selinux/config ]] && sestatus2=$(<"$1/etc/selinux/config")
       # Set "selinux" and "enforcing" variables per $sosroot's kernel args
       eval $(egrep -io 'selinux=.|enforcing=.' "$1/proc/cmdline" | tr 'A-Z' 'a-z')
@@ -446,7 +462,7 @@ _CHECK_SELINUX() {
       /Loaded policy|Policy from config/  { policy  = $NF }
       END { 
         if (status == "disabled") print status
-        else printf "%s (default: %s)\n", mode, cfgmode
+        else printf "%s  (default %s)\n", mode, cfgmode
       }
     ' <<<"$sestatus"
     
@@ -458,19 +474,19 @@ _CHECK_SELINUX() {
       END {
         if (mode == "disabled") {
           if (selinux == 1)
-            printf "enforcing via kernel arg (default: %s)\n", mode
+            printf "enforcing via kernel arg  (default %s)\n", mode
           else
             print "disabled"
         }
         else {
           if (selinux == 0)
-            printf "disabled via kernel arg (default: %s)\n", mode
+            printf "disabled via kernel arg  (default %s)\n", mode
           else if (enforcing == 0)
-            printf "permissive via kernel arg (default: %s)\n", mode
+            printf "permissive via kernel arg  (default %s)\n", mode
           else if (enforcing == 1)
-            printf "enforcing via kernel arg (default: %s)\n", mode
+            printf "enforcing via kernel arg  (default %s)\n", mode
           else
-            printf "status unknown (default: %s)\n", mode
+            printf "status unknown  (default %s)\n", mode
         }
       }
     ' <<<"$sestatus2"
@@ -478,13 +494,13 @@ _CHECK_SELINUX() {
   # Only have /proc/cmdline
   else
     if [[ -n $selinux ]]; then
-      [[ $selinux -eq 0 ]] && echo "disabled via kernel arg (default: unknown)"
-      [[ $selinux -eq 1 ]] && echo "enforcing via kernel arg (default: unknown)"
+      [[ $selinux -eq 0 ]] && echo "disabled via kernel arg  (default unknown)"
+      [[ $selinux -eq 1 ]] && echo "enforcing via kernel arg  (default unknown)"
     elif [[ -n $enforcing ]]; then
-      [[ $enforcing -eq 0 ]] && echo "permissive via kernel arg (default: unknown)"
-      [[ $enforcing -eq 1 ]] && echo "enforcing via kernel arg (default: unknown)"
+      [[ $enforcing -eq 0 ]] && echo "permissive via kernel arg  (default unknown)"
+      [[ $enforcing -eq 1 ]] && echo "enforcing via kernel arg  (default unknown)"
     else
-      echo "status unknown (default: unknown)"
+      echo "status unknown  (default unknown)"
     fi
   fi
 }
@@ -508,6 +524,7 @@ OSINFO() {
   
   # If running on localhost
   if [[ $1 == / ]]; then
+    uname=$(uname -a | awk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
     systime=$(date)
     boottime=$(echo $(date --date=@$btime 2>/dev/null && echo " ($btime)"))
     uptime_input=$(uptime)
@@ -519,19 +536,23 @@ OSINFO() {
   # Otherwise, running on sosreport
   else
     [[ -z $hostname ]] && {
-      hostname=$(grep -sv '/.*bin' "$1/hostname" 2>/dev/null) ||
-        hostname=$(awk '!/\/.*bin/ {print $2}' "$1/uname" 2>/dev/null) ||
+      hostname=$(awk '!/\/.*bin/ && NF!=0' "$1/hostname" 2>/dev/null) ||
+        hostname=$(awk '!/\/.*bin/ && NF!=0 {print $2}' "$1/uname" 2>/dev/null) ||
           hostname='[unknown]'
     }
     [[ -z $kernel ]] && {
-      kernel=$(awk '!/\/.*bin/ {print $3}' "$1/uname" 2>/dev/null) ||
+      kernel=$(awk '!/\/.*bin/ && NF!=0 {print $3}' "$1/uname" 2>/dev/null) ||
         kernel='[unknown]'
     }
-    systime=$(grep -sv '/.*bin' "$1/date")
-    boottime=$(echo $(TZ=$(awk '!/\/.*bin/ {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
-    uptime_input=$(grep -sv '/.*bin' "$1/uptime")
+    uname=$(awk '!/\/.*bin/ && NF!=0 {printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}' "$1/uname" 2>/dev/null) ||
+        uname='[unknown]'
+    systime=$(awk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null)
+    boottime=$(echo $(TZ=$(awk '!/\/.*bin/ && NF!=0 {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
+    uptime_input=$(awk '!/\/.*bin/ && NF!=0' "$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
-    [[ -r $1/etc/inittab ]] && initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab")
+    [[ -r $1/etc/inittab ]] &&
+      initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab") ||
+        initdefault=unknown
   fi
   
   # Start printing stuff
@@ -539,9 +560,10 @@ OSINFO() {
   echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$hostname${c_0}"
   echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$distrorelease${c_0}"
   echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$kernel${c_0}"
+  echo -e "  ${c_h2}Arch:${c_0}      $uname"
   
   [[ -n $runlevel ]] &&
-  echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel (default: $initdefault)"
+  echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel  (default $initdefault)"
   echo -e "  ${c_h2}SELinux:${c_0}   $(_CHECK_SELINUX "$1")"
   
   [[ -n $systime ]] &&
@@ -619,7 +641,7 @@ OSINFO() {
     # Format it to fit properly
     kernel_build=$(fold -sw76 <<<"$kernel_build" | sed 's,^,    ,')
     # Change color to orange if can't find "build.redhat.com"
-    egrep -q 'build\.redhat\.com|build\..*\.redhat\.com' <<<"$kernel_build" ||
+    grep -qe '\.z900\.redhat\.com' -e '\.build\.redhat\.com' -e '\.bos\.redhat\.com' -e '\.perf\.redhat\.com' <<<"$kernel_buildhost" ||
       kernel_build="${C[orange]}$kernel_build${c_0}"
     echo -e "$kernel_build"
   else
