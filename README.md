@@ -39,8 +39,9 @@ OS
   Hostname:  aczx998pinkle
   Distro:    Red Hat Enterprise Linux Server release 5.7 (Tikanga)
   Kernel:    2.6.18-274.18.1.el5
-  Runlevel:  N 3 (default: 3)
-  SELinux:   permissive via kernel args (default: enforcing)
+  Arch:      mach=x86_64  cpu=x86_64  platform=x86_64
+  Runlevel:  N 3  (default 3)
+  SELinux:   permissive via kernel args  (default enforcing)
   Sys time:  Thu Jun 28 16:07:20 EDT 2012
   Boot time: Thu Jun 28 18:59:55 EDT 2012 (1340909995)
   Uptime:    1:07,  3 users
@@ -49,8 +50,11 @@ OS
     us 3%, ni 0%, sys 1%, idle 87%, iowait 8%, irq 0%, sftirq 0%, steal 0%
   procs_running (procs_blocked):
     9 (1)
-  Kernel taint-check: 64 1 
+  Kernel taint-check: 536870912 512 64 16 1
+    Technology Preview code is loaded
+    Taint on warning
     Userspace-defined naughtiness
+    System experienced a machine check exception
     Proprietary module has been loaded
   Kernel cmdline:
     ro root=/dev/rootvg/rootlv rhgb quiet crashkernel=512M@16M
@@ -151,7 +155,10 @@ STORAGE
 -------------------------------------------------------------------------------
 LSPCI
   Net:
-    8 NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42) {2,4-port}
+    4 NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42)
+    └─1 quad-port NIC
+    6 ServerEngines Corp. Emulex OneConnect 10Gb NIC (rev 02)
+    └─3 dual-port NICs
   VGA:
     Advanced Micro Devices [AMD] nee ATI ES1000 (rev 02)
 -------------------------------------------------------------------------------
@@ -352,8 +359,10 @@ THINGS THAT MIGHT SURPRISE YOU
 [rsaw@server]$ xsos -l
 LSPCI
   Netdevs:
-    2 Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12) {2,1-port}
-    4 Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06) {2,2-port}
+    2 Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+    └─2 single-port NICs
+    4 Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
+    └─2 dual-port NICs
   Graphics:
     Advanced Micro Devices [AMD] nee ATI ES1000 (rev 02)
 ```
