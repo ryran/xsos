@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.8 last mod 2012/10/26
+# xsos v0.0.8b last mod 2012/11/02
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1013,9 +1013,16 @@ LSPCI() {
         slotc = slotcount[ifacetype]
         typec = iface[ifacetype]
         ports = ""
-        if (typec > 1)
-          ports = H_IMP" {" slotc "," typec/slotc "-port}"H0
-        printf "    %s%s%s\n", typec, ifacetype, ports
+        if (typec > 1) {
+          numports = typec/slotc
+          if      (numports == 1) numports = "single"
+          else if (numports == 2) numports = "dual"
+          else if (numports == 3) numports = "triple"
+          else if (numports == 4) numports = "quad"
+          if (slotc > 1) plural = "s"
+          ports = "└─" slotc " " numports "-port NIC" plural
+        }
+        printf "    %s%s%s%s\n    %s\n", H_IMP, typec, H0, ifacetype, ports
       }
     }
   ' <<<"$lspci_input"
