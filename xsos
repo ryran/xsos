@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.8b last mod 2012/11/02
+# xsos v0.0.8c last mod 2012/11/02
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1020,9 +1020,9 @@ LSPCI() {
           else if (numports == 3) numports = "triple"
           else if (numports == 4) numports = "quad"
           if (slotc > 1) plural = "s"
-          ports = "└─" slotc " " numports "-port NIC" plural
+          ports = "\n    └─" slotc " " numports "-port NIC" plural
         }
-        printf "    %s%s%s%s\n    %s\n", H_IMP, typec, H0, ifacetype, ports
+        printf "    %s%s%s%s%s\n", H_IMP, typec, H0, ifacetype, ports
       }
     }
   ' <<<"$lspci_input"
@@ -1034,8 +1034,8 @@ LSPCI() {
 
 IPADDR() {
 # I spent a long time wondering how I would end up implementing ip-addr functionality
-# I couldn't come up with a lovely elegant gawk-way
-# In the end, this is probably one of the most expensive of the functions
+# I couldn't think of a lovely elegant gawk-way and in the end I wrote this in 2 hours
+# This is probably one of the most expensive of the functions
 
   # Require BASH v4
   if [[ -z $BASH_VERSINFO || $BASH_VERSINFO -lt 4 ]]; then
