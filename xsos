@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.8d last mod 2012/11/06
+# xsos v0.0.8e last mod 2012/11/06
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -413,7 +413,7 @@ _CHECK_KERNELBUILD() {
     kernel_build=$(<"$1/proc/version")
   
   # sosreport: if find it via `dmesg` output file, great
-  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -qs 'Linux version' "$1/sos_commands/general/dmesg"); then
+  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -s 'Linux version' "$1/sos_commands/general/dmesg"); then
     :
     
   # sosreport: if find it in var/log/dmesg, woo hoo
@@ -643,21 +643,24 @@ OSINFO() {
   
   # Print kernel tainted-status
   echo -e "  ${c_h2}Kernel taint-check:${c_0} $(_CHECK_TAINTED "$1" H2)"
-  
+
   # Print kernel cmdline from proc/cmdline
-  echo -e "  ${c_h2}Kernel cmdline:${c_0}"
-  if grep -qsw rescue "$1/proc/cmdline"; then
-    # If rescue mode detected, try to grab kernel args from grub.conf
-    if [[ -r $1/boot/grub/grub.conf ]]; then
-      eval $(grep -qs ^default= "$1/boot/grub/grub.conf") || default=0
-      echo -e "${C[orange]}   (Rescue mode detected; kernel args from grub.conf default title follow)${c_0}"
-      sed 's,^title,\n\n,' "$1/boot/grub/grub.conf" | grep -v ^[[:graph:]] | awk -vDEFAULT=$((default+2)) -vRS="\n\n " 'NR == DEFAULT {print}' | grep -o 'vmlinuz-.*' | fold -sw76 | sed 's,^,    ,'
-    else
-      cmdline="${C[orange]}    Unable to detect from rescue mode${c_0}"
-    fi
+  echo -e "  ${c_h2}Booted kernel cmdline:${c_0}"
+  # If rescue mode detected, print a warning
+  grep -qsw rescue "$1/proc/cmdline" &&
+    echo -e "${C[orange]}   (Rescue mode detected)${c_0}"
+  fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
+  
+  # Print default grub title statement
+  echo -e "  ${c_h2}GRUB default kernel line:${c_0}"
+  if [[ -r $1/boot/grub/grub.conf ]]; then
+    eval $(grep -qs ^default= "$1/boot/grub/grub.conf") || {
+      default=0
+      echo -e "${C[orange]}   (Warning: \"default=\" missing in grub.conf; showing first title instead)${c_0}"
+    }
+    sed 's,^title,\n\n,' "$1/boot/grub/grub.conf" | grep -v ^[[:graph:]] | awk -vDEFAULT=$((default+2)) -vRS="\n\n " 'NR == DEFAULT {print}' | grep -o 'vmlinuz-.*' | fold -sw76 | sed 's,^,    ,'
   else
-    # Otherwise, just print pretty cmdline
-    fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
+    echo -e "${C[orange]}    Unable to detect${c_0}"
   fi
   
   # Print and format kernel version
