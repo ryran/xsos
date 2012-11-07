@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.8c last mod 2012/11/02
+# xsos v0.0.8d last mod 2012/11/06
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -402,26 +402,27 @@ _CHECK_DISTRO() {
 
 
 _CHECK_KERNELBUILD() {
-  # Get kernel build version somehow or another
+  # Get kernel build version somehow or another, making sure not to use build offered by rescue mode kernel
   
   # if localhost: get it from the best place, yay
   if [[ $1 == / ]]; then
     kernel_build=$(</proc/version)
   
   # sosreport: sosreports don't normally contain this.. yet
-  elif [[ -r "$1/proc/version" ]]; then
+  elif [[ -r "$1/proc/version" ]] && ! grep -qsw rescue "$1/proc/cmdline"; then
     kernel_build=$(<"$1/proc/version")
   
   # sosreport: if find it via `dmesg` output file, great
-  elif kernel_build=$(grep 'Linux version' "$1/sos_commands/general/dmesg" 2>/dev/null); then
+  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -qs 'Linux version' "$1/sos_commands/general/dmesg"); then
     :
+    
   # sosreport: if find it in var/log/dmesg, woo hoo
   elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
-    kernel_build=$(grep 'Linux version' <"$1/var/log/dmesg" | tail -n1)
+    kernel_build=$(grep 'Linux version' "$1/var/log/dmesg" | tail -n1)
   
   # sosreport: if find it in var/log/messages, lovely
   elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
-    kernel_build=$(grep 'kernel: Linux version' <"$1/var/log/messages" | tail -n1)
+    kernel_build=$(grep 'kernel: Linux version' "$1/var/log/messages" | tail -n1)
   
   # sosreport: final option: search in all old messages files -- this might be a bad idea
   else
@@ -535,15 +536,28 @@ OSINFO() {
     
   # Otherwise, running on sosreport
   else
-    [[ -z $hostname ]] && {
-      hostname=$(awk '!/\/.*bin/ && NF!=0' "$1/hostname" 2>/dev/null) ||
-        hostname=$(awk '!/\/.*bin/ && NF!=0 {print $2}' "$1/uname" 2>/dev/null) ||
-          hostname='[unknown]'
-    }
-    [[ -z $kernel ]] && {
-      kernel=$(awk '!/\/.*bin/ && NF!=0 {print $3}' "$1/uname" 2>/dev/null) ||
-        kernel='[unknown]'
-    }
+    # If sosreport ran in rescue mode, try to get good hostname
+    if grep -qsw rescue "$1/proc/cmdline"; then
+      hostname=$(awk -F= /^HOSTNAME=/{print\$2}  "$1/etc/sysconfig/network" 2>/dev/null) ||
+        hostname='[unknown] -- sosreport collected from rescue mode'
+    # Otherwise, if no hostname from proc/, try to get from sosroot/hostname or sosroot/uname
+    else
+      [[ -z $hostname ]] && {
+        hostname=$(awk '!/\/.*bin/ && NF!=0' "$1/hostname" 2>/dev/null) ||
+          hostname=$(awk '!/\/.*bin/ && NF!=0 {print $2}' "$1/uname" 2>/dev/null) ||
+            hostname='[unknown]'
+      }
+    fi
+    # If sosreport ran in rescue mode, leave it to the kernel-build funness
+    if grep -qsw rescue "$1/proc/cmdline"; then
+      kernel='[unknown] -- sosreport collected from rescue mode -- see below'
+    # Otherwise, if no kernel version from proc/, try to get from sosroot/uname
+    else
+      [[ -z $kernel ]] && {
+        kernel=$(awk '!/\/.*bin/ && NF!=0 {print $3}' "$1/uname" 2>/dev/null) ||
+          kernel='[unknown]'
+      }
+    fi
     uname=$(awk '!/\/.*bin/ && NF!=0 {printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}' "$1/uname" 2>/dev/null) ||
         uname='[unknown]'
     systime=$(awk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null)
@@ -632,12 +646,27 @@ OSINFO() {
   
   # Print kernel cmdline from proc/cmdline
   echo -e "  ${c_h2}Kernel cmdline:${c_0}"
-  fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
+  if grep -qsw rescue "$1/proc/cmdline"; then
+    # If rescue mode detected, try to grab kernel args from grub.conf
+    if [[ -r $1/boot/grub/grub.conf ]]; then
+      eval $(grep -qs ^default= "$1/boot/grub/grub.conf") || default=0
+      echo -e "${C[orange]}   (Rescue mode detected; kernel args from grub.conf default title follow)${c_0}"
+      sed 's,^title,\n\n,' "$1/boot/grub/grub.conf" | grep -v ^[[:graph:]] | awk -vDEFAULT=$((default+2)) -vRS="\n\n " 'NR == DEFAULT {print}' | grep -o 'vmlinuz-.*' | fold -sw76 | sed 's,^,    ,'
+    else
+      cmdline="${C[orange]}    Unable to detect from rescue mode${c_0}"
+    fi
+  else
+    # Otherwise, just print pretty cmdline
+    fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
+  fi
   
   # Print and format kernel version
   echo -e "  ${c_h2}Kernel version/build:${c_0}"
   # If kernel build was detected ...
   if [[ -n $kernel_build ]]; then
+    # Print a notice if rescue mode
+    grep -qsw rescue "$1/proc/cmdline" &&
+      echo -e "${C[orange]}   (Rescue mode detected; build info captured from logs of last boot)${c_0}"
     # Format it to fit properly
     kernel_build=$(fold -sw76 <<<"$kernel_build" | sed 's,^,    ,')
     # Change color to orange if can't find "build.redhat.com"
