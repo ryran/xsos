@@ -56,8 +56,11 @@ OS
     Userspace-defined naughtiness
     System experienced a machine check exception
     Proprietary module has been loaded
-  Kernel cmdline:
+  Booted kernel cmdline:
     ro root=/dev/rootvg/rootlv rhgb quiet crashkernel=512M@16M
+  GRUB default kernel line:
+    vmlinuz-2.6.18-274.18.1.el5 ro root=/dev/rootvg/rootlv rhgb quiet 
+    crashkernel=512M@16M
   Kernel version/build:
     Linux version 2.6.18-274.18.1.el5 (mockbuild@x86-001.build.bos.redhat.com) 
     (gcc version 4.1.2 20080704 (Red Hat 4.1.2-51)) #1 SMP Fri Jan 20 15:11:18 
