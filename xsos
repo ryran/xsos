@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.8f last mod 2012/11/07
+# xsos v0.0.8g last mod 2012/11/08
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -761,6 +761,10 @@ CPUINFO() {
 MEMINFO() {
   [[ -f $1 ]] && meminfo=$1 || meminfo=$1/proc/meminfo
   echo -e "${c_h1}MEMORY${c_0}"
+  if grep -qsw rescue "$1/proc/cmdline"; then
+    echo -e "${C[ORANGE]}  WARNING: RESCUE MODE DETECTED${c_0}"
+    echo -e "${C[orange]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c_0}"
+  fi
   awk -vu="$mem_unit" -vORANGE="${C[orange]}" -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
     
     # Grab variables from meminfo
@@ -1313,8 +1317,12 @@ SYSCTL() {
   # VM PageSize (don't know how to find this from a sosreport,
   # but I doubt that will often be a problem)
   [[ $1 == / ]] && pgsz=$(getconf PAGESIZE) || pgsz=4
-  echo -e "${c_h1}SYSCTLS${c_0}
-  ${c_h2}kernel.${c_0}
+  echo -e "${c_h1}SYSCTLS${c_0}"
+  if grep -qsw rescue "$1/proc/cmdline"; then
+    echo -e "${C[ORANGE]}  WARNING: RESCUE MODE DETECTED${c_0}"
+    echo -e "${C[orange]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c_0}"
+  fi
+  echo -e "  ${c_h2}kernel.${c_0}
     ${c_h3}osrelease:${c_0} $(<"$1/proc/sys/kernel/osrelease")
     ${c_h3}tainted:${c_0} $(_CHECK_TAINTED "$1" H3)
     ${c_h3}random.boot_id:${c_0} $(<"$1/proc/sys/kernel/random/boot_id")
