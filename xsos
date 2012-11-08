@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.8e last mod 2012/11/06
+# xsos v0.0.8f last mod 2012/11/07
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1095,7 +1095,7 @@ IPADDR() {
   ipdevs=$(awk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"$ip_addr" | egrep -v 'sit0')
   
   # Declare our 6 associative arrays
-  declare -A ip_input mac state ipv4 ipv4_alias slaveof
+  declare -A ip_input slaveof ipv4 ipv4_alias state mac 
   
   # Begin ...
   echo -e "${c_h1}IP${c_0}"
@@ -1103,8 +1103,8 @@ IPADDR() {
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   {
     # Header info ("~" is used later by `column` to columnize the output)
-    echo "  Interface~Slave Of~MAC Address~State~IPv4 Address"
-    echo "  =========~========~=================~=====~=================="
+    echo "  Interface~Slave Of~IPv4 Address~State~MAC Address"
+    echo "  =========~========~==================~=====~================="
     
     # For each interface ($i) found in ip addr output
     for i in $ipdevs; do
@@ -1115,34 +1115,35 @@ IPADDR() {
       # Figure out if $i is a slave of some bond device
       slaveof[$i]=$(grep -q SLAVE <<<"${ip_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${ip_input[$i]}" | awk '{print $2}' || echo "-")
       
-      # Get macaddr for $i (don't show if all zeros)
-      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${ip_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${ip_input[$i]}" || echo "-")
-      
       # Get up/down state for $i
       state[$i]=$(grep -q "$i: .*,UP"  <<<"${ip_input[$i]}" && echo up || echo DOWN)
       
-      # Get ipv4 address of $i
+      # Get macaddr for $i (don't show if all zeros)
+      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${ip_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${ip_input[$i]}" || echo "-")
+      
+      # If $i has an ipv4 address, get it and ...
       if grep -q "inet .* ${i%@*}\$" <<<"${ip_input[$i]}"; then
         ipv4[$i]=$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${ip_input[$i]}")
-        # Print out all info for $i
-        echo "  $i~${slaveof[$i]}~${mac[$i]}~${state[$i]}~${ipv4[$i]}"
+        
+        # ... Print out all info for $i
+        echo "  $i~${slaveof[$i]}~${ipv4[$i]}~${state[$i]}~${mac[$i]}"
       
-      # If no ipv4 addr for $i...
+      # Otherwise, print out all info with ipv4 addr set to "-"
       else
-        # ... Print all info for $i with ipv4 set to "-" ...
-        ipv4[$i]="-"
-        echo "  $i~${slaveof[$i]}~${mac[$i]}~${state[$i]}~${ipv4[$i]}"
+        echo "  $i~${slaveof[$i]}~-~${state[$i]}~${mac[$i]}"
         # ... And Continue on to the next interface, i.e., skip looking for aliases
         continue
       fi
-      
+
       # If $i had an ipv4 addr, it's ALIAS time!
       if grep -q "inet .* $i:" <<<"${ip_input[$i]}"; then
+      
         # For each "alias" (additional address) found ...
         for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${ip_input[$i]}"); do
           ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${ip_input[$i]}")
+          
           # ... Print out a new line with its ipv4 addr
-          echo "  $alias~-~-~up~${ipv4_alias[$alias]}"
+          echo "  $alias~-~${ipv4_alias[$alias]}~up~-"
         done
       fi
       
