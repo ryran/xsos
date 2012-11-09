@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc1a last mod 2012/11/09
+# xsos v0.0.9rc1b last mod 2012/11/09
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1395,12 +1395,17 @@ PSCHECK() {
   ps_header=$(head -n1 <<<"$input")
   ps_input=$(tail -n+2 <<<"$input")
   
+  # Calculte top-cpu-using & top-mem-using users
+  top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) if (pCPU[user]>0 || sRSS[user]>10240) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+  top_users_header=$(head -n1 <<<"$top_users")
+  top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2)
+  
   # Print!
   echo -e "${c_h1}PS CHECK${c_0}
   ${c_h2}Uninteruptible sleep & Defunct processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(awk '$8~/D|Z/' <<<"$ps_input")
   ${c_h2}Top CPU-using processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(sort -rnk3 <<<"$ps_input" | head -n$num_lines)
   ${c_h2}Top MEM-using processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(sort -rnk4 <<<"$ps_input" | head -n$num_lines)
-  ${c_h2}Top users, sorted by CPU-usage:${c_0} \n$(awk '{pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) if (pCPU[user]>0 || sRSS[user]>10240) printf "%s:@%.1f%% of total CPU,@%.1f%% of total MEM@(%.2f GiB used)\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts@ | sort -rnk2 | sed 's,^,    ,')"
+  ${c_h2}Top users, sorted by CPU-usage:${c_0} \n${c_h3}$top_users_header${c_0} \n$top_users"
   echo -en $heading_separator
 }
 
