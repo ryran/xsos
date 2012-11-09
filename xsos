@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.8g last mod 2012/11/08
+# xsos v0.0.9rc1 last mod 2012/11/09
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -48,8 +48,8 @@ if [[ $BASH_VERSINFO -ge 4 ]]; then
 fi
 
 USAGE() {
-  echo "Usage: $pzero [-xKMabocmdpleins] [SOSREPORT-ROOT]"
-  echo "  or:  $pzero [--B|--C|--M|--D|--L|--I|--N FILE]..."
+  echo "Usage: $pzero [-xKMvabocmdleinsp] [SOSREPORT-ROOT]"
+  echo "  or:  $pzero [--B|--C|--M|--D|--L|--I|--N|--P FILE]..."
   echo "  or:  $pzero [-?|-h|--help]"
 }
 
@@ -65,19 +65,20 @@ Content options:"
  -o, --os@show release, hostname, uptime, loadavg, cmdline
  -c, --cpu@show info from /proc/cpuinfo
  -m, --mem@show info from /proc/meminfo
- -d, --disks@show info from /proc/partitions
- -p, --mpath@show info from multipath
+ -d, --disks@show info from /proc/partitions + dm-multipath
  -l, --lspci@show info from lspci
  -e, --ethtool@show info from ethtool
  -i, --ip@show info from ip addr (BASH v4+ required)
  -n, --net@show info from /proc/net/dev
- -s, --sysctl@show important kernel sysctls" | column -ts@
+ -s, --sysctl@show important kernel sysctls
+ -p, --ps@inspect top cpu-/mem-using processes" | column -ts@
   echo "
 Display options:"
   echo "
  -x, --nocolor@disable output colorization
  -K, --kb@show /proc/meminfo in KiB
- -M, --mb@show /proc/meminfo in MiB" | column -ts@
+ -M, --mb@show /proc/meminfo in MiB
+ -v, --verbose@show more processes & cmd args with ps" | column -ts@
  echo "
 Note that $pzero argument parsing is performed by GNU getopt, so order of args
 is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
@@ -85,7 +86,7 @@ is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
 If no content options are specified, $pzero only shows some information,
 equivalent to:
 
-  $pzero --os --cpu --mem
+  $pzero --os --cpu --mem --lspci --ip
   
 If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
@@ -97,13 +98,14 @@ dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
 
 Special options (BASH v4+ required):"
   echo "
- --B=FILE@FILE must contain dmidecode dump
+ --B=FILE@FILE must contain \`dmidecode\` dump
  --C=FILE@FILE must contain /proc/cpuinfo dump
  --M=FILE@FILE must contain /proc/meminfo dump
  --D=FILE@FILE must contain /proc/partitions dump
- --L=FILE@FILE must contain lspci dump
- --I=FILE@FILE must contain ip addr dump
- --N=FILE@FILE must contain /proc/net/dev dump" | column -ts@
+ --L=FILE@FILE must contain \`lspci\` dump
+ --I=FILE@FILE must contain \`ip addr\` dump
+ --N=FILE@FILE must contain /proc/net/dev dump
+ --P=FILE@FILE must contain \`ps aux\` dump" | column -ts@
   echo "
 As is hopefully clear, each of these options requires a filename as an
 argument. These options can be used together, but cannot be used in concert
@@ -193,8 +195,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='xKMabocmdpleins'
-lopts='nocolor,kb,mb,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,ip,net,sysctl,B:,C:,M:,D:,L:,I:,N:'
+sopts='xKMvabocmdleinsp'
+lopts='nocolor,kb,mb,verbose,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
@@ -205,24 +207,25 @@ unset sfile
 
 # Parse command-line arguments
 PARSE() {
-  unset opts nocolor kb mb all bios os cpu mem disks mpath lspci ethtool ip net sysctl
+  unset opts nocolor kb mb all bios os cpu mem disks lspci ethtool ip net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
       -x|--nocolor) shift; nocolor=y          ;;
       -K|--kb)      shift; mem_unit="k"       ;;
       -M|--mb)      shift; mem_unit="m"       ;;
+      -v|--verbose) shift; PS_VERBOSE=v       ;;
       -a|--all)     shift; opts=y; all=y      ;;
       -b|--bios)    shift; opts=y; bios=y     ;;
       -o|--os)      shift; opts=y; os=y       ;;
       -c|--cpu)     shift; opts=y; cpu=y      ;;
       -m|--mem)     shift; opts=y; mem=y      ;;
       -d|--disks)   shift; opts=y; disks=y    ;;
-      -p|--mpath)   shift; opts=y; mpath=y    ;;
       -l|--lspci)   shift; opts=y; lspci=y    ;;
       -e|--ethtool) shift; opts=y; ethtool=y  ;;
       -i|--ip)      shift; opts=y; ip=y       ;;
       -n|--net)     shift; opts=y; net=y      ;;
       -s|--sysctl)  shift; opts=y; sysctl=y   ;;
+      -p|--ps)      shift; opts=y; ps=y       ;;
       --B)  sfile[B]=$2; shift 2  ;;
       --C)  sfile[C]=$2; shift 2  ;;
       --M)  sfile[M]=$2; shift 2  ;;
@@ -230,6 +233,7 @@ PARSE() {
       --L)  sfile[L]=$2; shift 2  ;;
       --I)  sfile[I]=$2; shift 2  ;;
       --N)  sfile[N]=$2; shift 2  ;;
+      --P)  sfile[P]=$2; shift 2  ;;
     esac
   done
   shift #(to get rid of the '--')
@@ -249,10 +253,10 @@ elif [[ $BASH_VERSINFO -lt 4 && -n $sfile ]]; then
   exit 255
 # Set default view if no content options specified
 elif [[ -z $opts ]]; then
-  os=y; cpu=y; mem=y
+  os=y; cpu=y; mem=y; lspci=y; ip=y
 # Else, if "all" option specified, set full view
 elif [[ -n $all ]]; then
-  bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y
+  bios=y; os=y; cpu=y; mem=y; disks=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y; ps=y
 fi
 
 
@@ -275,8 +279,9 @@ else
 fi
 
 # The following acts as a separator between content modules.
-# Feel free to comment it out if you don't like it
-heading_separator="$c_sep-------------------------------------------------------------------------------$c_0\n"
+heading_separator="\n"
+# It used to be a dark-grey separator line like this:
+#heading_separator="$c_sep-------------------------------------------------------------------------------$c_0\n"
 
 
 DMIDECODE() {
@@ -1361,6 +1366,44 @@ SYSCTL() {
 }
 
 
+PSCHECK() {
+  # Get input from proper place dependent on what was passed
+  if [[ -z $1 ]]; then
+    input=$(ps aux)
+  elif [[ -f $1 ]]; then
+    input=$(<"$1")
+  else
+    input=$(<"$1/ps")
+  fi
+  
+  # Set default options
+  num_comm_args=2
+  num_lines=10
+  
+  # Verbose funness
+  if [[ $PS_VERBOSE == v ]]; then
+    num_comm_args=99
+    num_lines=20
+  elif [[ $PS_VERBOSE == vv ]]; then
+    num_comm_args=999
+    num_lines=60
+  fi
+  
+  # Perfectly columnize ps input and chop off extra command args based on above options
+  input=$(awk -vMAX_fields=$((num_comm_args+12)) '{for (i=1; i<11; i++) printf $i"~"; for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "; printf "\n"}' <<<"$input" | column -ts~ | sed 's,^,    ,')
+  # Deal with header
+  ps_header=$(head -n1 <<<"$input")
+  ps_input=$(tail -n+2 <<<"$input")
+  
+  # Print!
+  echo -e "${c_h1}PS CHECK${c_0}
+  ${c_h2}Uninteruptible sleep & Defunct processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(awk '$8~/D|Z/' <<<"$ps_input")
+  ${c_h2}Top CPU-using processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(sort -rnk3 <<<"$ps_input" | head -n$num_lines)
+  ${c_h2}Top MEM-using processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(sort -rnk4 <<<"$ps_input" | head -n$num_lines)"
+  echo -en $heading_separator
+}
+
+
 #-------------------------------------------------------------------------------
 # BLEH
 # Eventually I'll probably replace all of this with a python loader.
@@ -1369,12 +1412,13 @@ SYSCTL() {
 # If special options and files were provided ....
 if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
-  [[ -r ${sfile[C]} ]] && CPUINFO "${sfile[C]}"
-  [[ -r ${sfile[M]} ]] && MEMINFO "${sfile[M]}"
-  [[ -r ${sfile[D]} ]] && STORAGE "${sfile[D]}"
-  [[ -r ${sfile[L]} ]] && LSPCI "${sfile[L]}"
-  [[ -r ${sfile[I]} ]] && IPADDR "${sfile[I]}"
-  [[ -r ${sfile[N]} ]] && PROC_NET "${sfile[N]}"
+  [[ -r ${sfile[C]} ]] && CPUINFO   "${sfile[C]}"
+  [[ -r ${sfile[M]} ]] && MEMINFO   "${sfile[M]}"
+  [[ -r ${sfile[D]} ]] && STORAGE   "${sfile[D]}"
+  [[ -r ${sfile[L]} ]] && LSPCI     "${sfile[L]}"
+  [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
+  [[ -r ${sfile[N]} ]] && PROC_NET  "${sfile[N]}"
+  [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
 
 # If SOSREPORT-ROOT provided, use that
 elif [[ -n $sosroot ]]; then
@@ -1388,15 +1432,14 @@ elif [[ -n $sosroot ]]; then
   [[ -n $os && -d $sosroot/proc ]] &&                       OSINFO "$sosroot"
   [[ -n $cpu   && -r $sosroot/proc/cpuinfo ]] &&            CPUINFO "$sosroot"
   [[ -n $mem   && -r $sosroot/proc/meminfo ]] &&            MEMINFO "$sosroot"
-  if [[ -n $mpath && -r $sosroot/proc/partitions ]]; then   STORAGE "$sosroot" --mpath
-  elif [[ -n $disks && -r $sosroot/proc/partitions ]]; then STORAGE "$sosroot"
-  fi
+  [[ -n $disks && -r $sosroot/proc/partitions ]] &&         STORAGE "$sosroot" --mpath
   [[ -n $lspci && -r $sosroot/lspci ]] &&                   LSPCI "$sosroot"
   [[ -n $ethtool ]] &&                                      ETHTOOL "$sosroot"
   [[ -n $ip && -r $sosroot/sos_commands/networking/ip_address ]] &&
                                                             IPADDR "$sosroot"
   [[ -n $net && -d $sosroot/proc/net ]] &&                  PROC_NET "$sosroot"
   [[ -n $sysctl && -d $sosroot/proc/sys ]] &&               SYSCTL "$sosroot" 2>/dev/null
+  [[ -n $ps && -r $sosroot/ps ]] &&                         PSCHECK "$sosroot"
   
 # If no SOSREPORT-ROOT provided, run checks against local system
 else
@@ -1404,14 +1447,13 @@ else
   [[ -n $os ]] &&                     OSINFO /
   [[ -n $cpu ]] &&                    CPUINFO /
   [[ -n $mem ]] &&                    MEMINFO /
-  if [[ -n $mpath ]]; then            STORAGE / --mpath
-  elif [[ -n $disks ]]; then          STORAGE /
-  fi
+  [[ -n $disks ]] &&                  STORAGE / --mpath
   [[ -n $lspci ]] &&                  LSPCI
   [[ $UID -eq 0 && -n $ethtool ]] &&  ETHTOOL
   [[ -n $ip ]] &&                     IPADDR
   [[ -n $net ]] &&                    PROC_NET /
   [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
+  [[ -n $ps ]] &&                     PSCHECK
 
 fi
 
