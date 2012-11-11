@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc1b last mod 2012/11/09
+# xsos v0.0.9rc2 last mod 2012/11/10
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -22,30 +22,106 @@ pzero=${0##*/}
 # Get version from line #2
 version=$(sed '2q;d' $0)
 
-# mem_unit can be k, m, or g and is used by the meminfo-code
-# Change the default here to avoid having to use cmd-line options
-# You can also change the formatting to suit your preference, e.g.
-#   mem_unit=" GiB"
-# If you change it like that, you'll need to tweak 2 of the meminfo
-# awk command's if statements to account for that.
-mem_unit="g"
+# Colors and colors and colors oh my (but only for bash v4)
+if [[ $BASH_VERSINFO -ge 4 ]]; then
+  declare -A c
+  c[reset]='\033[0;0m'
+  c[grey]='\033[00;30m';  c[GREY]='\033[01;30m';  c[bg_GREY]='\033[40m'
+  c[red]='\033[0;31m';    c[RED]='\033[1;31m';    c[bg_RED]='\033[41m'
+  c[green]='\033[0;32m';  c[GREEN]='\033[1;32m';  c[bg_GREEN]='\033[42m'
+  c[orange]='\033[0;33m'; c[ORANGE]='\033[1;33m'; c[bg_ORANGE]='\033[43m'
+  c[blue]='\033[0;34m';   c[BLUE]='\033[1;34m';   c[bg_BLUE]='\033[44m'
+  c[purple]='\033[0;35m'; c[PURPLE]='\033[1;35m'; c[bg_PURPLE]='\033[45m'
+  c[cyan]='\033[0;36m';   c[CYAN]='\033[1;36m';   c[bg_CYAN]='\033[46m'
+fi
+
+# ==============================================================================
+# ENVIRONMENT VARIABLES -- Modify these by setting them in your shell
+# environment, e.g. ~/.bash_profile or /etc/profile.d/xsos.sh
+#
+# COLORS
+#
+#   XSOS_COLORS (bool: y/n)
+#     Controls whether color is enabled or disabled by default
+#     Can also be controlled by cmdline arg 
+      [[ -z $XSOS_COLORS ]] && XSOS_COLORS=y
+#
+#   XSOS_COLOR_RESET -- color to reset terminal to after using other colors
+      [[ -z $XSOS_COLOR_RESET ]] && XSOS_COLOR_RESET=${c[reset]}
+#
+#   XSOS_COLOR_H1 -- color for content modules' primary header
+      [[ -z $XSOS_COLOR_H1 ]] && XSOS_COLOR_H1=${c[RED]}
+#
+#   XSOS_COLOR_H2 -- color for content modules' secondary header
+      [[ -z $XSOS_COLOR_H2 ]] && XSOS_COLOR_H2=${c[PURPLE]}
+#
+#   XSOS_COLOR_H3 -- color for content modules' tertiary header
+      [[ -z $XSOS_COLOR_H3 ]] && XSOS_COLOR_H3=${c[blue]}
+#
+#   XSOS_COLOR_IMPORTANT -- color for drawing attention to important data
+      [[ -z $XSOS_COLOR_IMPORTANT ]] && XSOS_COLOR_IMPORTANT=${c[cyan]}
+#
+#   XSOS_COLOR_WARN1 -- color for level-1 warnings
+      [[ -z $XSOS_COLOR_WARN1 ]] && XSOS_COLOR_WARN1=${c[orange]}
+#
+#   XSOS_COLOR_WARN2 -- color for level-2 warnings
+      [[ -z $XSOS_COLOR_WARN2 ]] && XSOS_COLOR_WARN2=${c[ORANGE]}
+#
+#   XSOS_COLOR_IFUP -- color for ethtool InterFace "up"
+      [[ -z $XSOS_COLOR_IFUP ]] && XSOS_COLOR_IFUP=${c[green]}
+#
+#   XSOS_COLOR_IFDOWN -- color for ethtool InterFace "down"
+      [[ -z $XSOS_COLOR_IFDOWN ]] && XSOS_COLOR_IFDOWN=${c[orange]}
+#
+#
+# XSOS_FOLD_WIDTH (positive int)
+#   Some content modules print line of unpredictable length
+#   This setting controls the wrapping width for modules that use it
+    [[ -z $XSOS_FOLD_WIDTH ]] && XSOS_FOLD_WIDTH=76
+#
+#
+# XSOS_UPDATE_CONFIRM (bool: y/n)
+#   Controls whether built-in update function prompts for confirmation
+    [[ -z $XSOS_UPDATE_CONFIRM ]] && XSOS_UPDATE_CONFIRM=y
+#
+#
+# XSOS_HEADING_SEPARATOR (str)
+#   Acts as a separator between content modules
+#   Should include at least 1 trailing new-line
+    [[ -z $XSOS_HEADING_SEPARATOR ]] && XSOS_HEADING_SEPARATOR="\n"
+#
+#
+# XSOS_ALL_VIEW (str of variables, semicolon-separated)
+#   Controls what content modules to run when -a/--all switch is used
+    [[ -z $XSOS_ALL_VIEW ]] && XSOS_ALL_VIEW='bios=y; os=y; cpu=y; mem=y; disks=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y; ps=y'
+#
+#
+# XSOS_DEFAULT_VIEW (str of variables, semicolon-separated)
+#   Controls default content modules, i.e. what to run when none are specififed
+    [[ -z $XSOS_DEFAULT_VIEW ]] && XSOS_DEFAULT_VIEW='os=y; cpu=y; mem=y; lspci=y; ip=y'
+#
+#
+# XSOS_PS_LEVEL (int: 0-3)
+#   Controls verbosity level (3 being highest) in PSCHECK() function
+    [[ -z $XSOS_PS_LEVEL ]] && XSOS_PS_LEVEL=1
+#
+#
+# XSOS_MEM_UNIT (str: k, m, g)
+#   Sets unit used by MEMINFO() function for printing
+#   Can also be controlled by cmdline arg 
+    [[ -z $XSOS_MEM_UNIT ]] && XSOS_MEM_UNIT="g"
+#   Formatting can be changed to suit preference, e.g. XSOS_MEM_UNIT=" GiB"
+#   In that case, will need to tweak 2 of the if-statements in MEMINFO() awk cmd
+#
+# ==============================================================================
+
 
 # Variables used a few times for indentation
+# Many more times the spaces are just manually inserted; not ready to be env variables
 H2INDENT="    "
 H3INDENT="      "
 
-# Colors and colors and colors oh my (but only for bash v4)
-if [[ $BASH_VERSINFO -ge 4 ]]; then
-  declare -A C
-  C[reset]='\033[0;0m'
-  C[grey]='\033[00;30m';  C[GREY]='\033[01;30m';  C[bg_GREY]='\033[40m'
-  C[red]='\033[0;31m';    C[RED]='\033[1;31m';    C[bg_RED]='\033[41m'
-  C[green]='\033[0;32m';  C[GREEN]='\033[1;32m';  C[bg_GREEN]='\033[42m'
-  C[orange]='\033[0;33m'; C[ORANGE]='\033[1;33m'; C[bg_ORANGE]='\033[43m'
-  C[blue]='\033[0;34m';   C[BLUE]='\033[1;34m';   C[bg_BLUE]='\033[44m'
-  C[purple]='\033[0;35m'; C[PURPLE]='\033[1;35m'; C[bg_PURPLE]='\033[45m'
-  C[cyan]='\033[0;36m';   C[CYAN]='\033[1;36m';   C[bg_CYAN]='\033[46m'
-fi
+
 
 USAGE() {
   echo "Usage: $pzero [-xKMvabocmdleinsp] [SOSREPORT-ROOT]"
@@ -71,7 +147,7 @@ Content options:"
  -i, --ip@show info from ip addr (BASH v4+ required)
  -n, --net@show info from /proc/net/dev
  -s, --sysctl@show important kernel sysctls
- -p, --ps@inspect top cpu-/mem-using processes" | column -ts@
+ -p, --ps@inspect running processes via ps" | column -ts@
   echo "
 Display options:"
   echo "
@@ -119,6 +195,18 @@ on earlier BASH versions (e.g. RHEL5), you get ...
  * No -i/--ip
  * No parsing of 'Special options'
 
+The following environment variables change the behavior of $pzero:
+  XSOS_COLORS    XSOS_FOLD_WIDTH    XSOS_HEADING_SEPARATOR
+  XSOS_ALL_VIEW  XSOS_DEFAULT_VIEW  XSOS_UPDATE_CONFIRM
+  XSOS_PS_LEVEL  XSOS_MEM_UNIT
+  
+The following environment variables control the default colors:
+  XSOS_COLOR_RESET      XSOS_COLOR_WARN1  XSOS_COLOR_WARN2
+  XSOS_COLOR_IMPORTANT  XSOS_COLOR_IFUP   XSOS_COLOR_IFDOWN
+  XSOS_COLOR_H1         XSOS_COLOR_H2     XSOS_COLOR_H3
+
+See the first page of \"$0\" for details.
+
 Version info: ${version:2}
 Report bugs or suggestions to <rsaw@redhat.com>
 Or see <github.com/ryran/xsos> for bug tracker & latest version
@@ -128,7 +216,7 @@ Alternatively, run $pzero with '--update|-U'"
 
 
 UPDATE() {
-  echo -e "${C[blue]}Checking $0 against latest version at github.com/ryran/xsos ...${C[GREY]}\n"
+  echo -e "${c[blue]}Checking $0 against latest version at github.com/ryran/xsos ...${c[GREY]}\n"
   latest_version_file=$(mktemp /tmp/xsos_latest.XXX)
   trap "rm $latest_version_file" EXIT
 
@@ -138,7 +226,7 @@ UPDATE() {
   elif command -v curl >/dev/null; then
     curl https://raw.github.com/ryran/xsos/master/xsos -o $latest_version_file; echo
   else
-    echo -e "${C[RED]}Need either wget or curl in \$PATH to perform the download!${C[reset]}"
+    echo -e "${c[RED]}Need either wget or curl in \$PATH to perform the download!${c[reset]}"
     exit 255
   fi
   
@@ -147,41 +235,47 @@ UPDATE() {
 
   # Compare currently running xsos with downloaded file
   if ! diff $0 $latest_version_file >/dev/null; then
-    echo -e "${C[blue]}The version you are running reports as:\n\t${C[orange]}${version:2}${C[blue]}\nThe version on github appears to be different and reports as:\n\t${C[ORANGE]}${latest_version:2}${C[blue]}"
-    echo -e "Would you like to see differences between them? (${C[GREEN]}y${C[blue]} or ${C[GREEN]}n${C[blue]})${C[GREEN]}"
-    read -p "> "
-    if [[ $REPLY == y ]]; then
-      if [[ -n $DISPLAY ]] && command -v meld >/dev/null; then
-        meld $0 $latest_version_file 2>/dev/null
-      elif [[ -n $DISPLAY ]] && command -v gvimdiff >/dev/null; then
-        gvimdiff $0 $latest_version_file 2>/dev/null
-      elif command -v vimdiff; then
-        vimdiff $0 $latest_version_file
-      else
-        # set name of tmp diff file
-        diff_file=$(mktemp /tmp/xsos.XXX.patch); trap "rm $diff_file" EXIT;
-        # create a diff file
-        diff -u $0 $latest_version_file > $diff_file
-        if [[ -n $DISPLAY ]] && command -v gedit >/dev/null; then
-          gedit $diff_file 2>/dev/null
+    echo -e "${c[blue]}The version you are running reports as:\n\t${c[orange]}${version:2}${c[blue]}\nThe version on github appears to be different and reports as:\n\t${c[ORANGE]}${latest_version:2}${c[blue]}"
+    if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
+      echo -e "Would you like to see differences between them? (${c[GREEN]}y${c[blue]} or ${c[GREEN]}n${c[blue]})${c[GREEN]}"
+      read -p "> "
+      if [[ $REPLY == y ]]; then
+        if [[ -n $DISPLAY ]] && command -v meld >/dev/null; then
+          meld $0 $latest_version_file 2>/dev/null
+        elif [[ -n $DISPLAY ]] && command -v gvimdiff >/dev/null; then
+          gvimdiff $0 $latest_version_file 2>/dev/null
+        elif command -v vimdiff; then
+          vimdiff $0 $latest_version_file
         else
-          less $diff_file
+          # set name of tmp diff file
+          diff_file=$(mktemp /tmp/xsos.XXX.patch); trap "rm $diff_file" EXIT;
+          # create a diff file
+          diff -u $0 $latest_version_file > $diff_file
+          if [[ -n $DISPLAY ]] && command -v gedit >/dev/null; then
+            gedit $diff_file 2>/dev/null
+          else
+            less $diff_file
+          fi
         fi
       fi
     fi
-    echo -e "${C[blue]}If you are sure you know what you are doing, type ${C[GREEN]}u${C[blue]}\nto replace $0 with the latest version${C[GREEN]}"
-    read -p "> "
+    if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
+      echo -e "${c[blue]}If you are sure you know what you are doing, type ${c[GREEN]}u${c[blue]}\nto replace $0 with the latest version${c[GREEN]}"
+      read -p "> "
+    else
+      REPLY=u
+    fi
     if [[ $REPLY == u ]]; then
-      echo -e "${C[blue]}Backing up current version and replacing it with downloaded version ...${C[cyan]}"
+      echo -e "${c[blue]}Backing up current version and replacing it with downloaded version ...${c[cyan]}"
       cp -v $0 /tmp/xsos.orig
       cp -v $latest_version_file $0
       chmod +x $0
-      echo -e "${C[reset]}"
+      echo -e "${c[reset]}"
     else
-      echo -e "${C[cyan]}Not performing update${C[reset]}\n"
+      echo -e "${c[cyan]}Not performing update${c[reset]}\n"
     fi
   else
-    echo -e "${C[blue]}$0 is the same version as what is on github, i.e.,\n\t${C[BLUE]}${version:2}${C[reset]}\n"
+    echo -e "${c[blue]}$0 is the same version as what is on github, i.e.,\n\t${c[BLUE]}${version:2}${c[reset]}\n"
   fi
   exit
 }
@@ -207,13 +301,13 @@ unset sfile
 
 # Parse command-line arguments
 PARSE() {
-  unset opts nocolor kb mb all bios os cpu mem disks lspci ethtool ip net sysctl ps
+  unset opts all bios os cpu mem disks lspci ethtool ip net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
-      -x|--nocolor) shift; nocolor=y          ;;
-      -K|--kb)      shift; mem_unit="k"       ;;
-      -M|--mb)      shift; mem_unit="m"       ;;
-      -v|--verbose) shift; PS_VERBOSE=v       ;;
+      -x|--nocolor) shift; XSOS_COLORS=n       ;;
+      -K|--kb)      shift; XSOS_MEM_UNIT="k"  ;;
+      -M|--mb)      shift; XSOS_MEM_UNIT="m"  ;;
+      -v|--verbose) shift; XSOS_PS_LEVEL=2    ;;
       -a|--all)     shift; opts=y; all=y      ;;
       -b|--bios)    shift; opts=y; bios=y     ;;
       -o|--os)      shift; opts=y; os=y       ;;
@@ -251,44 +345,37 @@ elif [[ $BASH_VERSINFO -lt 4 && -n $sfile ]]; then
   echo "Special options require use of BASH associative arrays" >&2
   echo "i.e., BASH v4.0 or higher (RHEL6/Fedora11 and above)" >&2
   exit 255
-# Set default view if no content options specified
+# Use default view if no content options specified
 elif [[ -z $opts ]]; then
-  os=y; cpu=y; mem=y; lspci=y; ip=y
+  eval $XSOS_DEFAULT_VIEW
 # Else, if "all" option specified, set full view
 elif [[ -n $all ]]; then
-  bios=y; os=y; cpu=y; mem=y; disks=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y; ps=y
+  eval $XSOS_ALL_VIEW
 fi
 
-
-# Uncomment the following if you'd like to disable colors by default
-# nocolor=y
-
-# If color should be disabled, don't initialize colors
-if [[ $nocolor == y || $BASH_VERSINFO -lt 4 ]]; then
-  unset C c_0 c_h1 c_h2 c_h3 c_imp c_sep c_up c_down
-# Taste the rainbow
+# If color should be enabled, taste the rainbow
+if [[ $XSOS_COLORS == y && $BASH_VERSINFO -ge 4 ]]; then
+  c[0]=$XSOS_COLOR_RESET
+  c[H1]=$XSOS_COLOR_H1
+  c[H2]=$XSOS_COLOR_H2
+  c[H3]=$XSOS_COLOR_H3
+  c[Imp]=$XSOS_COLOR_IMPORTANT
+  c[Warn1]=$XSOS_COLOR_WARN1
+  c[Warn2]=$XSOS_COLOR_WARN2
+  c[Up]=$XSOS_COLOR_IFUP
+  c[Down]=$XSOS_COLOR_IFDOWN
 else
-  c_0=${C[reset]}
-  c_h1=${C[RED]}
-  c_h2=${C[PURPLE]}
-  c_h3=${C[blue]}
-  c_imp=${C[cyan]}
-  c_sep=${C[GREY]}
-  c_up=${C[green]}
-  c_down=${C[orange]}
+  unset c
 fi
 
-# The following acts as a separator between content modules.
-heading_separator="\n"
-# It used to be a dark-grey separator line like this:
-#heading_separator="$c_sep-------------------------------------------------------------------------------$c_0\n"
 
+# ON TO THE CONTENT MODULES!
 
 DMIDECODE() {
   [[ -z $1 ]] && dmidecode=$(dmidecode 2>/dev/null) || dmidecode=$(<"$1")
-  echo -e "${c_h1}DMIDECODE${c_0}"
+  echo -e "${c[H1]}DMIDECODE${c[0]}"
   # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
-  echo -e "${c_h2}  BIOS:${c_0}"
+  echo -e "${c[H2]}  BIOS:${c[0]}"
   awk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode" |
     awk -F: '
       /Vendor:/       { Vendor      = $2 }
@@ -297,9 +384,9 @@ DMIDECODE() {
       END { printf "   %s, version%s,%s\n", Vendor, Version, ReleaseDate }
     '
   # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
-  echo -e "${c_h2}  System:${c_0}"
+  echo -e "${c[H2]}  System:${c[0]}"
   awk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode" |
-    awk -F: -vH3="$c_h3" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+    awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Manufacturer:/ { Mfr     = $2 }
       /Product Name:/ { Product = $2 }
       /Version:/      { Version = $2 }
@@ -316,9 +403,9 @@ DMIDECODE() {
   # Prints <CPU Manufacturer>, <CPU Family>, <CPU Current Speed>, <CPU Version>
   # Prints "<N> of <N> CPU sockets populated, <N> cores/<N> threads per CPU"
   # Prints "<N> total cores, <N> total threads"
-  echo -e "${c_h2}  CPU:${c_0}"
+  echo -e "${c[H2]}  CPU:${c[0]}"
   awk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode" |
-    awk -F: -vH3="$c_h3" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+    awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
       /Core Count:/   { SumCores   += $2; CoresPerCpu = $2 }
       /Thread Count:/ { SumThreads += $2; ThreadsPerCpu = $2 }
@@ -338,9 +425,9 @@ DMIDECODE() {
     '
   # Prints "<N> MB (<N> GB) total"
   # Prints "<N> of <N> DIMMs populated (max capacity <N>)"
-  echo -e "${c_h2}  Memory:${c_0}"
+  echo -e "${c[H2]}  Memory:${c[0]}"
   awk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode" |
-    awk -vH3="$c_h3" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+    awk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Size:/ { NumDimmSlots ++; if ($2 ~ /^[0-9]/) { NumDimms ++; SumRam+=$2 } }
       /Maximum Capacity:/ { MaxRam = $3" "$4 }
       END {
@@ -349,7 +436,7 @@ DMIDECODE() {
           NumDimms, NumDimmSlots, MaxRam
       }
     '
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
@@ -368,7 +455,7 @@ _CHECK_DISTRO() {
       [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
       
         # ... Then print it in orange
-        distrorelease=${C[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
+        distrorelease=${c[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
         
           # Otherwise, if only 1 line, all is well -- print it normally
           distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
@@ -377,13 +464,13 @@ _CHECK_DISTRO() {
     else
       distrorelease=$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
       if grep -qi fedora <<<"$distrorelease"; then
-        distrorelease=${C[bg_BLUE]}${C[ORANGE]}$distrorelease
+        distrorelease=${c[bg_BLUE]}${c[ORANGE]}$distrorelease
       elif egrep -qi 'oracle|suse|centos' <<<"$distrorelease"; then
-        distrorelease=${C[bg_GREY]}${C[RED]}$distrorelease
+        distrorelease=${c[bg_GREY]}${c[RED]}$distrorelease
       elif egrep -qi 'alpha|beta' <<<"$distrorelease"; then
-        distrorelease=${C[bg_RED]}${C[ORANGE]}$distrorelease
+        distrorelease=${c[bg_RED]}${c[ORANGE]}$distrorelease
       else
-        distrorelease=${C[ORANGE]}$distrorelease
+        distrorelease=${c[ORANGE]}$distrorelease
       fi
     fi
     
@@ -392,15 +479,15 @@ _CHECK_DISTRO() {
   
     # If able to source the new standard /etc/os-release, use that
     if source "$1/etc/os-release" 2>/dev/null; then
-      distrorelease=${C[ORANGE]}$PRETTY_NAME
+      distrorelease=${c[ORANGE]}$PRETTY_NAME
       
     # Otherwise, if any /etc/*-release or /etc/*_version files, just list their names
     elif [[ -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null) ]]; then
-      distrorelease=${C[ORANGE]}$(echo -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null | sed 's,^.*/etc,etc,g'))
+      distrorelease=${c[ORANGE]}$(echo -n $(ls "$1"/etc/*{-release,_version} 2>/dev/null | sed 's,^.*/etc,etc,g'))
     
     # Else, warn about no distro detected
     else
-      distrorelease="${C[RED]}Unable to detect"
+      distrorelease="${c[RED]}Unable to detect"
     fi
   fi
 }
@@ -575,22 +662,22 @@ OSINFO() {
   fi
   
   # Start printing stuff
-  echo -e "${c_h1}OS${c_0}"
-  echo -e "  ${c_h2}Hostname:${c_0}  ${c_imp}$hostname${c_0}"
-  echo -e "  ${c_h2}Distro:${c_0}    ${c_imp}$distrorelease${c_0}"
-  echo -e "  ${c_h2}Kernel:${c_0}    ${c_imp}$kernel${c_0}"
-  echo -e "  ${c_h2}Arch:${c_0}      $uname"
+  echo -e "${c[H1]}OS${c[0]}"
+  echo -e "  ${c[H2]}Hostname:${c[0]}  ${c[Imp]}$hostname${c[0]}"
+  echo -e "  ${c[H2]}Distro:${c[0]}    ${c[Imp]}$distrorelease${c[0]}"
+  echo -e "  ${c[H2]}Kernel:${c[0]}    ${c[Imp]}$kernel${c[0]}"
+  echo -e "  ${c[H2]}Arch:${c[0]}      $uname"
   
   [[ -n $runlevel ]] &&
-  echo -e "  ${c_h2}Runlevel:${c_0}  $runlevel  (default $initdefault)"
-  echo -e "  ${c_h2}SELinux:${c_0}   $(_CHECK_SELINUX "$1")"
+  echo -e "  ${c[H2]}Runlevel:${c[0]}  $runlevel  (default $initdefault)"
+  echo -e "  ${c[H2]}SELinux:${c[0]}   $(_CHECK_SELINUX "$1")"
   
   [[ -n $systime ]] &&
-  echo -e "  ${c_h2}Sys time:${c_0}  $systime"
+  echo -e "  ${c[H2]}Sys time:${c[0]}  $systime"
   
   # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
   [[ -n $uptime_input && -n $num_cpu ]] &&
-  awk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDB="${C[RED]}" -vRED="${C[red]}" -vORANGE="${C[orange]}" -vGREEN="${C[green]}" -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+  awk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDBOLD="${c[RED]}" -vRED="${c[red]}" -vORANGE="${c[orange]}" -vGREEN="${c[green]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       !/load average/ { next }
       {
       Time = $1
@@ -608,7 +695,7 @@ OSINFO() {
         if (LP[i] < 70) Color[i] = GREEN
         if (LP[i] > 69) Color[i] = ORANGE
         if (LP[i] > 89) Color[i] = RED
-        if (LP[i] > 99) Color[i] = REDB
+        if (LP[i] > 99) Color[i] = REDBOLD
       }
       
       if (SYSTIME == "")
@@ -621,7 +708,7 @@ OSINFO() {
     
   # Print info from proc/stat
   [[ -n $btime ]] &&
-  awk -vH2="$c_h2" -vH0="$c_0" -vH_IMP="$c_imp" '
+  awk -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
     /^cpu / {
       TotalTime = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9 + $10 + $11
       user    = $2 * 100 / TotalTime
@@ -647,45 +734,45 @@ OSINFO() {
   ' <"$1/proc/stat"
   
   # Print kernel tainted-status
-  echo -e "  ${c_h2}Kernel taint-check:${c_0} $(_CHECK_TAINTED "$1" H2)"
+  echo -e "  ${c[H2]}Kernel taint-check:${c[0]} $(_CHECK_TAINTED "$1" H2)"
 
   # Print kernel cmdline from proc/cmdline
-  echo -e "  ${c_h2}Booted kernel cmdline:${c_0}"
+  echo -e "  ${c[H2]}Booted kernel cmdline:${c[0]}"
   # If rescue mode detected, print a warning
   grep -qsw rescue "$1/proc/cmdline" &&
-    echo -e "${C[orange]}   (Rescue mode detected)${c_0}"
-  fold -sw76 "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
+    echo -e "${c[Warn1]}   (Rescue mode detected)${c[0]}"
+  fold -sw$XSOS_FOLD_WIDTH "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
   
   # Print default grub title statement
-  echo -e "  ${c_h2}GRUB default kernel line:${c_0}"
+  echo -e "  ${c[H2]}GRUB default kernel line:${c[0]}"
   if [[ -r $1/boot/grub/grub.conf ]]; then
     eval $(grep -qs ^default= "$1/boot/grub/grub.conf") || {
       default=0
-      echo -e "${C[orange]}   (Warning: \"default=\" missing in grub.conf; showing first title instead)${c_0}"
+      echo -e "${c[Warn1]}   (Warning: \"default=\" missing in grub.conf; showing first title instead)${c[0]}"
     }
-    sed 's,^title,\n\n,' "$1/boot/grub/grub.conf" | grep -v ^[[:graph:]] | awk -vDEFAULT=$((default+2)) -vRS="\n\n " 'NR == DEFAULT {print}' | grep -o 'vmlinuz-.*' | fold -sw76 | sed 's,^,    ,'
+    sed 's,^title,\n\n,' "$1/boot/grub/grub.conf" | grep -v ^[[:graph:]] | awk -vDEFAULT=$((default+2)) -vRS="\n\n " 'NR == DEFAULT {print}' | grep -o 'vmlinuz-.*' | fold -sw$XSOS_FOLD_WIDTH | sed 's,^,    ,'
   else
-    echo -e "${C[orange]}    Unable to detect${c_0}"
+    echo -e "${c[Warn1]}    Unable to detect${c[0]}"
   fi
   
   # Print and format kernel version
-  echo -e "  ${c_h2}Kernel version/build:${c_0}"
+  echo -e "  ${c[H2]}Kernel version/build:${c[0]}"
   # If kernel build was detected ...
   if [[ -n $kernel_build ]]; then
     # Print a notice if rescue mode
     grep -qsw rescue "$1/proc/cmdline" &&
-      echo -e "${C[orange]}   (Rescue mode detected; build info captured from logs of last boot)${c_0}"
+      echo -e "${c[Warn1]}   (Rescue mode detected; build info captured from logs of last boot)${c[0]}"
     # Format it to fit properly
-    kernel_build=$(fold -sw76 <<<"$kernel_build" | sed 's,^,    ,')
-    # Change color to orange if can't find "build.redhat.com"
+    kernel_build=$(fold -sw$XSOS_FOLD_WIDTH <<<"$kernel_build" | sed 's,^,    ,')
+    # Change color to warning color (orange) if can't find "build.redhat.com"
     grep -qe '\.z900\.redhat\.com' -e '\.build\.redhat\.com' -e '\.bos\.redhat\.com' -e '\.perf\.redhat\.com' <<<"$kernel_buildhost" ||
-      kernel_build="${C[orange]}$kernel_build${c_0}"
+      kernel_build="${c[Warn1]}$kernel_build${c[0]}"
     echo -e "$kernel_build"
   else
-    echo -e "${C[orange]}    Unable to detect${c_0}"
+    echo -e "${c[Warn1]}    Unable to detect${c[0]}"
   fi
       
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
@@ -756,21 +843,21 @@ CPUINFO() {
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
   
   # Print it all out
-  echo -e "${c_h1}CPU${c_0}"
-  echo -e "  ${c_imp}${num_cpu} logical processors${c_0} ${cores1}"
+  echo -e "${c[H1]}CPU${c[0]}"
+  echo -e "  ${c[Imp]}${num_cpu} logical processors${c[0]} ${cores1}"
   echo -e "  ${model_cpu} ${cpu_flags} ${coresNthreads}"
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
 MEMINFO() {
   [[ -f $1 ]] && meminfo=$1 || meminfo=$1/proc/meminfo
-  echo -e "${c_h1}MEMORY${c_0}"
+  echo -e "${c[H1]}MEMORY${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
-    echo -e "${C[ORANGE]}  WARNING: RESCUE MODE DETECTED${c_0}"
-    echo -e "${C[orange]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c_0}"
+    echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
+    echo -e "${c[Warn1]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c[0]}"
   fi
-  awk -vu="$mem_unit" -vORANGE="${C[orange]}" -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
+  awk -vu="$XSOS_MEM_UNIT" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     
     # Grab variables from meminfo
     /^MemTotal:/        { MemTotal  = $2 }
@@ -880,10 +967,9 @@ MEMINFO() {
         
         printf    "  %sRAM:%s\n", H2, H0
         printf    "    %s%.1f%s total%s [%.1f%s (%.0f%%) used]\n", H_IMP, MemTotal, u, H0, MemUsed, u, Mem_Percent
-       #printf    "    %.1f%s (%.0f%%) used\n", MemUsed, u, Mem_Percent
         printf    "    %s%.1f%s (%.0f%%) used excluding buffers/cache%s\n", H_IMP, MemUsedNoBC, u, MemNoBC_Percent, H0
         if (Dirty_Percent > 5)
-          printf  "    %s%.2f%s (%.0f%%) dirty%s\n", ORANGE, Dirty, u, Dirty_Percent, H0
+          printf  "    %s%.2f%s (%.0f%%) dirty%s\n", color_warn, Dirty, u, Dirty_Percent, H0
         else
           printf  "    %.2f%s (%.0f%%) dirty\n", Dirty, u, Dirty_Percent
         
@@ -905,7 +991,7 @@ MEMINFO() {
         
         printf    "  %sSwap:%s\n", H2, H0
         if (SwapTotal == 0)
-          printf  "    %sZERO system swap space configured%s\n", ORANGE, H0
+          printf  "    %sZERO system swap space configured%s\n", color_warn, H0
         else
           printf  "    %.1f%s (%.0f%%) used of %.1f%s total\n", SwapUsed, u, Swap_Percent, SwapTotal, u
       }
@@ -917,10 +1003,9 @@ MEMINFO() {
         
         printf    "  %sRAM:%s\n", H2, H0
         printf    "    %s%.0f%s total%s [%.0f%s (%.1f%%) used]\n", H_IMP, MemTotal, u, H0, MemUsed, u, Mem_Percent
-       #printf    "    %.0f%s (%.1f%%) used\n", MemUsed, u, Mem_Percent
         printf    "    %s%.0f%s (%.1f%%) used excluding buffers/cache%s\n", H_IMP, MemUsedNoBC, u, MemNoBC_Percent, H0
         if (Dirty_Percent > 5)
-          printf  "    %s%.0f%s (%.1f%%) dirty%s\n", ORANGE, Dirty, u, Dirty_Percent, H0
+          printf  "    %s%.0f%s (%.1f%%) dirty%s\n", color_warn, Dirty, u, Dirty_Percent, H0
         else
           printf  "    %.0f%s (%.1f%%) dirty\n", Dirty, u, Dirty_Percent
         
@@ -942,18 +1027,18 @@ MEMINFO() {
         
         printf    "  %sSwap:%s\n", H2, H0
         if (SwapTotal == 0)
-          printf  "    %sZERO system swap space configured%s\n", ORANGE, H0
+          printf  "    %sZERO system swap space configured%s\n", color_warn, H0
         else
           printf  "    %.0f%s (%.1f%%) used of %.0f%s total\n", SwapUsed, u, Swap_Percent, SwapTotal, u
       }
     }
   ' <"$meminfo"
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
 STORAGE() {
-  echo -e "${c_h1}STORAGE${c_0}"
+  echo -e "${c[H1]}STORAGE${c[0]}"
   if [[ $2 == --mpath ]]; then
     # Get multipath input from command, because $1 is system
     if [[ $1 == / && $UID -eq 0 ]]; then
@@ -969,7 +1054,7 @@ STORAGE() {
   # If so, print out the mpath devices and hide their children from the later disk printout
   scsi_blacklist=
   if [[ -n $mpath_input ]] && ! egrep -q 'no.paths|multipath.conf.*not.exist' <<<"$mpath_input"; then
-    echo -e "${c_h2}  Multipath:${c_0}"
+    echo -e "${c[H2]}  Multipath:${c[0]}"
     grep -B1 '^\[size=' <<<"$mpath_input" |
       awk '
         BEGIN { RS = "--" }
@@ -1002,7 +1087,7 @@ STORAGE() {
   # Yay, let's go.
   [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
   [[ -f $1 ]] && partitions=$1 || partitions=$1/proc/partitions
-  echo -e "  ${c_h2}Disks:${c_0}"
+  echo -e "  ${c[H2]}Disks:${c[0]}"
   egrep -v "${scsi_blacklist%?}" "$partitions" |
     awk -vblacklisted=$bl '
       $4 ~ /^hd.$|^sd[[:alpha:]]+$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]+$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd[[:alpha:]]+$|^vd[[:alpha:]]+$/ {
@@ -1020,7 +1105,7 @@ STORAGE() {
           printf "    %s   %.1f G\n", disk_sorted[i], disk[disk_sorted[i]]
       }
     '
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
@@ -1032,8 +1117,8 @@ LSPCI() {
   else
     lspci_input=$(<"$1/lspci")
   fi
-  echo -e "${c_h1}LSPCI${c_0}"
-  awk -vH_IMP="$c_imp" -vH2="$c_h2" -vH0="$c_0" '
+  echo -e "${c[H1]}LSPCI${c[0]}"
+  awk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     !/Ethernet controller:|Network controller:/ {
       next
     }
@@ -1067,9 +1152,9 @@ LSPCI() {
       }
     }
   ' <<<"$lspci_input"
-  echo -e "${c_h2}  VGA:${c_0}"
+  echo -e "${c[H2]}  VGA:${c[0]}"
   awk -F: '$2 ~ /^.... VGA/ { print "   "$3}' <<<"$lspci_input"
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
@@ -1082,7 +1167,7 @@ IPADDR() {
   if [[ -z $BASH_VERSINFO || $BASH_VERSINFO -lt 4 ]]; then
     echo "The -i/--ip option requires use of BASH associative arrays" >&2
     echo "i.e., BASH v4.0 or higher (RHEL6/Fedora11 and above)" >&2
-    echo -en $heading_separator >&2
+    echo -en $XSOS_HEADING_SEPARATOR >&2
     return
   fi
 
@@ -1107,7 +1192,7 @@ IPADDR() {
   declare -A ip_input slaveof ipv4 ipv4_alias state mac 
   
   # Begin ...
-  echo -e "${c_h1}IP${c_0}"
+  echo -e "${c[H1]}IP${c[0]}"
   
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   {
@@ -1164,13 +1249,13 @@ IPADDR() {
     
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
-      awk -vH0="$c_0" -vH2="$c_h2" -vH3="$c_h3" '
+      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
         {
           if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }'
 
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
@@ -1198,16 +1283,16 @@ ETHTOOL() {
   
   # If have ethdevs to work on ...
   if [[ -n $ethdevs ]]; then
-    echo -e "${c_h1}ETHTOOL${c_0}"
+    echo -e "${c[H1]}ETHTOOL${c[0]}"
     for i in $ethdevs; do
       echo -e "  $i~$(__ethtool $i |
       awk '
-        /Link detected:/    { link = $3; sub(/yes/, "UP", link); sub(/no/, "DOWN", link) }
+        /Link detected:/    { link = $3; sub(/yes/, "up", link); sub(/no/, "DOWN", link) }
         /Speed:/            { spd = $2 }
         /Duplex:/           { dup = tolower($2) }
         /Auto-negotiation:/ { aneg = $2; sub(/on/, "Y", aneg); sub(/off/, "N", aneg) }
         END {
-          if (link == "UP" && spd != "")
+          if (link == "up" && spd != "")
             linkdetails = " "spd" "dup" (autoneg="aneg")"
           printf "link=%s%s~", link, linkdetails
         }
@@ -1222,16 +1307,16 @@ ETHTOOL() {
       '
     )"
     done | column -ts~ |
-      awk -vH0="$c_0" -vU="$c_up" -vD="$c_down" '/DOWN/{print D $0 H0}  /UP/{print U $0 H0}'
+      awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" '/DOWN/{print D $0 H0}  /up/{print U $0 H0}'
     [[ ${PWD##*/} == networking ]] && cd - &>/dev/null
   fi
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
 PROC_NET() {
   [[ -f $1 ]] && netdev=$1 || netdev=$1/proc/net/dev
-  echo -e "${c_h1}NETDEV${c_0}"
+  echo -e "${c[H1]}NETDEV${c[0]}"
   tail -n+3 "$netdev" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
     awk '
       {
@@ -1255,18 +1340,18 @@ PROC_NET() {
             TxMBytes[IF[i]], TxPackets[IF[i]], TxErrs[IF[i]], TxDrop[IF[i]]
       }
     ' | column -ts~ |
-      awk -vH0="$c_0" -vH2="$c_h2" -vH3="$c_h3" '
+      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
         {
           if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }'
 #  if [[ -d $1 ]]; then
-#    echo -en $heading_separator
-#    echo -e "${c_h1}SOCKSTAT${c_0}"
-#    awk -vS="  " -vH3="$c_h3" -vH0="$c_0" '
+#    echo -en $XSOS_HEADING_SEPARATOR
+#    echo -e "${c[H1]}SOCKSTAT${c[0]}"
+#    awk -vS="  " -vH3="${c[H3]}" -vH0="${c[0]}" '
 #      { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
 #  fi
-  echo -en $heading_separator
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
@@ -1322,47 +1407,47 @@ SYSCTL() {
   # VM PageSize (don't know how to find this from a sosreport,
   # but I doubt that will often be a problem)
   [[ $1 == / ]] && pgsz=$(getconf PAGESIZE) || pgsz=4
-  echo -e "${c_h1}SYSCTLS${c_0}"
+  echo -e "${c[H1]}SYSCTLS${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
-    echo -e "${C[ORANGE]}  WARNING: RESCUE MODE DETECTED${c_0}"
-    echo -e "${C[orange]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c_0}"
+    echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
+    echo -e "${c[Warn1]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c[0]}"
   fi
-  echo -e "  ${c_h2}kernel.${c_0}
-    ${c_h3}osrelease:${c_0} $(<"$1/proc/sys/kernel/osrelease")
-    ${c_h3}tainted:${c_0} $(_CHECK_TAINTED "$1" H3)
-    ${c_h3}random.boot_id:${c_0} $(<"$1/proc/sys/kernel/random/boot_id")
-    ${c_h3}random.entropy_avail:${c_0} $(<"$1/proc/sys/kernel/random/entropy_avail")
-    ${c_h3}panic:${c_0} $(<"$1/proc/sys/kernel/panic") (seconds til reboot after panic)
-    ${c_h3}hung_task_panic:${c_0} $(<"$1/proc/sys/kernel/hung_task_panic")
-    ${c_h3}panic_on_oops:${c_0} $(<"$1/proc/sys/kernel/panic_on_oops")
-    ${c_h3}panic_on_unrecovered_nmi:${c_0} $(<"$1/proc/sys/kernel/panic_on_unrecovered_nmi")
-    ${c_h3}sysrq:${c_0} $(<"$1/proc/sys/kernel/sysrq")
-    ${c_h3}sem:${c_0} $(awk -vS="$H3INDENT" '{print $1,$2,$3,$4; printf "%smax semaphores per array = %d\n%smax sems system-wide     = %d\n%smax ops per semop call   = %d\n%smax number of arrays     = %d\n", S,$1,S,$2,S,$3,S,$4}' <"$1/proc/sys/kernel/sem")
-    ${c_h3}shmall (pages):${c_0} $(<"$1/proc/sys/kernel/shmall") ($(awk -vPGSZ="$pgsz" '{printf "%.1f G max total shared memory\n", $1*PGSZ/1024/1024}' <"$1/proc/sys/kernel/shmall"))
-    ${c_h3}shmmax (bytes):${c_0} $(<"$1/proc/sys/kernel/shmmax") ($(awk '{printf "%.2f G max segment size\n", $1/1024/1024/1024}' <"$1/proc/sys/kernel/shmmax"))
-    ${c_h3}shmmni (segments):${c_0} $(<"$1/proc/sys/kernel/shmmni") (max number of segs)
-  ${c_h2}vm.${c_0}
-    ${c_h3}dirty_ratio:${c_0} $(<"$1/proc/sys/vm/dirty_ratio") %
-    ${c_h3}dirty_background_ratio:${c_0} $(<"$1/proc/sys/vm/dirty_background_ratio") %
-    ${c_h3}dirty_bytes:${c_0} $(<"$1/proc/sys/vm/dirty_bytes") b
-    ${c_h3}dirty_background_bytes:${c_0} $(<"$1/proc/sys/vm/dirty_background_bytes") b
-    ${c_h3}dirty_expire_centisecs:${c_0} $(<"$1/proc/sys/vm/dirty_expire_centisecs")
-    ${c_h3}dirty_writeback_centisecs:${c_0} $(<"$1/proc/sys/vm/dirty_writeback_centisecs")
-    ${c_h3}nr_hugepages:${c_0} $(<"$1/proc/sys/vm/nr_hugepages") pages
-    ${c_h3}overcommit_memory:${c_0} $(<"$1/proc/sys/vm/overcommit_memory")
-    ${c_h3}overcommit_ratio:${c_0} $(<"$1/proc/sys/vm/overcommit_ratio") %
-    ${c_h3}panic_on_oom:${c_0} $(<"$1/proc/sys/vm/panic_on_oom")
-  ${c_h2}net.${c_0}
-    ${c_h3}ipv4.icmp_echo_ignore_all:${c_0} $(<"$1/proc/sys/net/ipv4/icmp_echo_ignore_all")
-    ${c_h3}ipv4.ip_forward:${c_0} $(<"$1/proc/sys/net/ipv4/ip_forward")
-    ${c_h3}ipv4.tcp_max_orphans (sockets):${c_0} $(<"$1/proc/sys/net/ipv4/tcp_max_orphans") ($(awk '{printf "%d M @ max 64 K per orphan\n", $1*64/1024}' <"$1/proc/sys/net/ipv4/tcp_max_orphans"))
-    ${c_h3}ipv4.tcp_mem (pages):${c_0} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_mem") ($(awk -vPGSZ="$pgsz" '{printf "%.2f G, %.2f G, %.2f G\n", $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/tcp_mem"))
-    ${c_h3}ipv4.udp_mem (pages):${c_0} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/udp_mem") ($(awk -vPGSZ="$pgsz" '{printf "%.2f G, %.2f G, %.2f G\n", $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/udp_mem"))
-    ${c_h3}ipv4.tcp_rmem (bytes):${c_0} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_rmem") ($(awk '{printf "%d K, %d K, %d K\n", $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_rmem"))
-    ${c_h3}ipv4.tcp_wmem (bytes):${c_0} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_wmem") ($(awk '{printf "%d K, %d K, %d K\n", $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_wmem"))
-    ${c_h3}ipv4.udp_rmem_min (bytes):${c_0} $(<"$1/proc/sys/net/ipv4/udp_rmem_min") ($(awk '{printf "%d K\n", $1/1024}' <"$1/proc/sys/net/ipv4/udp_rmem_min"))
-    ${c_h3}ipv4.udp_wmem_min (bytes):${c_0} $(<"$1/proc/sys/net/ipv4/udp_wmem_min") ($(awk '{printf "%d K\n", $1/1024}' <"$1/proc/sys/net/ipv4/udp_wmem_min"))"
-  echo -en $heading_separator
+  echo -e "  ${c[H2]}kernel.${c[0]}
+    ${c[H3]}osrelease:${c[0]} $(<"$1/proc/sys/kernel/osrelease")
+    ${c[H3]}tainted:${c[0]} $(_CHECK_TAINTED "$1" H3)
+    ${c[H3]}random.boot_id:${c[0]} $(<"$1/proc/sys/kernel/random/boot_id")
+    ${c[H3]}random.entropy_avail:${c[0]} $(<"$1/proc/sys/kernel/random/entropy_avail")
+    ${c[H3]}panic:${c[0]} $(<"$1/proc/sys/kernel/panic") (seconds til reboot after panic)
+    ${c[H3]}hung_task_panic:${c[0]} $(<"$1/proc/sys/kernel/hung_task_panic")
+    ${c[H3]}panic_on_oops:${c[0]} $(<"$1/proc/sys/kernel/panic_on_oops")
+    ${c[H3]}panic_on_unrecovered_nmi:${c[0]} $(<"$1/proc/sys/kernel/panic_on_unrecovered_nmi")
+    ${c[H3]}sysrq:${c[0]} $(<"$1/proc/sys/kernel/sysrq")
+    ${c[H3]}sem:${c[0]} $(awk -vS="$H3INDENT" '{print $1,$2,$3,$4; printf "%smax semaphores per array = %d\n%smax sems system-wide     = %d\n%smax ops per semop call   = %d\n%smax number of arrays     = %d\n", S,$1,S,$2,S,$3,S,$4}' <"$1/proc/sys/kernel/sem")
+    ${c[H3]}shmall (pages):${c[0]} $(<"$1/proc/sys/kernel/shmall") ($(awk -vPGSZ="$pgsz" '{printf "%.1f G max total shared memory\n", $1*PGSZ/1024/1024}' <"$1/proc/sys/kernel/shmall"))
+    ${c[H3]}shmmax (bytes):${c[0]} $(<"$1/proc/sys/kernel/shmmax") ($(awk '{printf "%.2f G max segment size\n", $1/1024/1024/1024}' <"$1/proc/sys/kernel/shmmax"))
+    ${c[H3]}shmmni (segments):${c[0]} $(<"$1/proc/sys/kernel/shmmni") (max number of segs)
+  ${c[H2]}vm.${c[0]}
+    ${c[H3]}dirty_ratio:${c[0]} $(<"$1/proc/sys/vm/dirty_ratio") %
+    ${c[H3]}dirty_background_ratio:${c[0]} $(<"$1/proc/sys/vm/dirty_background_ratio") %
+    ${c[H3]}dirty_bytes:${c[0]} $(<"$1/proc/sys/vm/dirty_bytes") b
+    ${c[H3]}dirty_background_bytes:${c[0]} $(<"$1/proc/sys/vm/dirty_background_bytes") b
+    ${c[H3]}dirty_expire_centisecs:${c[0]} $(<"$1/proc/sys/vm/dirty_expire_centisecs")
+    ${c[H3]}dirty_writeback_centisecs:${c[0]} $(<"$1/proc/sys/vm/dirty_writeback_centisecs")
+    ${c[H3]}nr_hugepages:${c[0]} $(<"$1/proc/sys/vm/nr_hugepages") pages
+    ${c[H3]}overcommit_memory:${c[0]} $(<"$1/proc/sys/vm/overcommit_memory")
+    ${c[H3]}overcommit_ratio:${c[0]} $(<"$1/proc/sys/vm/overcommit_ratio") %
+    ${c[H3]}panic_on_oom:${c[0]} $(<"$1/proc/sys/vm/panic_on_oom")
+  ${c[H2]}net.${c[0]}
+    ${c[H3]}ipv4.icmp_echo_ignore_all:${c[0]} $(<"$1/proc/sys/net/ipv4/icmp_echo_ignore_all")
+    ${c[H3]}ipv4.ip_forward:${c[0]} $(<"$1/proc/sys/net/ipv4/ip_forward")
+    ${c[H3]}ipv4.tcp_max_orphans (sockets):${c[0]} $(<"$1/proc/sys/net/ipv4/tcp_max_orphans") ($(awk '{printf "%d M @ max 64 K per orphan\n", $1*64/1024}' <"$1/proc/sys/net/ipv4/tcp_max_orphans"))
+    ${c[H3]}ipv4.tcp_mem (pages):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_mem") ($(awk -vPGSZ="$pgsz" '{printf "%.2f G, %.2f G, %.2f G\n", $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/tcp_mem"))
+    ${c[H3]}ipv4.udp_mem (pages):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/udp_mem") ($(awk -vPGSZ="$pgsz" '{printf "%.2f G, %.2f G, %.2f G\n", $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/udp_mem"))
+    ${c[H3]}ipv4.tcp_rmem (bytes):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_rmem") ($(awk '{printf "%d K, %d K, %d K\n", $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_rmem"))
+    ${c[H3]}ipv4.tcp_wmem (bytes):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_wmem") ($(awk '{printf "%d K, %d K, %d K\n", $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_wmem"))
+    ${c[H3]}ipv4.udp_rmem_min (bytes):${c[0]} $(<"$1/proc/sys/net/ipv4/udp_rmem_min") ($(awk '{printf "%d K\n", $1/1024}' <"$1/proc/sys/net/ipv4/udp_rmem_min"))
+    ${c[H3]}ipv4.udp_wmem_min (bytes):${c[0]} $(<"$1/proc/sys/net/ipv4/udp_wmem_min") ($(awk '{printf "%d K\n", $1/1024}' <"$1/proc/sys/net/ipv4/udp_wmem_min"))"
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
@@ -1376,37 +1461,58 @@ PSCHECK() {
     input=$(<"$1/ps")
   fi
   
-  # Set default options
-  num_comm_args=2
-  num_lines=10
-  
-  # Verbose funness
-  if [[ $PS_VERBOSE == v ]]; then
-    num_comm_args=99
-    num_lines=20
-  elif [[ $PS_VERBOSE == vv ]]; then
-    num_comm_args=999
-    num_lines=60
+  # Verbosity? We den need no stinkin' verbosity!
+  if [[ $XSOS_PS_LEVEL -eq 0 ]]; then
+    # V-level 0: Less than default
+    num_top_users=3
+    num_comm_args=0
+    num_process_lines=5
+    process_line_length=100
+  elif [[ -z $XSOS_PS_LEVEL || $XSOS_PS_LEVEL -eq 1 ]]; then
+    # V-level 1: Default
+    num_top_users=10
+    num_comm_args=2
+    num_process_lines=10
+    process_line_length=150
+  elif [[ $XSOS_PS_LEVEL -eq 2 ]]; then
+    # V-level 2: Verbose
+    num_top_users=20
+    num_comm_args=10
+    num_process_lines=20
+    process_line_length=512
+  elif [[ $XSOS_PS_LEVEL -eq 3 ]]; then
+    # V-level 3: MOOOAAAARR
+    num_top_users=60
+    num_comm_args=1023
+    num_process_lines=60
+    process_line_length=2047
   fi
   
   # Perfectly columnize ps input and chop off extra command args based on above options
-  input=$(awk -vMAX_fields=$((num_comm_args+12)) '{for (i=1; i<11; i++) printf $i"~"; for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "; printf "\n"}' <<<"$input" | column -ts~ | sed 's,^,    ,')
+  input=$(awk -vMAX_fields=$((num_comm_args+12)) '{for (i=1; i<11; i++) printf $i"~"; for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "; printf "\n"}' <<<"$input" | cut -c-$process_line_length | column -ts~ | sed 's,^,    ,')
   # Deal with header
   ps_header=$(head -n1 <<<"$input")
   ps_input=$(tail -n+2 <<<"$input")
   
-  # Calculte top-cpu-using & top-mem-using users
-  top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) if (pCPU[user]>0 || sRSS[user]>10240) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+  # Format and prepare sleeping/zombie processes
+  Dsleepers=$(awk -vcolor_warn="${c[Warn1]}" -vc_0="${c[0]}" '$8~/D/ {print color_warn $0 c_0}' <<<"$ps_input")
+  Zombies=$(awk -vc_grey="${c[GREY]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
+  [[ -n $Dsleepers ]] && Dsleepers="\n$Dsleepers"
+  [[ -n $Zombies ]] && Zombies="\n$Zombies"
+  [[ -z $Dsleepers && -z $Zombies ]] && Dsleepers="\n      ${c[grey]}(None)${c[0]}"
+  
+  # Calculte top cpu-using & mem-using users
+  top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) if (pCPU[user]>0 || sRSS[user]>4096) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
   top_users_header=$(head -n1 <<<"$top_users")
-  top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2)
+  top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2 | head -n$num_top_users)
   
   # Print!
-  echo -e "${c_h1}PS CHECK${c_0}
-  ${c_h2}Uninteruptible sleep & Defunct processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(awk '$8~/D|Z/' <<<"$ps_input")
-  ${c_h2}Top CPU-using processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(sort -rnk3 <<<"$ps_input" | head -n$num_lines)
-  ${c_h2}Top MEM-using processes:${c_0} \n${c_h3}$ps_header${c_0} \n$(sort -rnk4 <<<"$ps_input" | head -n$num_lines)
-  ${c_h2}Top users, sorted by CPU-usage:${c_0} \n${c_h3}$top_users_header${c_0} \n$top_users"
-  echo -en $heading_separator
+  echo -e "${c[H1]}PS CHECK${c[0]}
+  ${c[H2]}Top users of CPU & MEM:${c[0]} \n${c[H3]}$top_users_header${c[0]} \n$top_users
+  ${c[H2]}Uninteruptible sleep & Defunct processes:${c[0]} \n${c[H3]}$ps_header${c[0]} $Dsleepers $Zombies
+  ${c[H2]}Top CPU-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk3 <<<"$ps_input" | head -n$num_process_lines)
+  ${c[H2]}Top MEM-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk4 <<<"$ps_input" | head -n$num_process_lines)"
+  echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
