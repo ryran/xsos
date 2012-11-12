@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc2 last mod 2012/11/10
+# xsos v0.0.9rc2b last mod 2012/11/12
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1456,9 +1456,9 @@ PSCHECK() {
   if [[ -z $1 ]]; then
     input=$(ps aux)
   elif [[ -f $1 ]]; then
-    input=$(<"$1")
+    input=$(awk '!/\/.*bin/ && NF!=0' "$1")
   else
-    input=$(<"$1/ps")
+    input=$(awk '!/\/.*bin/ && NF!=0' "$1/ps")
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
