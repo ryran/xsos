@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc2b last mod 2012/11/12
+# xsos v0.0.9rc3 last mod 2012/11/13
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -205,7 +205,7 @@ The following environment variables control the default colors:
   XSOS_COLOR_IMPORTANT  XSOS_COLOR_IFUP   XSOS_COLOR_IFDOWN
   XSOS_COLOR_H1         XSOS_COLOR_H2     XSOS_COLOR_H3
 
-See the first page of \"$0\" for details.
+See the first page or so of $pzero for details.
 
 Version info: ${version:2}
 Report bugs or suggestions to <rsaw@redhat.com>
@@ -1117,9 +1117,11 @@ LSPCI() {
   else
     lspci_input=$(<"$1/lspci")
   fi
+
   echo -e "${c[H1]}LSPCI${c[0]}"
-  awk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
-    !/Ethernet controller:|Network controller:/ {
+
+  awk -vSEARCH="$1" -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+    !/Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:/ {
       next
     }
     {
@@ -1127,17 +1129,17 @@ LSPCI() {
       $1 = ""
       sub(" ", "")
       split($0, type, ":")
-      iface[type[2]] ++
+      dev[type[2]] ++
       if (!(slot[1] SUBSEP type[2] in slots)) {
         slots[slot[1], type[2]]
         slotcount[type[2]] ++
       }
     }
     END {
-      printf "%s  Net:%s\n", H2, H0
-      for (ifacetype in iface) {
-        slotc = slotcount[ifacetype]
-        typec = iface[ifacetype]
+      printf "%s  Net/Storage:%s\n", H2, H0
+      for (devtype in dev) {
+        slotc = slotcount[devtype]
+        typec = dev[devtype]
         ports = ""
         if (typec > 1) {
           numports = typec/slotc
@@ -1145,13 +1147,13 @@ LSPCI() {
           else if (numports == 2) numports = "dual"
           else if (numports == 3) numports = "triple"
           else if (numports == 4) numports = "quad"
-          if (slotc > 1) plural = "s"
-          ports = "\n    └─" slotc " " numports "-port NIC" plural
+          ports = " "slotc " " numports "-port"
         }
-        printf "    %s%s%s%s%s\n", H_IMP, typec, H0, ifacetype, ports
+        printf "   %s%s (%s)%s%s\n", H_IMP, ports, typec, H0, devtype
       }
     }
   ' <<<"$lspci_input"
+  
   echo -e "${c[H2]}  VGA:${c[0]}"
   awk -F: '$2 ~ /^.... VGA/ { print "   "$3}' <<<"$lspci_input"
   echo -en $XSOS_HEADING_SEPARATOR
