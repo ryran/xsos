@@ -86,13 +86,13 @@ MEMORY
     0.0g (0%) used of 200.0g total
 
 LSPCI
-  Net:
-    4 NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42)
-    └─1 quad-port NIC
-    6 ServerEngines Corp. Emulex OneConnect 10Gb NIC (rev 02)
-    └─3 dual-port NICs
+  Net/Storage:
+    1 quad-port (4) NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42)
+    6 dual-port (12) QLogic Corp. ISP2532-based 8Gb Fibre Channel to PCI Express HBA (rev 02)
+    3 dual-port (6) ServerEngines Corp. Emulex OneConnect 10Gb NIC (rev 02)
   VGA:
     ATI Technologies Inc ES1000 (rev 02)
+
 
 IP
   Interface       Slave Of  IPv4 Address        State  MAC Address
@@ -205,7 +205,14 @@ Alternatively, run xsos with '--update|-U'
 Run on localhost with a few options:
 
 ```
-[rsaw@sawzall]$ sudo xsos --ip --ethtool --net --ps
+[rsaw@sawzall]$ sudo xsos --ip --lspci --ethtool --net --ps
+LSPCI
+  Net/Storage:
+    (1) Intel Corporation Centrino Ultimate-N 6300 (rev 3e)
+    (1) Intel Corporation 82579LM Gigabit Network Connection (rev 04)
+  VGA:
+    Intel Corporation 2nd Generation Core Processor Family Integrated Graphics Controller (rev 09)
+
 ETHTOOL
   em1         link=DOWN                        drv e1000e v2.0.0-k / fw 0.13-3
   tun0        link=UP 10Mb/s full (autoneg=N)  drv tun v1.6
@@ -467,11 +474,9 @@ THINGS THAT MIGHT SURPRISE YOU
 
 [rsaw@server]$ xsos -l
 LSPCI
-  Netdevs:
-    2 Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-    └─2 single-port NICs
-    4 Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-    └─2 dual-port NICs
+  Net/Storage:
+    2 single-port (2) Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
+    2 dual-port (4) Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
   Graphics:
     Advanced Micro Devices [AMD] nee ATI ES1000 (rev 02)
 ```
@@ -482,7 +487,7 @@ AUTHORS
 
 As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill](http://b19.org).
 
-However, people rarely accomplish things in a vacuum... I am very thankful to StackOverflow and a couple prolific users over there. [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) have both offered answers containing pieces of code that were extremely instructive in helping me to advance my `awk` career.
+However, people rarely accomplish things in a vacuum... I am very thankful to StackOverflow and a couple prolific users over there. [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) both offered answers containing pieces of code that were extremely instructive early on in my awk career.
 
 Please contact me if you have ideas, suggestions, questions, or want to collaborate on this or something similar. For specific bugs and feature-requests, you can [post a new issue on the tracker](/ryran/xsos/issues).
 
