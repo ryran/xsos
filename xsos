@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc3 last mod 2012/11/13
+# xsos v0.0.9rc3b last mod 2012/11/13
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1120,7 +1120,7 @@ LSPCI() {
 
   echo -e "${c[H1]}LSPCI${c[0]}"
 
-  awk -vSEARCH="$1" -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+  awk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     !/Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:/ {
       next
     }
@@ -1217,12 +1217,20 @@ IPADDR() {
       # Get macaddr for $i (don't show if all zeros)
       mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${ip_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${ip_input[$i]}" || echo "-")
       
-      # If $i has an ipv4 address, get it and ...
+      # If $i has an ipv4 address, time to figure out what it is
       if grep -q "inet .* ${i%@*}\$" <<<"${ip_input[$i]}"; then
-        ipv4[$i]=$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${ip_input[$i]}")
         
-        # ... Print out all info for $i
-        echo "  $i~${slaveof[$i]}~${ipv4[$i]}~${state[$i]}~${mac[$i]}"
+        # We could potentially have more than one non-alias ipaddr...
+        # So we need to set up a counter and do a loop
+        n=0
+        while read ipv4addr; do
+          if [[ $n -eq 0 ]]; then
+            echo "  $i~${slaveof[$i]}~$ipv4addr~${state[$i]}~${mac[$i]}"
+          else
+            echo "   ~ ~$ipv4addr~ ~ "
+          fi
+          n=$((n+1))
+        done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${ip_input[$i]}")"
       
       # Otherwise, print out all info with ipv4 addr set to "-"
       else
@@ -1239,7 +1247,7 @@ IPADDR() {
           ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${ip_input[$i]}")
           
           # ... Print out a new line with its ipv4 addr
-          echo "  $alias~-~${ipv4_alias[$alias]}~up~-"
+          echo "  $alias~ ~${ipv4_alias[$alias]}~ ~ "
         done
       fi
       
