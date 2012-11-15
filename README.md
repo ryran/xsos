@@ -31,7 +31,7 @@ Jump to ...
 EXAMPLES IN ACTION
 -------
 
-Run on a sosreport with no options:
+**Run on a sosreport with no options:**
 
 ```
 [rsaw@sawzall]$ xsos aczx998pinkle/
@@ -117,7 +117,7 @@ IP
 The lovely thing that isn't captured here is all the coloring done to make it easier to read.
 
 
-Here's the help page:
+**Here's the help page:**
 
 ```
 Usage: xsos [-xKMvabocmdleinsp] [SOSREPORT-ROOT]
@@ -202,7 +202,7 @@ Alternatively, run xsos with '--update|-U'
 ```
 
 
-Run on localhost with a few options:
+**Run on my laptop as root, with a few options:**
 
 ```
 [rsaw@sawzall]$ sudo xsos --ip --lspci --ethtool --net --ps
@@ -283,7 +283,7 @@ PS CHECK
 
 
 
-Run on another sosreport with some options:
+**Run on another sosreport with some options:**
 
 ```
 [rsaw@sawzall]$ xsos 8308201prodserv --disks --mem --mb
@@ -322,7 +322,7 @@ STORAGE
 
 
 
-Run on a sosreport again, showing sysctls:
+**Run on a sosreport again, showing sysctls:**
 
 ```
 [rsaw@sawzall]$ xsos --sysctl aczx998pinkle/
@@ -375,10 +375,10 @@ SYSCTLS
 ```
 
 
-Finally, here's example of using some of the Special options, which allow you to specify a specific file instead of a full sosreport or having `xsos` run on your local system:
+**Finally, here's example of using some of the Special options, which allow you to specify a specific file instead of a full sosreport or having `xsos` run on your local system:**
 
 ```
-[rsaw@sawzall]$ XSOS_PS_VERBOSE=0 xsos --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump --P /tmp/psaux.txt
+[rsaw@sawzall]$ XSOS_PS_LEVEL=0 xsos --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump --P /tmp/psaux.txt
 DMIDECODE
   BIOS:
     HP, version P66, 06/24/2011
@@ -451,15 +451,18 @@ REQUIREMENTS
 * As detailed in the help page, BASH version 4 (rhel 6+) is required for -i/--ip and for any of the "Special options" like `--C` or `--B`. Colorization is also not done unless BASH v4+ is detected.
 * Other than that, nothing special for command requirements -- `xsos` uses standard coreutils & util-linux commands, along with, of course ... `gawk` and `sed`.
 * No absolute paths used for commands.
-* Gracefully reports as much of what's requested as possible when running as non-root.
+* When running on localhost (i.e. not a sosreport), `xsos` gracefully reports as much of what's requested as possible when running as non-root (`--bios` and `--ethtool` require root privileges; `--disks` won't be able to print dm-multipath output without root privs).
 
 
 THINGS THAT MIGHT SURPRISE YOU
 -------
 
 * `xsos` does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
+  * If you like the color but need to use a pager, pipe to `more` or `less -r`
+  * There are multiple environment variables for managing the colors. You don't need to modify the script itself. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
 * `xsos` can update itself via the internet in 10 seconds if run with `--update` or `-U`.
-* When printing disk info with `-d/--disks`, `xsos` automatically detects linux software raid (md) devices and hides their components. The `multipath` command is also consulted to print info about native multipathd devices. All LUNS that are part of a dm-multipath map are also hidden from the disk output.
+  * Set environment variable `XSOS_UPDATE_CONFIRM` to "`n`" if you don't want `--update` to prompt for confirmation.
+* When printing disk info with `-d/--disks`, `xsos` automatically detects linux software raid (md) devices and hides their components. The `multipath` command is also consulted to print info about native multipathd devices. All LUNs that are part of a dm-multipath map are also hidden from the disk output.
 * There are a bunch of environment variables that you can use to tweak behavior. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
 * When printing info on pci net devices (`-l/--lspci`), `xsos` simplifies the net output in an intelligent way. Example:
 
@@ -487,7 +490,7 @@ AUTHORS
 
 As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill](http://b19.org).
 
-However, people rarely accomplish things in a vacuum... I am very thankful to StackOverflow and a couple prolific users over there. [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) both offered answers containing pieces of code that were extremely instructive early on in my awk career.
+However, people rarely accomplish things in a vacuum... I am very thankful to StackOverflow and a couple prolific users over there -- [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) both offered answers containing pieces of code that were brilliantly instructive early on in my awk career.
 
 Please contact me if you have ideas, suggestions, questions, or want to collaborate on this or something similar. For specific bugs and feature-requests, you can [post a new issue on the tracker](/ryran/xsos/issues).
 
