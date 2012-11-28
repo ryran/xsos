@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc3b last mod 2012/11/13
+# xsos v0.0.9rc4 last mod 2012/11/28
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -167,7 +167,7 @@ equivalent to:
 If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
 as root (UID 0). When executing in this manner as non-root, those modules will
-be silently skipped, even if explicitly requested.
+be skipped, and a warning printed to stderr.
 
 Sometimes a full sosreport isn't available; sometimes you simply have a
 dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
@@ -1222,8 +1222,7 @@ IPADDR() {
         
         # We could potentially have more than one non-alias ipaddr...
         # So we need to set up a counter and do a loop
-        n=0
-        while read ipv4addr; do
+        n=0; while read ipv4addr; do
           if [[ $n -eq 0 ]]; then
             echo "  $i~${slaveof[$i]}~$ipv4addr~${state[$i]}~${mac[$i]}"
           else
@@ -1280,7 +1279,7 @@ ETHTOOL() {
     
   # If sosreport, determine interfaces from ethtool_<iface> files
   elif ls "$1"/sos_commands/networking/ethtool* &>/dev/null; then
-    cd "$1"/sos_commands/networking
+    pushd "$1"/sos_commands/networking >/dev/null
     ethdevs=$(ls ethtool_[[:alpha:]]* | cut -d_ -f2)
     # Setup local functions for ethtool & ethtool -i
     __ethtool()   { cat ethtool_$1; }
@@ -1318,7 +1317,7 @@ ETHTOOL() {
     )"
     done | column -ts~ |
       awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" '/DOWN/{print D $0 H0}  /up/{print U $0 H0}'
-    [[ ${PWD##*/} == networking ]] && cd - &>/dev/null
+    [[ ${PWD##*/} == networking ]] && popd >/dev/null
   fi
   echo -en $XSOS_HEADING_SEPARATOR
 }
@@ -1531,6 +1530,22 @@ PSCHECK() {
 # Eventually I'll probably replace all of this with a python loader.
 # Python's argparse is so much better than dealing with all this crap.
 
+# Used to conditionally run certain functions when running on localhost
+COND_RUN() {
+  if [[ $2 ==  --require_root && $UID != 0 ]]; then
+    echo -e "${c[Warn1]}Warning: Need root access to run $1 command on localhost${c[0]}" >&2
+    echo -en $XSOS_HEADING_SEPARATOR >&2
+  elif command -v $1 &>/dev/null; then
+    # The following tr command translates $1 to the uppercase function name, e.g. lspci --> LSPCI
+    # In a BASHv4-only world, this could be done with simply: ${1^^}
+    $(tr '[:lower:]' '[:upper:]' <<<"$1")
+  else
+    echo -e "${c[Warn1]}Warning: $1 command not present in PATH${c[0]}" >&2
+    echo -en $XSOS_HEADING_SEPARATOR >&2
+  fi
+}
+
+
 # If special options and files were provided ....
 if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
@@ -1565,17 +1580,17 @@ elif [[ -n $sosroot ]]; then
   
 # If no SOSREPORT-ROOT provided, run checks against local system
 else
-  [[ $UID -eq 0 && -n $bios ]] &&     DMIDECODE
-  [[ -n $os ]] &&                     OSINFO /
-  [[ -n $cpu ]] &&                    CPUINFO /
-  [[ -n $mem ]] &&                    MEMINFO /
-  [[ -n $disks ]] &&                  STORAGE / --mpath
-  [[ -n $lspci ]] &&                  LSPCI
-  [[ $UID -eq 0 && -n $ethtool ]] &&  ETHTOOL
-  [[ -n $ip ]] &&                     IPADDR
-  [[ -n $net ]] &&                    PROC_NET /
-  [[ -n $sysctl ]] &&                 SYSCTL / 2>/dev/null
-  [[ -n $ps ]] &&                     PSCHECK
+  [[ -n $bios ]] &&    COND_RUN dmidecode --require_root
+  [[ -n $os ]] &&      OSINFO /
+  [[ -n $cpu ]] &&     CPUINFO /
+  [[ -n $mem ]] &&     MEMINFO /
+  [[ -n $disks ]] &&   STORAGE / --mpath
+  [[ -n $lspci ]] &&   COND_RUN lspci
+  [[ -n $ethtool ]] && COND_RUN ethtool --require_root
+  [[ -n $ip ]] &&      IPADDR
+  [[ -n $net ]] &&     PROC_NET /
+  [[ -n $sysctl ]] &&  SYSCTL / 2>/dev/null
+  [[ -n $ps ]] &&      PSCHECK
 
 fi
 
