@@ -16,7 +16,18 @@ INSTALLATION
 -------
 
 *"I'm sold! How do I install xsos?"*
-Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your $PATH. You can even name the script whatever you want (like `x` or `z`). Make sure it's executable with a `chmod +x /PATH/TO/XSOS` command and then run it with a `help` argument to get started!
+
+Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your `PATH`. Make it executable and you'll be good to go!  
+
+Example:
+
+```
+$ su -
+# wget -O /usr/local/bin/xsos http://bit.ly/xsos-direct
+# chmod +x /usr/local/bin/xsos
+# exit
+$ xsos -h
+```
 
 Jump to ...
 
@@ -117,12 +128,14 @@ IP
 The lovely thing that isn't captured here is all the coloring done to make it easier to read.
 
 
-**Here's the help page:**
+**While xsos is always changing, here's the minimal help page from v0.0.9rc6:**
 
 ```
-Usage: xsos [-xKMvabocmdleinsp] [SOSREPORT-ROOT]
+[rsaw@sawzall]$ xsos -h
+Usage: xsos [-xKMG] [-v LEVEL] [-abocmdleinsp] [SOSREPORT-ROOT]
   or:  xsos [--B|--C|--M|--D|--L|--I|--N|--P FILE]...
   or:  xsos [-?|-h|--help]
+  or:  xsos [-U|--update]
 Extract useful data about system from SOSREPORT-ROOT or else localhost
 
 Content options:
@@ -140,65 +153,26 @@ Content options:
  -p, --ps       inspect running processes via ps
 
 Display options:
- -x, --nocolor  disable output colorization
- -K, --kb       show /proc/meminfo in KiB
- -M, --mb       show /proc/meminfo in MiB
- -v, --verbose  show more processes & cmd args with ps
-
-Note that xsos argument parsing is performed by GNU getopt, so order of args
-is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
-
-If no content options are specified, xsos only shows some information,
-equivalent to:
-
-  xsos --os --cpu --mem --lspci --ip
-  
-If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
-however, bios, multipath, and ethtool output will only be displayed if running
-as root (UID 0). When executing in this manner as non-root, those modules will
-be silently skipped, even if explicitly requested.
-
-Sometimes a full sosreport isn't available; sometimes you simply have a
-dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
+ -x, --nocolor        disable output colorization
+ -K, --kb             show /proc/meminfo & /proc/net/dev in KiB
+ -M, --mb             show /proc/meminfo & /proc/net/dev in MiB
+ -G, --gb             show /proc/meminfo & /proc/net/dev in GiB
+ -v, --verbose=LEVEL  specify ps verbosity level (0-3, defaults to 1)
 
 Special options (BASH v4+ required):
- --B=FILE  FILE must contain `dmidecode` dump
- --C=FILE  FILE must contain /proc/cpuinfo dump
- --M=FILE  FILE must contain /proc/meminfo dump
- --D=FILE  FILE must contain /proc/partitions dump
- --L=FILE  FILE must contain `lspci` dump
- --I=FILE  FILE must contain `ip addr` dump
- --N=FILE  FILE must contain /proc/net/dev dump
- --P=FILE  FILE must contain `ps aux` dump
+ --B=FILE  read from FILE containing `dmidecode` dump
+ --C=FILE  read from FILE containing /proc/cpuinfo dump
+ --M=FILE  read from FILE containing /proc/meminfo dump
+ --D=FILE  read from FILE containing /proc/partitions dump
+ --L=FILE  read from FILE containing `lspci` dump
+ --I=FILE  read from FILE containing `ip addr` dump
+ --N=FILE  read from FILE containing /proc/net/dev dump
+ --P=FILE  read from FILE containing `ps aux` dump
 
-As is hopefully clear, each of these options requires a filename as an
-argument. These options can be used together, but cannot be used in concert
-with regular 'Content options' -- Content opts are ignored if Special options
-are detected. Also note: the '=' can be replaced with a space if desired.
+Run with '--help' to see full help page
 
-Re BASH v4+:
-BASH associative arrays are used for various things. In short, if running xsos
-on earlier BASH versions (e.g. RHEL5), you get ...
- * No output colorization
- * No -i/--ip
- * No parsing of 'Special options'
-
-The following environment variables change the behavior of xsos:
-  XSOS_COLORS    XSOS_FOLD_WIDTH    XSOS_HEADING_SEPARATOR
-  XSOS_ALL_VIEW  XSOS_DEFAULT_VIEW  XSOS_UPDATE_CONFIRM
-  XSOS_PS_LEVEL  XSOS_MEM_UNIT
-  
-The following environment variables control the default colors:
-  XSOS_COLOR_RESET      XSOS_COLOR_WARN1  XSOS_COLOR_WARN2
-  XSOS_COLOR_IMPORTANT  XSOS_COLOR_IFUP   XSOS_COLOR_IFDOWN
-  XSOS_COLOR_H1         XSOS_COLOR_H2     XSOS_COLOR_H3
-
-See the first page or so of xsos for details.
-
-Version info: xsos v0.0.9rc2b last mod 2012/11/12
-Report bugs or suggestions to <rsaw@redhat.com>
-Or see <github.com/ryran/xsos> for bug tracker & latest version
-Alternatively, run xsos with '--update|-U'
+Version info: xsos v0.0.9rc6 last mod 2012/12/01
+See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
 
@@ -221,23 +195,25 @@ ETHTOOL
   wlan0       link=UP                          drv iwlwifi v3.5.3-1.fc17.x86_64 / fw 9.221.4.1
 
 IP
-  Interface   Slave Of  MAC Address        State  IPv4 Address
-  =========   ========  =================  =====  ==================
-  lo          -         -                  up     127.0.0.1/8
-  em1         -         f0:de:f1:ba:cf:c4  up     -
-  wlan0       -         24:77:03:41:41:18  up     10.7.7.111/24
-  virbr0      -         52:54:00:97:e3:ee  up     192.168.122.1/24
-  virbr0-nic  -         52:54:00:97:e3:ee  DOWN   -
-  tun0        -         -                  up     10.11.10.10/32
+  Interface   Slave Of  IPv4 Address        State  MAC Address
+  =========   ========  ==================  =====  =================
+  lo          -         127.0.0.1/8         up     -
+  em1         -         -                   up     f0:de:f1:ba:cf:c4
+  wlan0       -         10.7.7.111/24       up     24:77:03:41:41:18
+                        192.168.17.17/32            
+  virbr0      -         192.168.122.1/24    up     52:54:00:97:e3:ee
+  virbr0-nic  -         -                   DOWN   52:54:00:97:e3:ee
+  tun0        -         10.11.11.249/32     up     -
+
 
 NETDEV
-  Interface   RxMBytes  RxPackets  RxErrs  RxDrop  TxMBytes  TxPackets  TxErrs  TxDrop
-  =========   ========  =========  ======  ======  ========  =========  ======  ======
-  em1         1110      1618247    0       0       508       1293102    0       0
-  tun0        2         4681       0       0       0         4275       0       0
-  virbr0      0         0          0       0       0         0          0       0
-  virbr0-nic  0         0          0       0       0         0          0       0
-  wlan0       456       485879     0       0       54        292131     0       0
+  Interface   RxMiBytes  RxPackets  RxErrs  RxDrop  TxMiBytes  TxPackets  TxErrs  TxDrop
+  =========   =========  =========  ======  ======  =========  =========  ======  ======
+  em1         3212       4389277    0       0       5074       5120291    0       0
+  tun0        11         12134      0       0       1          10818      0       0
+  virbr0      4          39628      0       0       244        42150      0       0
+  virbr0-nic  0          0          0       0       0          0          0       0
+  wlan0       2779       2806598    0       0       214        1478353    0       0
 
 PS CHECK
   Top users of CPU & MEM: 
@@ -378,7 +354,7 @@ SYSCTLS
 **Finally, here's example of using some of the Special options, which allow you to specify a specific file instead of a full sosreport or having `xsos` run on your local system:**
 
 ```
-[rsaw@sawzall]$ XSOS_PS_LEVEL=0 xsos --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump --P /tmp/psaux.txt
+[rsaw@sawzall]$ xsos -v0 --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump --P /tmp/psaux.txt
 DMIDECODE
   BIOS:
     HP, version P66, 06/24/2011
@@ -458,7 +434,7 @@ THINGS THAT MIGHT SURPRISE YOU
 -------
 
 * `xsos` does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
-  * If you like the color but need to use a pager, pipe to `more` or `less -r`
+  * If you like the color but need to use a pager, pipe to `more` or `less -R`
   * There are multiple environment variables for managing the colors. You don't need to modify the script itself. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
 * `xsos` can update itself via the internet in 10 seconds if run with `--update` or `-U`.
   * Set environment variable `XSOS_UPDATE_CONFIRM` to "`n`" if you don't want `--update` to prompt for confirmation.
@@ -490,7 +466,7 @@ AUTHORS
 
 As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill](http://b19.org).
 
-However, people rarely accomplish things in a vacuum... I am very thankful to StackOverflow and a couple prolific users over there -- [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) both offered answers containing pieces of code that were brilliantly instructive early on in my awk career.
+When I was clueless in how to further my awk career early on, two prolific users over on StackOverflow -- [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) -- each provided an answer with code that was brilliantly instructive. I've since moved far beyond what I was trying to do back then, and thanks definitely goes to both of them for inspiration.
 
 Please contact me if you have ideas, suggestions, questions, or want to collaborate on this or something similar. For specific bugs and feature-requests, you can [post a new issue on the tracker](/ryran/xsos/issues).
 
