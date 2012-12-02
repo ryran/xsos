@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc5 last mod 2012/12/01
+# xsos v0.0.9rc6 last mod 2012/12/02
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -169,7 +169,7 @@ Display options:"
  -K, --kb@show /proc/meminfo & /proc/net/dev in KiB
  -M, --mb@show /proc/meminfo & /proc/net/dev in MiB
  -G, --gb@show /proc/meminfo & /proc/net/dev in GiB
- -v, --verbose=LEVEL@specify ps verbosity level (0-3, defaults to 1)" | column -ts@
+ -v, --verbose=LEVEL@specify ps verbosity level (0-4, defaults to 1)" | column -ts@
 }
 
 HELP_OPTS_SPECIAL() {
@@ -342,7 +342,7 @@ sopts='xKMGv:abocmdleinsp'
 lopts='nocolor,kb,mb,gb,verbose:,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
 
 # Check for bad switches
-getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 1; }
+getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
 
 # Setup assoc array for single-file options
 unset sfile
@@ -378,7 +378,7 @@ PARSE() {
       -K|--kb)      shift; XSOS_MEM_UNIT="k"; XSOS_NET_UNIT="k"  ;;
       -M|--mb)      shift; XSOS_MEM_UNIT="m"; XSOS_NET_UNIT="m"  ;;
       -G|--gb)      shift; XSOS_MEM_UNIT="g"; XSOS_NET_UNIT="g"  ;;
-      -v|--verbose) _OPT_CHECK "verbose" range "0 3" "$2"; XSOS_PS_LEVEL=$2; shift 2 ;;
+      -v|--verbose) _OPT_CHECK "verbose" range "0 4" "$2"; XSOS_PS_LEVEL=$2; shift 2 ;;
       -a|--all)     shift; opts=y; all=y      ;;
       -b|--bios)    shift; opts=y; bios=y     ;;
       -o|--os)      shift; opts=y; os=y       ;;
@@ -415,7 +415,7 @@ if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
 elif [[ $BASH_VERSINFO -lt 4 && -n $sfile ]]; then
   echo "Special options require use of BASH associative arrays" >&2
   echo "i.e., BASH v4.0 or higher (RHEL6/Fedora11 and above)" >&2
-  exit 255
+  exit 32
 # Use default view if no content options specified
 elif [[ -z $opts ]]; then
   eval $XSOS_DEFAULT_VIEW
@@ -1578,17 +1578,29 @@ PSCHECK() {
     process_line_length=150
   elif [[ $XSOS_PS_LEVEL == 2 ]]; then
     # V-level 2: Verbose
-    num_top_users=20
+    num_top_users=30
     num_comm_args=10
-    num_process_lines=20
+    num_process_lines=30
     process_line_length=512
   elif [[ $XSOS_PS_LEVEL == 3 ]]; then
     # V-level 3: MOOOAAAARR
     num_top_users=60
     num_comm_args=1023
     num_process_lines=60
-    process_line_length=2047
+    process_line_length=2047  # This is the max that `column` can handle
+  elif [[ $XSOS_PS_LEVEL == 4 ]]; then
+    # V-level 4: Eerrryting
+    num_top_users=
+    num_comm_args=1023
+    num_process_lines=
+    process_line_length=2047  # This is the max that `column` can handle
   fi
+  
+  __conditional_head() {
+  [[ -n $1 ]] &&
+    echo head -n$1 ||
+    echo cat  
+  }
   
   # Perfectly columnize ps input and chop off extra command args based on above options
   input=$(awk -vMAX_fields=$((num_comm_args+12)) '{for (i=1; i<11; i++) printf $i"~"; for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "; printf "\n"}' <<<"$input" | cut -c-$process_line_length | column -ts~ | sed 's,^,    ,')
@@ -1604,16 +1616,21 @@ PSCHECK() {
   [[ -z $Dsleepers && -z $Zombies ]] && Dsleepers="\n      ${c[grey]}(None)${c[0]}"
   
   # Calculte top cpu-using & mem-using users
-  top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) if (pCPU[user]>0 || sRSS[user]>4096) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
-  top_users_header=$(head -n1 <<<"$top_users")
-  top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2 | head -n$num_top_users)
+  if [[ $XSOS_PS_LEVEL < 3 ]]; then  # If verbosity level 0-2, restrict number of users shown
+    top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) if (pCPU[user]>0 || sRSS[user]>4096) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+    top_users_header=$(head -n1 <<<"$top_users")
+  else  # If verbosity level 3-4, show all users
+    top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+    top_users_header=$(head -n1 <<<"$top_users")
+  fi
+  top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2 | $(__conditional_head $num_top_users))
   
   # Print!
   echo -e "${c[H1]}PS CHECK${c[0]}
   ${c[H2]}Top users of CPU & MEM:${c[0]} \n${c[H3]}$top_users_header${c[0]} \n$top_users
   ${c[H2]}Uninteruptible sleep & Defunct processes:${c[0]} \n${c[H3]}$ps_header${c[0]} $Dsleepers $Zombies
-  ${c[H2]}Top CPU-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk3 <<<"$ps_input" | head -n$num_process_lines)
-  ${c[H2]}Top MEM-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk4 <<<"$ps_input" | head -n$num_process_lines)"
+  ${c[H2]}Top CPU-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk3 <<<"$ps_input" | $(__conditional_head $num_process_lines))
+  ${c[H2]}Top MEM-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk4 <<<"$ps_input" | $(__conditional_head $num_process_lines))"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
