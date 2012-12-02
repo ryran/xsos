@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc4 last mod 2012/11/28
+# xsos v0.0.9rc5 last mod 2012/12/01
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -113,6 +113,13 @@ fi
 #   Formatting can be changed to suit preference, e.g. XSOS_MEM_UNIT=" GiB"
 #   In that case, will need to tweak 2 of the if-statements in MEMINFO() awk cmd
 #
+#
+# XSOS_NET_UNIT (str: b, k, m, g, t)
+#   Sets unit used by PROC_NET() function for printing Rx & Tx Bytes
+#   Can also be controlled by cmdline arg 
+    [[ -z $XSOS_NET_UNIT ]] && XSOS_NET_UNIT="m"
+#
+#
 # ==============================================================================
 
 
@@ -122,18 +129,22 @@ H2INDENT="    "
 H3INDENT="      "
 
 
-
-USAGE() {
-  echo "Usage: $pzero [-xKMvabocmdleinsp] [SOSREPORT-ROOT]"
-  echo "  or:  $pzero [--B|--C|--M|--D|--L|--I|--N|--P FILE]..."
-  echo "  or:  $pzero [-?|-h|--help]"
+VERSINFO() {
+  echo "Version info: ${version:2}
+See <github.com/ryran/xsos> to report bugs or suggestions"
+  exit
 }
 
+HELP_USAGE() {
+  echo "Usage: $pzero [-xKMG] [-v LEVEL] [-abocmdleinsp] [SOSREPORT-ROOT]"
+  echo "  or:  $pzero [--B|--C|--M|--D|--L|--I|--N|--P FILE]..."
+  echo "  or:  $pzero [-?|-h|--help]"
+  echo "  or:  $pzero [-U|--update]"
+  echo "Extract useful data about system from SOSREPORT-ROOT or else localhost"
+}
 
-XHELP() {
-  USAGE
-  echo "Extract useful data about system from SOSREPORT-ROOT or else localhost
-
+HELP_OPTS_CONTENT() {
+  echo "
 Content options:"
   echo "
  -a, --all@show everything
@@ -148,40 +159,63 @@ Content options:"
  -n, --net@show info from /proc/net/dev
  -s, --sysctl@show important kernel sysctls
  -p, --ps@inspect running processes via ps" | column -ts@
+}
+
+HELP_OPTS_DISPLAY() {
   echo "
 Display options:"
   echo "
  -x, --nocolor@disable output colorization
- -K, --kb@show /proc/meminfo in KiB
- -M, --mb@show /proc/meminfo in MiB
- -v, --verbose@show more processes & cmd args with ps" | column -ts@
- echo "
-Note that $pzero argument parsing is performed by GNU getopt, so order of args
-is not important (e.g. the SOSREPORT-ROOT could be the 1st argument).
+ -K, --kb@show /proc/meminfo & /proc/net/dev in KiB
+ -M, --mb@show /proc/meminfo & /proc/net/dev in MiB
+ -G, --gb@show /proc/meminfo & /proc/net/dev in GiB
+ -v, --verbose=LEVEL@specify ps verbosity level (0-3, defaults to 1)" | column -ts@
+}
 
-If no content options are specified, $pzero only shows some information,
-equivalent to:
+HELP_OPTS_SPECIAL() {
+  echo "
+Special options (BASH v4+ required):"
+  echo "
+ --B=FILE@read from FILE containing \`dmidecode\` dump
+ --C=FILE@read from FILE containing /proc/cpuinfo dump
+ --M=FILE@read from FILE containing /proc/meminfo dump
+ --D=FILE@read from FILE containing /proc/partitions dump
+ --L=FILE@read from FILE containing \`lspci\` dump
+ --I=FILE@read from FILE containing \`ip addr\` dump
+ --N=FILE@read from FILE containing /proc/net/dev dump
+ --P=FILE@read from FILE containing \`ps aux\` dump" | column -ts@
+}
 
-  $pzero --os --cpu --mem --lspci --ip
-  
+HELP_SHORT() {
+  HELP_USAGE
+  HELP_OPTS_CONTENT
+  HELP_OPTS_DISPLAY
+  HELP_OPTS_SPECIAL
+  echo -e "\nRun with '--help' to see full help page\n"
+  VERSINFO
+}
+
+HELP_EXTENDED() {
+  HELP_USAGE
+  HELP_OPTS_CONTENT
+  HELP_OPTS_DISPLAY
+  echo "
+If no content options are specified, $pzero parses the environment variable
+XSOS_DEFAULT_VIEW to figure out what information to display. If this variable
+is unset at runtime, it is initialized internally as follows:
+
+  XSOS_DEFAULT_VIEW='os=y; cpu=y; mem=y; lspci=y; ip=y'
+
+If desired, follow the pattern to tweak it to your preference.
+
 If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
 as root (UID 0). When executing in this manner as non-root, those modules will
 be skipped, and a warning printed to stderr.
 
 Sometimes a full sosreport isn't available; sometimes you simply have a
-dmidecode-dump or the contents of /proc/meminfo and you'd like a summary...
-
-Special options (BASH v4+ required):"
-  echo "
- --B=FILE@FILE must contain \`dmidecode\` dump
- --C=FILE@FILE must contain /proc/cpuinfo dump
- --M=FILE@FILE must contain /proc/meminfo dump
- --D=FILE@FILE must contain /proc/partitions dump
- --L=FILE@FILE must contain \`lspci\` dump
- --I=FILE@FILE must contain \`ip addr\` dump
- --N=FILE@FILE must contain /proc/net/dev dump
- --P=FILE@FILE must contain \`ps aux\` dump" | column -ts@
+dmidecode-dump or the contents of /proc/meminfo and you'd like a summary..."
+  HELP_OPTS_SPECIAL
   echo "
 As is hopefully clear, each of these options requires a filename as an
 argument. These options can be used together, but cannot be used in concert
@@ -198,78 +232,89 @@ on earlier BASH versions (e.g. RHEL5), you get ...
 The following environment variables change the behavior of $pzero:
   XSOS_COLORS    XSOS_FOLD_WIDTH    XSOS_HEADING_SEPARATOR
   XSOS_ALL_VIEW  XSOS_DEFAULT_VIEW  XSOS_UPDATE_CONFIRM
-  XSOS_PS_LEVEL  XSOS_MEM_UNIT
+  XSOS_PS_LEVEL  XSOS_MEM_UNIT      XSOS_NET_UNIT
   
 The following environment variables control the default colors:
   XSOS_COLOR_RESET      XSOS_COLOR_WARN1  XSOS_COLOR_WARN2
   XSOS_COLOR_IMPORTANT  XSOS_COLOR_IFUP   XSOS_COLOR_IFDOWN
   XSOS_COLOR_H1         XSOS_COLOR_H2     XSOS_COLOR_H3
 
-See the first page or so of $pzero for details.
-
-Version info: ${version:2}
-Report bugs or suggestions to <rsaw@redhat.com>
-Or see <github.com/ryran/xsos> for bug tracker & latest version
-Alternatively, run $pzero with '--update|-U'"
-  exit
+See the first page or so of $pzero for full details on env variables.
+"
+  VERSINFO
 }
 
 
 UPDATE() {
   echo -e "${c[blue]}Checking $0 against latest version at github.com/ryran/xsos ...${c[GREY]}\n"
-  latest_version_file=$(mktemp /tmp/xsos_latest.XXX)
-  trap "rm $latest_version_file" EXIT
+  latest_version_file=$(mktemp --tmpdir xsos_latest.XXXXX) || {
+    echo -e "${c[RED]}Unable to create temporary file with mktemp${c[reset]}"
+    exit 73
+  }
+  trap "rm '$latest_version_file'" EXIT
 
   # Download latest version of xsos with wget or curl
   if command -v wget >/dev/null; then
-    wget https://raw.github.com/ryran/xsos/master/xsos -O $latest_version_file
+    wget https://raw.github.com/ryran/xsos/master/xsos -O "$latest_version_file" || {
+      ret=$?
+      echo -e "${c[RED]}Exiting due to wget error${c[reset]}"
+      exit $ret
+    }
   elif command -v curl >/dev/null; then
-    curl https://raw.github.com/ryran/xsos/master/xsos -o $latest_version_file; echo
+    curl https://raw.github.com/ryran/xsos/master/xsos -o "$latest_version_file" && echo || {
+      ret=$?
+      echo -e "${c[RED]}Exiting due to curl error${c[reset]}"
+      exit $ret
+    }
   else
-    echo -e "${c[RED]}Need either wget or curl in \$PATH to perform the download!${c[reset]}"
-    exit 255
+    echo -e "${c[RED]}Need either wget or curl in PATH to download the latest version${c[reset]}"
+    exit 72
   fi
   
   # Save version string
-  latest_version=$(sed '2q;d' $latest_version_file)
+  latest_version=$(sed '2q;d' "$latest_version_file")
 
   # Compare currently running xsos with downloaded file
-  if ! diff $0 $latest_version_file >/dev/null; then
+  if ! diff "$0" "$latest_version_file" >/dev/null; then
     echo -e "${c[blue]}The version you are running reports as:\n\t${c[orange]}${version:2}${c[blue]}\nThe version on github appears to be different and reports as:\n\t${c[ORANGE]}${latest_version:2}${c[blue]}"
     if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
-      echo -e "Would you like to see differences between them? (${c[GREEN]}y${c[blue]} or ${c[GREEN]}n${c[blue]})${c[GREEN]}"
+      echo -e "Type ${c[GREEN]}y${c[blue]} to see the differences between them, or else any other key${c[reset]}"
       read -p "> "
       if [[ $REPLY == y ]]; then
         if [[ -n $DISPLAY ]] && command -v meld >/dev/null; then
-          meld $0 $latest_version_file 2>/dev/null
+          meld "$0" "$latest_version_file" 2>/dev/null
         elif [[ -n $DISPLAY ]] && command -v gvimdiff >/dev/null; then
-          gvimdiff $0 $latest_version_file 2>/dev/null
+          gvimdiff "$0" "$latest_version_file" 2>/dev/null
         elif command -v vimdiff; then
-          vimdiff $0 $latest_version_file
+          vimdiff "$0" "$latest_version_file"
         else
           # set name of tmp diff file
-          diff_file=$(mktemp /tmp/xsos.XXX.patch); trap "rm $diff_file" EXIT;
+          diff_file=$latest_version_file.patch; trap "rm '$diff_file'" EXIT;
           # create a diff file
-          diff -u $0 $latest_version_file > $diff_file
+          diff -u "$0" "$latest_version_file" > "$diff_file"
           if [[ -n $DISPLAY ]] && command -v gedit >/dev/null; then
-            gedit $diff_file 2>/dev/null
+            gedit "$diff_file" 2>/dev/null
           else
-            less $diff_file
+            less "$diff_file"
           fi
         fi
       fi
     fi
+    [[ -w $0 ]] || {
+      echo -e "${c[RED]}You do not have write permission to modify '$0'${c[reset]}"
+      exit 77
+    }
     if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
-      echo -e "${c[blue]}If you are sure you know what you are doing, type ${c[GREEN]}u${c[blue]}\nto replace $0 with the latest version${c[GREEN]}"
+      echo -e "${c[blue]}Type ${c[GREEN]}u${c[blue]} to replace $0 with the latest version\nOr any other key to cancel${c[reset]}"
       read -p "> "
     else
       REPLY=u
     fi
     if [[ $REPLY == u ]]; then
       echo -e "${c[blue]}Backing up current version and replacing it with downloaded version ...${c[cyan]}"
-      cp -v $0 /tmp/xsos.orig
-      cp -v $latest_version_file $0
-      chmod +x $0
+      cp -v "$0" "$(mktemp --tmpdir xsos-$(awk {print\$3} <<<"$version").XXX)"
+      cp -v "$latest_version_file" "$0"
+      chmod +x "$0"
       echo -e "${c[reset]}"
     else
       echo -e "${c[cyan]}Not performing update${c[reset]}\n"
@@ -281,33 +326,59 @@ UPDATE() {
 }
 
 
-# Check for help or update
+# Help? Version? Update?
 case $1 in
-  -h|--help|help|-\?) XHELP
+  -\?|-h)           HELP_SHORT
 ;;
-  -U|--update) UPDATE
+  --help|help)      HELP_EXTENDED
+;;
+  --vers|--version) echo "Version info: ${version:2}"; exit
+;;
+  -U|--update)      UPDATE
 esac
 
 # GNU getopt short and long options:
-sopts='xKMvabocmdleinsp'
-lopts='nocolor,kb,mb,verbose,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
+sopts='xKMGv:abocmdleinsp'
+lopts='nocolor,kb,mb,gb,verbose:,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
 
 # Check for bad switches
-getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { USAGE; exit 1; }
+getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 1; }
 
 # Setup assoc array for single-file options
 unset sfile
 [[ $BASH_VERSINFO -ge 4 ]] && declare -A sfile 
+
+# Checker for cmdline options
+_OPT_CHECK() {
+  option=$1
+  check_type=$2
+  valid_opts=$3
+  chosen_opt=$4
+  if [[ $check_type == range ]]; then
+    for n in $(seq $valid_opts); do
+      [[ $n == $chosen_opt ]] && return
+    done
+    echo "$pzero: '$option' option expects number from range ${valid_opts// /-}"
+  elif [[ $check_type == str ]]; then
+    for s in $valid_opts; do
+      [[ $s == $chosen_opt ]] && return
+    done
+    echo "$pzero: '$option' option expects one of: { $valid_opts } "
+  fi
+  exit 64
+}
+
 
 # Parse command-line arguments
 PARSE() {
   unset opts all bios os cpu mem disks lspci ethtool ip net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
-      -x|--nocolor) shift; XSOS_COLORS=n       ;;
-      -K|--kb)      shift; XSOS_MEM_UNIT="k"  ;;
-      -M|--mb)      shift; XSOS_MEM_UNIT="m"  ;;
-      -v|--verbose) shift; XSOS_PS_LEVEL=2    ;;
+      -x|--nocolor) shift; XSOS_COLORS=n      ;;
+      -K|--kb)      shift; XSOS_MEM_UNIT="k"; XSOS_NET_UNIT="k"  ;;
+      -M|--mb)      shift; XSOS_MEM_UNIT="m"; XSOS_NET_UNIT="m"  ;;
+      -G|--gb)      shift; XSOS_MEM_UNIT="g"; XSOS_NET_UNIT="g"  ;;
+      -v|--verbose) _OPT_CHECK "verbose" range "0 3" "$2"; XSOS_PS_LEVEL=$2; shift 2 ;;
       -a|--all)     shift; opts=y; all=y      ;;
       -b|--bios)    shift; opts=y; bios=y     ;;
       -o|--os)      shift; opts=y; os=y       ;;
@@ -369,7 +440,10 @@ else
 fi
 
 
-# ON TO THE CONTENT MODULES!
+# ON TO THE CONTENT MODULE FUNCTIONS!
+# -----------------------------------
+# ===================================
+
 
 DMIDECODE() {
   [[ -z $1 ]] && dmidecode=$(dmidecode 2>/dev/null) || dmidecode=$(<"$1")
@@ -1327,26 +1401,45 @@ PROC_NET() {
   [[ -f $1 ]] && netdev=$1 || netdev=$1/proc/net/dev
   echo -e "${c[H1]}NETDEV${c[0]}"
   tail -n+3 "$netdev" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
-    awk '
+    awk -vu=$(tr 'bkmgt' 'BKMGT' <<<$XSOS_NET_UNIT) '
       {
         Interface[$1] = $1
-        RxMBytes[$1]  = $2 / 1024 / 1024
+        RxBytes[$1]   = $2
         RxPackets[$1] = $3
         RxErrs[$1]    = $4
         RxDrop[$1]    = $5
-        TxMBytes[$1]  = $10 / 1024 / 1024
+        TxBytes[$1]   = $10
         TxPackets[$1] = $11
         TxErrs[$1]    = $12
         TxDrop[$1]    = $13
+        if (u == "K" || u == "M" || u == "G" || u == "T") {
+          U = u"iB"
+          RxBytes[$1] /= 1024
+          TxBytes[$1] /= 1024
+        }
+        if (u == "M" || u == "G") {
+          RxBytes[$1] /= 1024
+          TxBytes[$1] /= 1024
+        }
+        if (u == "G") {
+          RxBytes[$1] /= 1024
+          TxBytes[$1] /= 1024
+        }
+        if (u == "T") {
+          RxBytes[$1] /= 1024
+          TxBytes[$1] /= 1024
+        }
+        if (U == "") U = "B"
       }
       END {
-        print "  Interface~RxMBytes~RxPackets~RxErrs~RxDrop~TxMBytes~TxPackets~TxErrs~TxDrop"
-        print "  =========~========~=========~======~======~========~=========~======~======"
+        
+        print "  Interface~Rx"U"ytes~RxPackets~RxErrs~RxDrop~Tx"U"ytes~TxPackets~TxErrs~TxDrop"
+        print "  =========~=========~=========~======~======~=========~=========~======~======"
         n = asorti(Interface, IF)
         for (i = 1; i <= n; i++)
           printf "  %s~%0.f~%d~%d~%d~%0.f~%d~%d~%d\n",
-            IF[i], RxMBytes[IF[i]], RxPackets[IF[i]], RxErrs[IF[i]], RxDrop[IF[i]],
-            TxMBytes[IF[i]], TxPackets[IF[i]], TxErrs[IF[i]], TxDrop[IF[i]]
+            IF[i], RxBytes[IF[i]], RxPackets[IF[i]], RxErrs[IF[i]], RxDrop[IF[i]],
+            TxBytes[IF[i]], TxPackets[IF[i]], TxErrs[IF[i]], TxDrop[IF[i]]
       }
     ' | column -ts~ |
       awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
@@ -1471,25 +1564,25 @@ PSCHECK() {
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
-  if [[ $XSOS_PS_LEVEL -eq 0 ]]; then
+  if [[ $XSOS_PS_LEVEL == 0 ]]; then
     # V-level 0: Less than default
     num_top_users=3
     num_comm_args=0
     num_process_lines=5
     process_line_length=100
-  elif [[ -z $XSOS_PS_LEVEL || $XSOS_PS_LEVEL -eq 1 ]]; then
+  elif [[ -z $XSOS_PS_LEVEL || $XSOS_PS_LEVEL == 1 ]]; then
     # V-level 1: Default
     num_top_users=10
     num_comm_args=2
     num_process_lines=10
     process_line_length=150
-  elif [[ $XSOS_PS_LEVEL -eq 2 ]]; then
+  elif [[ $XSOS_PS_LEVEL == 2 ]]; then
     # V-level 2: Verbose
     num_top_users=20
     num_comm_args=10
     num_process_lines=20
     process_line_length=512
-  elif [[ $XSOS_PS_LEVEL -eq 3 ]]; then
+  elif [[ $XSOS_PS_LEVEL == 3 ]]; then
     # V-level 3: MOOOAAAARR
     num_top_users=60
     num_comm_args=1023
