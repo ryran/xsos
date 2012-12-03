@@ -41,6 +41,7 @@ $ xsos -h
 
 EXAMPLES IN ACTION
 -------
+The lovely thing that isn't going to be captured here is all the coloring done to make things easier to read. There's actually quite a bit of color-logic to warn of various conditions...
 
 **Run on a sosreport with no options:**
 
@@ -104,7 +105,6 @@ LSPCI
   VGA:
     ATI Technologies Inc ES1000 (rev 02)
 
-
 IP
   Interface       Slave Of  IPv4 Address        State  MAC Address
   =========       ========  ==================  =====  =================
@@ -124,8 +124,6 @@ IP
   bond2           -         10.0.29.43/26       up     aa:bb:cc:dd:ee:ff
 
 ```
-
-The lovely thing that isn't captured here is all the coloring done to make it easier to read.
 
 
 **While xsos is always changing, here's the minimal help page from v0.0.9rc7:**
@@ -305,7 +303,6 @@ NETDEV
   eth1       144484269105  342207919183  0       4494    259888863511  357978804158  0       0
   eth2       428438229206  392560553366  0       373     122422250847  330736051661  0       0
   eth4       37184228554   55232280858   0       2350    23097311644   35535848225   0       0
-
 
 [rsaw]$ xsos -nG 8308201prodserv
 NETDEV
