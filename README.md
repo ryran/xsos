@@ -19,7 +19,7 @@ INSTALLATION
 
 Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your `PATH`. Make it executable and you'll be good to go!  
 
-Example:
+**Example:**
 
 ```
 $ su -
@@ -29,7 +29,7 @@ $ su -
 $ xsos -h
 ```
 
-Jump to ...
+**Jump to ...**
 
 * [INSTALLATION](/ryran/xsos#installation)
 * [EXAMPLES IN ACTION](/ryran/xsos#examples-in-action)
@@ -45,7 +45,7 @@ EXAMPLES IN ACTION
 **Run on a sosreport with no options:**
 
 ```
-[rsaw@sawzall]$ xsos aczx998pinkle/
+[rsaw]$ xsos aczx998pinkle/
 OS
   Hostname:  aczx998pinkle
   Distro:    Red Hat Enterprise Linux Server release 5.5 (Tikanga)
@@ -83,18 +83,18 @@ CPU
 
 MEMORY
   RAM:
-    990.5g total [527.1g (53%) used]
-    517.9g (52%) used excluding buffers/cache
-    0.28g (0%) dirty
+    990.5 GiB total [527.1 GiB (53%) used]
+    517.9 GiB (52%) used excluding buffers/cache
+    0.28 GiB (0%) dirty
   HugePages:
-    512.0g pre-allocated to HugePages (52% of total ram)
-    0.0g of HugePages (0%) in-use by applications
+    512.0 GiB pre-allocated to HugePages (52% of total ram)
+    0.0 GiB of HugePages (0%) in-use by applications
   LowMem/Slab/PageTables/Shmem:
-    527.1g (53%) of 990.5g LowMem in-use
-    3.98g (0%) of total ram used for Slab
-    0.03g (0%) of total ram used for PageTables
+    527.1 GiB (53%) of 990.5 GiB LowMem in-use
+    3.98 GiB (0%) of total ram used for Slab
+    0.03 GiB (0%) of total ram used for PageTables
   Swap:
-    0.0g (0%) used of 200.0g total
+    0.0 GiB (0%) used of 200.0 GiB total
 
 LSPCI
   Net/Storage:
@@ -128,11 +128,11 @@ IP
 The lovely thing that isn't captured here is all the coloring done to make it easier to read.
 
 
-**While xsos is always changing, here's the minimal help page from v0.0.9rc6:**
+**While xsos is always changing, here's the minimal help page from v0.0.9rc7:**
 
 ```
-[rsaw@sawzall]$ xsos -h
-Usage: xsos [-xKMG] [-v LEVEL] [-abocmdleinsp] [SOSREPORT-ROOT]
+[rsaw]$ xsos -h
+Usage: xsos [-xKMG] [-w N] [-v N] [-abocmdleinsp] [SOSREPORT-ROOT]
   or:  xsos [--B|--C|--M|--D|--L|--I|--N|--P FILE]...
   or:  xsos [-?|-h|--help]
   or:  xsos [-U|--update]
@@ -153,11 +153,12 @@ Content options:
  -p, --ps       inspect running processes via ps
 
 Display options:
- -x, --nocolor        disable output colorization
- -K, --kb             show /proc/meminfo & /proc/net/dev in KiB
- -M, --mb             show /proc/meminfo & /proc/net/dev in MiB
- -G, --gb             show /proc/meminfo & /proc/net/dev in GiB
- -v, --verbose=LEVEL  specify ps verbosity level (0-3, defaults to 1)
+ -x, --nocolor    disable output colorization
+ -K, --kb         show /proc/meminfo & /proc/net/dev in KiB
+ -M, --mb         show /proc/meminfo & /proc/net/dev in MiB
+ -G, --gb         show /proc/meminfo & /proc/net/dev in GiB
+ -w, --width=N    change fold-width (76-char default; 0 autodetects)
+ -v, --verbose=N  specify ps verbosity level (0-4, defaults to 1)
 
 Special options (BASH v4+ required):
  --B=FILE  read from FILE containing `dmidecode` dump
@@ -171,7 +172,7 @@ Special options (BASH v4+ required):
 
 Run with '--help' to see full help page
 
-Version info: xsos v0.0.9rc6 last mod 2012/12/01
+Version info: xsos v0.0.9rc7 last mod 2012/12/02
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
@@ -179,7 +180,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions
 **Run on my laptop as root, with a few options:**
 
 ```
-[rsaw@sawzall]$ sudo xsos --ip --lspci --ethtool --net --ps
+[rsaw]$ sudo xsos --ip --lspci --ethtool --net --ps
 LSPCI
   Net/Storage:
     (1) Intel Corporation Centrino Ultimate-N 6300 (rev 3e)
@@ -209,52 +210,54 @@ IP
 NETDEV
   Interface   RxMiBytes  RxPackets  RxErrs  RxDrop  TxMiBytes  TxPackets  TxErrs  TxDrop
   =========   =========  =========  ======  ======  =========  =========  ======  ======
-  em1         3212       4389277    0       0       5074       5120291    0       0
-  tun0        11         12134      0       0       1          10818      0       0
-  virbr0      4          39628      0       0       244        42150      0       0
-  virbr0-nic  0          0          0       0       0          0          0       0
-  wlan0       2779       2806598    0       0       214        1478353    0       0
+  em1         3211.9     4389k      0       0       5073.6     5120k      0       0
+  virbr0      4.4        40k        0       0       244.1      42k        0       0
+  virbr0-nic  0.0        0k         0       0       0.0        0k         0       0
+  wlan0       4172.2     3964k      0       0       310.4      2198k      0       0
 
 PS CHECK
   Top users of CPU & MEM: 
     USER    %CPU   %MEM   RSS 
-    rsaw    41.4%  20.9%  1.83 GiB
-    root    4.7%   1.0%   0.19 GiB
-    colord  0.0%   0.1%   0.01 GiB
+    qemu    78.6%  6.6%   0.51 GiB
+    rsaw    53.7%  61.2%  4.99 GiB
+    root    4.6%   1.8%   0.25 GiB
+    colord  0.0%   0.0%   0.01 GiB
   Uninteruptible sleep & Defunct processes: 
-    USER     PID    %CPU  %MEM  VSZ      RSS      TTY    STAT  START  TIME      COMMAND  
-    root     10780  0.0   0.0   11520    7824     ?      Ds    Jan19  48:05     hald 
-    root     19333  0.0   0.0   55344    3568     ?      Ds    Aug23  0:00      -bash 
-    root     21466  0.0   0.0   54256    1968     ?      D     Aug23  0:00      ls --color=tty /mig 
-    root     22244  0.0   0.0   53376    1408     ?      D     Aug23  0:00      fuser /mig 
-    root     22272  0.0   0.0   55344    3552     ?      Ds    Aug23  0:00      -bash 
-    root     24110  0.0   0.0   53392    592      ?      D     Aug23  0:00      lsof /mig  
-    vantage  10188  0.0   0.0   0        0        ?      Zl    Aug21  16:25     [blamFandoz] <defunct> 
+    USER     PID    %CPU  %MEM  VSZ      RSS      TTY     STAT   START  TIME    COMMAND   
+    root     10780  0.0   0.0   11520    7824     ?       Ds     Jan19  48:05   hald 
+    root     19333  0.0   0.0   55344    3568     ?       Ds     Aug23  0:00    -bash 
+    root     21466  0.0   0.0   54256    1968     ?       D      Aug23  0:00    ls --color=tty /mig 
+    root     22244  0.0   0.0   53376    1408     ?       D      Aug23  0:00    fuser /mig 
+    root     22272  0.0   0.0   55344    3552     ?       Ds     Aug23  0:00    -bash 
+    root     24110  0.0   0.0   53392    592      ?       D      Aug23  0:00    lsof /mig  
+    rsaw     21860  0.0   0.0   0        0        ?       Z      Nov29  0:06    [xchat] <defunct> 
+    rsaw     22586  0.0   0.0   0        0        ?       Z      Nov28  2:21    [vlc] <defunct> 
+    rsaw     26748  0.0   0.0   0        0        ?       Z      Nov29  3:56    [chromium-browse] <defunct> 
+    rsaw     30294  3.1   0.0   0        0        ?       Z      Nov28  220:22  [thunderbird] <defunct> 
   Top CPU-using processes: 
-    USER     PID   %CPU  %MEM  VSZ      RSS     TTY    STAT   START  TIME   COMMAND  
-    rsaw     2155  25.5  2.6   1409240  216124  ?      Sl     Nov12  39:38  /usr/lib64/chromium-browser/chromium-browser --type=plugin --plugin-path=/usr/lib64/flash-plugin/li
-    rsaw     1684  6.1   3.1   1900680  254332  ?      Sl     Nov12  9:39   /usr/bin/gnome-shell 
-    root     1141  4.7   0.2   118740   23048   tty1   Ss+    Nov12  7:35   /usr/bin/Xorg :0 -background 
-    rsaw     2763  2.7   1.4   1172552  120704  ?      Sl     Nov12  3:38   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     1998  2.2   1.5   906376   127048  ?      Sl     Nov12  3:28   /usr/lib64/chromium-browser/chromium-browser --enable-plugins --enable-extensions 
-    rsaw     1632  2.2   0.0   475128   7624    ?      S<l    Nov12  3:29   /usr/bin/pulseaudio --start 
-    rsaw     4507  1.0   0.4   1150868  38848   ?      Sl     Nov12  0:58   gnome-control-center sound 
-    rsaw     3295  0.6   0.4   630044   36596   ?      Sl     Nov12  0:42   gedit 
-    rsaw     2093  0.4   1.9   1234676  160736  ?      Sl     Nov12  0:43   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     2714  0.3   1.6   1186756  130404  ?      Sl     Nov12  0:25   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    USER     PID    %CPU  %MEM  VSZ      RSS      TTY     STAT   START  TIME    COMMAND  
+    qemu     22984  78.6  6.6   3892588  533828   ?       Sl     21:12  0:40    /usr/bin/qemu-kvm -S -M 
+    rsaw     18091  10.3  5.7   1903624  461488   ?       Sl     Dec01  267:41  /usr/lib64/chromium-browser/chromium-browser --type=plugin --plugin-path=/usr/lib64/flash-plugin/
+    rsaw     7832   10.0  1.4   1213988  114412   ?       Sl     16:37  27:48   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     22939  7.2   1.9   1085452  158076   ?       Ss     21:12  0:04    python /usr/share/virt-manager/virt-manager.py 
+    rsaw     21741  5.4   1.0   1147760  82308    ?       Sl     20:41  1:41    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     2180   5.0   22.3  3433136  1797084  ?       Sl     Nov26  468:29  /usr/lib64/firefox/firefox 
+    rsaw     22303  3.6   6.6   1944612  532380   ?       Sl     Dec01  63:27   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     6869   3.3   2.4   1288596  198824   ?       Sl     16:12  9:55    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     30294  3.1   0.0   0        0        ?       Z      Nov28  220:22  [thunderbird] <defunct> 
+    rsaw     1872   2.3   4.8   2210792  394716   ?       Rl     Nov26  216:37  /usr/bin/gnome-shell 
   Top MEM-using processes: 
-    USER     PID   %CPU  %MEM  VSZ      RSS     TTY    STAT   START  TIME   COMMAND  
-    rsaw     1684  6.1   3.1   1900680  254332  ?      Sl     Nov12  9:39   /usr/bin/gnome-shell 
-    rsaw     2155  25.5  2.6   1409240  216124  ?      Sl     Nov12  39:38  /usr/lib64/chromium-browser/chromium-browser --type=plugin --plugin-path=/usr/lib64/flash-plugin/li
-    rsaw     2093  0.4   1.9   1234676  160736  ?      Sl     Nov12  0:43   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     2714  0.3   1.6   1186756  130404  ?      Sl     Nov12  0:25   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     1998  2.2   1.5   906376   127048  ?      Sl     Nov12  3:28   /usr/lib64/chromium-browser/chromium-browser --enable-plugins --enable-extensions 
-    rsaw     2763  2.7   1.4   1172552  120704  ?      Sl     Nov12  3:38   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     2048  0.0   1.0   1135500  84056   ?      Sl     Nov12  0:02   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     2057  0.2   0.9   1152032  79000   ?      Sl     Nov12  0:19   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     3075  0.0   0.8   1116228  65324   ?      Sl     Nov12  0:03   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     2065  0.0   0.7   1110356  58524   ?      Sl     Nov12  0:00   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-
+    USER     PID    %CPU  %MEM  VSZ      RSS      TTY     STAT   START  TIME    COMMAND  
+    rsaw     2180   5.0   22.3  3433136  1797084  ?       Sl     Nov26  468:29  /usr/lib64/firefox/firefox 
+    rsaw     22303  3.6   6.6   1944612  532380   ?       Sl     Dec01  63:27   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    qemu     22984  78.6  6.6   3892588  533828   ?       Sl     21:12  0:40    /usr/bin/qemu-kvm -S -M 
+    rsaw     18091  10.3  5.7   1903624  461488   ?       Sl     Dec01  267:41  /usr/lib64/chromium-browser/chromium-browser --type=plugin --plugin-path=/usr/lib64/flash-plugin/
+    rsaw     1872   2.3   4.8   2210792  394716   ?       Rl     Nov26  216:37  /usr/bin/gnome-shell 
+    rsaw     6869   3.3   2.4   1288596  198824   ?       Sl     16:12  9:55    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     18254  0.1   2.4   1300592  196492   ?       Sl     Dec01  4:42    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     22939  7.2   1.9   1085452  158076   ?       Ss     21:12  0:04    python /usr/share/virt-manager/virt-manager.py 
+    rsaw     17910  0.9   1.9   986252   155516   ?       Sl     Dec01  24:58   /usr/lib64/chromium-browser/chromium-browser --enable-plugins --enable-extensions 
+    rsaw     19196  0.1   1.8   1217468  146336   ?       Sl     Dec01  2:31    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
 ```
 
 
@@ -262,21 +265,21 @@ PS CHECK
 **Run on another sosreport with some options:**
 
 ```
-[rsaw@sawzall]$ xsos 8308201prodserv --disks --mem --mb
+[rsaw]$ xsos 8308201prodserv --disks --mem --mb
 MEMORY
   RAM:
-    64363m total [61815m (96.0%) used]
-    49451m (76.8%) used excluding buffers/cache
-    5m (0.0%) dirty
+    64363 MiB total [61815 MiB (96.0%) used]
+    49451 MiB (76.8%) used excluding buffers/cache
+    5 MiB (0.0%) dirty
   HugePages:
-    38912m pre-allocated to HugePages (60.5% of total ram)
-    38146m of HugePages (98.0%) in-use by applications
+    38912 MiB pre-allocated to HugePages (60.5% of total ram)
+    38146 MiB of HugePages (98.0%) in-use by applications
   LowMem/Slab/PageTables/Shmem:
-    61815m (96.0%) of 64363m LowMem in-use
-    1192m (1.9%) of total ram used for Slab
-    349m (0.5%) of total ram used for PageTables
+    61815 MiB (96.0%) of 64363 MiB LowMem in-use
+    1192 MiB (1.9%) of total ram used for Slab
+    349 MiB (0.5%) of total ram used for PageTables
   Swap:
-    464m (2.8%) used of 16381m total
+    464 MiB (2.8%) used of 16381 MiB total
 
 STORAGE
   Multipath:
@@ -294,6 +297,24 @@ STORAGE
     1 disks, totaling 272 GiB (0.27 TiB)
     sda   271.9 G
 
+[rsaw]$ xsos --net --kb 8308201prodserv
+NETDEV
+  Interface  RxKiBytes     RxPackets     RxErrs  RxDrop  TxKiBytes     TxPackets     TxErrs  TxDrop
+  =========  =========     =========     ======  ======  =========     =========     ======  ======
+  eth0       23569277      300080406     0       0       587500973     480926218     0       0
+  eth1       144484269105  342207919183  0       4494    259888863511  357978804158  0       0
+  eth2       428438229206  392560553366  0       373     122422250847  330736051661  0       0
+  eth4       37184228554   55232280858   0       2350    23097311644   35535848225   0       0
+
+
+[rsaw]$ xsos -nG 8308201prodserv
+NETDEV
+  Interface  RxGiBytes  RxPackets  RxErrs  RxDrop  TxGiBytes  TxPackets  TxErrs  TxDrop
+  =========  =========  =========  ======  ======  =========  =========  ======  ======
+  eth0       22.48      300.1M     0       0       560.28     480.9M     0       0
+  eth1       137790.94  342207.9M  0       4494    247849.33  357978.8M  0       0
+  eth2       408590.54  392560.6M  0       373     116750.96  330736.1M  0       0
+  eth4       35461.64   55232.3M   0       2350    22027.31   35535.8M   0       0
 ```
 
 
@@ -301,7 +322,7 @@ STORAGE
 **Run on a sosreport again, showing sysctls:**
 
 ```
-[rsaw@sawzall]$ xsos --sysctl aczx998pinkle/
+[rsaw]$ xsos --sysctl aczx998pinkle/
 SYSCTLS
   kernel.
     osrelease: 2.6.18-194.26.1.el5
@@ -354,7 +375,7 @@ SYSCTLS
 **Finally, here's example of using some of the Special options, which allow you to specify a specific file instead of a full sosreport or having `xsos` run on your local system:**
 
 ```
-[rsaw@sawzall]$ xsos -v0 --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump --P /tmp/psaux.txt
+[rsaw]$ xsos -v0 --B /tmp/dmidecode.txt --I=/tmp/ipaddr.dump --P /tmp/psaux.txt
 DMIDECODE
   BIOS:
     HP, version P66, 06/24/2011
@@ -395,7 +416,6 @@ PS CHECK
     USER     %CPU    %MEM      RSS 
     oracle   909.4%  60648.5%  38137.05 GiB
     root     5.4%    0.0%      0.05 GiB
-    bimpy    0.0%    0.0%      0.00 GiB
   Uninteruptible sleep & Defunct processes: 
     USER     PID    %CPU  %MEM  VSZ     RSS       TTY    STAT  START  TIME      COMMAND  
     oracle   7883   0.3   59.3  144844  39092824  ?      Ds    Jul31  2:33      oracleCRELSP4 
