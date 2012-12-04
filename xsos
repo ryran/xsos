@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc7 last mod 2012/12/02
+# xsos v0.0.9rc7b last mod 2012/12/03
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -697,11 +697,11 @@ OSINFO() {
   _CHECK_DISTRO "$1"
   _CHECK_KERNELBUILD "$1"
   
-  # Grab number of cpus from cpuinfo
-  num_cpu=$(awk '/processor/{n++} END{print n}' "$1/proc/cpuinfo" 2>/dev/null)
+  # Grab number of cpus from proc/stat
+  num_cpu=$(awk '/^cpu[[:graph:]]+/{n++} END{print n}' "$1/proc/stat" 2>/dev/null)
   
   # Grab btime (in seconds since U.Epoch) from proc/stat
-  btime=$(awk '/btime/{print $2}' "$1/proc/stat" 2>/dev/null)
+  btime=$(awk '/^btime/{print $2}' "$1/proc/stat" 2>/dev/null)
   
   # Grab system hostname & kernel version from /proc first
   hostname=$(cat "$1/proc/sys/kernel/hostname" 2>/dev/null)
@@ -869,15 +869,15 @@ OSINFO() {
 
 
 CPUINFO() {
-  [[ -f $1 ]] && cpuinfo=$(<"$1") || cpuinfo=$(<"$1/proc/cpuinfo")
+  [[ -f $1 ]] && cpuinfo=$1 || cpuinfo=$1/proc/cpuinfo
   
   # Get model of cpu
-  model_cpu=$(awk -F: '/model name/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
+  model_cpu=$(awk -F: '/^model name/{print $2; exit}' <"$cpuinfo")
   
   # If no model detected (e.g. on Itanium), try to use vendor+family
   [[ -z $model_cpu ]] && {
-    vendor=$(awk -F: '/^vendor/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
-    family=$(awk -F: '/^family/{if (n>0) next; n++; print $2}' <<<"$cpuinfo")
+    vendor=$(awk -F: '/^vendor /{print $2; exit}' <"$cpuinfo")
+    family=$(awk -F: '/^family /{print $2; exit}' <"$cpuinfo")
     model_cpu="$vendor$family"
   }
   
@@ -885,25 +885,25 @@ CPUINFO() {
   model_cpu=$(sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g' -e 's,^ ,,' <<<"$model_cpu")
   
   # Get number of logical processors
-  num_cpu=$(awk '/processor/{n++} END{print n}' <<<"$cpuinfo")
+  num_cpu=$(awk '/^processor/{n++} END{print n}' <"$cpuinfo")
   
   # Get number of physical processors
-  num_cpu_phys=$(grep "physical id" <<<"$cpuinfo" | sort -u | wc -l)
+  num_cpu_phys=$(grep '^physical id' <"$cpuinfo" | sort -u | wc -l)
   
-  # If "physical id" not found, we cannot make any assumptions (VMWare--)
+  # If "physical id" not found, we cannot make any assumptions (Virtualization--)
   # But still, multiplying by 0 in some crazy corner case is bad, so set it to 1
   # If num of physical *was* detected, add it to the beginning of the model string
-  [[ $num_cpu_phys -eq 0 ]] && num_cpu_phys=1 || model_cpu="$num_cpu_phys $model_cpu"
+  [[ $num_cpu_phys == 0 ]] && num_cpu_phys=1 || model_cpu="$num_cpu_phys $model_cpu"
   
   # If number of logical != number of physical, try to get info on cores & threads
-  if [[ $num_cpu -ne $num_cpu_phys ]]; then
+  if [[ $num_cpu != $num_cpu_phys ]]; then
     
     # Detect number of threads (logical) per cpu
-    num_threads_per_cpu=$(awk '/siblings/{if (n>0) next; n++; print $3}' <<<"$cpuinfo")
+    num_threads_per_cpu=$(awk '/^siblings/{print $3; exit}' <"$cpuinfo")
     
     # Two possibile ways to detect number of cores
-    cpu_cores=$(awk '/cpu cores/{if (n>0) next; n++; print $4}' <<<"$cpuinfo")
-    core_id=$(grep "core id" <<<"$cpuinfo" | sort -u | wc -l)
+    cpu_cores=$(awk '/^cpu cores/{print $4; exit}' <"$cpuinfo")
+    core_id=$(grep '^core id' <"$cpuinfo" | sort -u | wc -l)
     
     # The first is the most accurate, if it works
     if [[ -n $cpu_cores ]]; then
@@ -931,7 +931,7 @@ CPUINFO() {
   # Check important cpu flags
   # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
   # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
-  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc" <<<"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
+  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc" <"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
   
   # Print it all out
@@ -1552,8 +1552,7 @@ _CHECK_TAINTED() {
 
 
 SYSCTL() {
-  # VM PageSize (don't know how to find this from a sosreport,
-  # but I doubt that will often be a problem)
+  # VM PageSize (don't know how to find this from a sosreport, but I doubt that will often be a problem)
   [[ $1 == / ]] && pgsz=$(getconf PAGESIZE) || pgsz=4
   echo -e "${c[H1]}SYSCTLS${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
