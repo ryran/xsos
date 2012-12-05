@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.0.9rc7b last mod 2012/12/03
+# xsos v0.1.0rc1 last mod 2012/12/05
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -71,10 +71,23 @@ fi
       [[ -z $XSOS_COLOR_IFUP ]] && XSOS_COLOR_IFUP=${c[green]}
 #
 #   XSOS_COLOR_IFDOWN -- color for ethtool InterFace "down"
-      [[ -z $XSOS_COLOR_IFDOWN ]] && XSOS_COLOR_IFDOWN=${c[orange]}
+      [[ -z $XSOS_COLOR_IFDOWN ]] && XSOS_COLOR_IFDOWN=${c[red]}
 #
 #
-# XSOS_FOLD_WIDTH (positive int)
+# INDENTATION
+#   The following variables are not used universally and that might not change
+#
+#   XSOS_INDENT_H1 -- 1st level of indentation
+      [[ -z $XSOS_INDENT_H1 ]] && XSOS_INDENT_H1="  "
+#
+#   XSOS_INDENT_H2 -- 2nd level of indentation
+      [[ -z $XSOS_INDENT_H2 ]] && XSOS_INDENT_H2="    "
+#
+#   XSOS_INDENT_H3 -- 3rd level of indentation
+      [[ -z $XSOS_INDENT_H3 ]] && XSOS_INDENT_H3="      "
+#
+#
+# XSOS_FOLD_WIDTH (natural number)
 #   Some content modules print line of unpredictable length
 #   This setting controls the wrapping width for commands that use it
 #   Changing to 0 causes width of terminal to be used
@@ -102,30 +115,27 @@ fi
     [[ -z $XSOS_DEFAULT_VIEW ]] && XSOS_DEFAULT_VIEW='os=y; cpu=y; mem=y; lspci=y; ip=y'
 #
 #
-# XSOS_PS_LEVEL (int: 0-3)
-#   Controls verbosity level (3 being highest) in PSCHECK() function
+# XSOS_PS_LEVEL (int: 0-4)
+#   Controls verbosity level (4 being highest) in PSCHECK() function
     [[ -z $XSOS_PS_LEVEL ]] && XSOS_PS_LEVEL=1
 #
 #
-# XSOS_MEM_UNIT (str: k, m, g)
+# XSOS_MEM_UNIT (str: b, k, m, g, t)
 #   Sets unit used by MEMINFO() function for printing
-#   Can also be controlled by cmdline opts -K/-M/-G
+#   Can also be controlled by cmdline opt -u/--unit
     [[ -z $XSOS_MEM_UNIT ]] && XSOS_MEM_UNIT="g"
 #
 #
 # XSOS_NET_UNIT (str: b, k, m, g, t)
 #   Sets unit used by PROC_NET() function for printing Rx & Tx Bytes
-#   Can also be controlled by cmdline opts -K/-M/-G
+#   Can also be controlled by cmdline opt -u/--unit
     [[ -z $XSOS_NET_UNIT ]] && XSOS_NET_UNIT="m"
 #
+# XSOS_OUTPUT_HANDLER (str: application name)
+#   Sets name of application to handle output
+    [[ -z $XSOS_OUTPUT_HANDLER ]] && XSOS_OUTPUT_HANDLER="cat"
 #
 # ==============================================================================
-
-
-# Variables used a few times for indentation
-# Many more times the spaces are just manually inserted; not ready to be env variables
-H2INDENT="    "
-H3INDENT="      "
 
 
 VERSINFO() {
@@ -135,11 +145,12 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: $pzero [-xKMG] [-w N] [-v N] [-abocmdleinsp] [SOSREPORT-ROOT]"
-  echo "  or:  $pzero [--B|--C|--M|--D|--L|--I|--N|--P FILE]..."
-  echo "  or:  $pzero [-?|-h|--help]"
-  echo "  or:  $pzero [-U|--update]"
-  echo "Extract useful data about system from SOSREPORT-ROOT or else localhost"
+  echo "Usage: $pzero [DISPLAY OPTIONS] [-abocmdleinsp] [SOSREPORT ROOT]
+  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--L|--I|--N|--P FILE}...
+  or:  $pzero [-?|-h|--help]
+  or:  $pzero [-U|--update]
+
+Display system info from localhost or extracted sosreport"
 }
 
 HELP_OPTS_CONTENT() {
@@ -164,12 +175,13 @@ HELP_OPTS_DISPLAY() {
   echo "
 Display options:"
   echo "
+ -u, --unit=P@change byte display for /proc/meminfo & /proc/net/dev,
+             @where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
+ -v, --verbose=NUM@specify ps verbosity level (0-4, defaults to 1)
+ -w, --width=NUM@change fold-width (76-char default; 0 autodetects)
  -x, --nocolor@disable output colorization
- -K, --kb@show /proc/meminfo & /proc/net/dev in KiB
- -M, --mb@show /proc/meminfo & /proc/net/dev in MiB
- -G, --gb@show /proc/meminfo & /proc/net/dev in GiB
- -w, --width=N@change fold-width (76-char default; 0 autodetects)
- -v, --verbose=N@specify ps verbosity level (0-4, defaults to 1)" | column -ts@
+ -y, --less@send output to \`less -SR\`
+ -z, --more@send output to \`more\`" | column -ts@
 }
 
 HELP_OPTS_SPECIAL() {
@@ -191,12 +203,13 @@ HELP_SHORT() {
   HELP_OPTS_CONTENT
   HELP_OPTS_DISPLAY
   HELP_OPTS_SPECIAL
-  echo -e "\nRun with '--help' to see full help page\n"
+  echo -e "\nRun with \"--help\" to see full help page\n"
   VERSINFO
 }
 
 HELP_EXTENDED() {
   HELP_USAGE
+  echo "Run with \"-h\" to see simplified help page"
   HELP_OPTS_CONTENT
   HELP_OPTS_DISPLAY
   echo "
@@ -204,11 +217,11 @@ If no content options are specified, $pzero parses the environment variable
 XSOS_DEFAULT_VIEW to figure out what information to display. If this variable
 is unset at runtime, it is initialized internally as follows:
 
-  XSOS_DEFAULT_VIEW='os=y; cpu=y; mem=y; lspci=y; ip=y'
+   XSOS_DEFAULT_VIEW='os=y; cpu=y; mem=y; lspci=y; ip=y'
 
 If desired, follow the pattern to tweak it to your preference.
 
-If SOSREPORT-ROOT isn't provided, the data will be gathered from the localhost;
+If SOSREPORT ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
 as root (UID 0). When executing in this manner as non-root, those modules will
 be skipped, and a warning printed to stderr.
@@ -219,27 +232,22 @@ dmidecode-dump or the contents of /proc/meminfo and you'd like a summary..."
   echo "
 As is hopefully clear, each of these options requires a filename as an
 argument. These options can be used together, but cannot be used in concert
-with regular 'Content options' -- Content opts are ignored if Special options
-are detected. Also note: the '=' can be replaced with a space if desired.
+with regular \"Content options\" -- Content opts are ignored if Special options
+are detected. Also note: the \"=\" can be replaced with a space if desired.
 
 Re BASH v4+:
-BASH associative arrays are used for various things. In short, if running $pzero
-on earlier BASH versions (e.g. RHEL5), you get ...
- * No output colorization
- * No -i/--ip
- * No parsing of 'Special options'
+ BASH associative arrays are used for various things. In short, if running
+ $pzero on earlier BASH versions (e.g. RHEL5), you get ...
+  * No output colorization
+  * No -i/--ip
+  * No parsing of \"Special options\"
 
-The following environment variables change the behavior of $pzero:
-  XSOS_COLORS    XSOS_FOLD_WIDTH    XSOS_HEADING_SEPARATOR
-  XSOS_ALL_VIEW  XSOS_DEFAULT_VIEW  XSOS_UPDATE_CONFIRM
-  XSOS_PS_LEVEL  XSOS_MEM_UNIT      XSOS_NET_UNIT
-  
-The following environment variables control the default colors:
-  XSOS_COLOR_RESET      XSOS_COLOR_WARN1  XSOS_COLOR_WARN2
-  XSOS_COLOR_IMPORTANT  XSOS_COLOR_IFUP   XSOS_COLOR_IFDOWN
-  XSOS_COLOR_H1         XSOS_COLOR_H2     XSOS_COLOR_H3
-
-See the first page or so of $pzero for full details on env variables.
+Environment variables:
+ For details of all configurable env variables, view first page of $pzero
+ source. There are vars to change default colors as well as other settings.
+ Each variable name is prefixed with \"XSOS_\" and the important ones follow.
+  COLORS    FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW    HEADING_SEPARATOR
+  MEM_UNIT  NET_UNIT    PS_LEVEL  UPDATE_CONFIRM  OUTPUT_HANDLER
 "
   VERSINFO
 }
@@ -338,8 +346,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='xKMGw:v:abocmdleinsp'
-lopts='nocolor,kb,mb,gb,width:,verbose:,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
+sopts='u:v:w:xyzabocmdleinsp'
+lopts='unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -350,21 +358,22 @@ unset sfile
 
 # Checker for cmdline options
 _OPT_CHECK() {
+  local option chosen_opt check_type valid_opts n s
   option=$1
-  chosen_opt=$2
+  chosen_opt=$(tr '[:upper:]' '[:lower:]' <<<"$2")
   check_type=$3
   valid_opts=$4
   if [[ $check_type == range ]]; then
     for n in $(seq $valid_opts); do
       [[ $n == $chosen_opt ]] && return
     done
-    echo "$pzero: option '$option' expects number from range ${valid_opts// /-}"
+    echo "$pzero: option '$option' expects number from range: { ${valid_opts// /-} }"
     
   elif [[ $check_type == naturalnumber ]]; then
     grep -qs '^[0-9]*$' <<<"$chosen_opt" && return
     echo "$pzero: option '$option' expects any natural number, including zero"
     
-  elif [[ $check_type == str ]]; then
+  elif [[ $check_type == string ]]; then
     for s in $valid_opts; do
       [[ $s == $chosen_opt ]] && return
     done
@@ -379,16 +388,16 @@ PARSE() {
   unset opts all bios os cpu mem disks lspci ethtool ip net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
-      -x|--nocolor) shift; XSOS_COLORS=n ;;
-      -K|--kb)      shift; XSOS_MEM_UNIT="k"; XSOS_NET_UNIT="k" ;;
-      -M|--mb)      shift; XSOS_MEM_UNIT="m"; XSOS_NET_UNIT="m" ;;
-      -G|--gb)      shift; XSOS_MEM_UNIT="g"; XSOS_NET_UNIT="g" ;;
-      -w|--width)   _OPT_CHECK "width" "$2" naturalnumber
-                      [[ $2 == 0 ]] && XSOS_FOLD_WIDTH=$(($(tput cols)-3)) || XSOS_FOLD_WIDTH=$2
-                      shift 2 ;;
+      -u|--unit)    _OPT_CHECK "unit" "$2" string "b k m g t"
+                      XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2 ;;
       -v|--verbose) _OPT_CHECK "verbose" "$2" range "0 4"
-                      XSOS_PS_LEVEL=$2
-                      shift 2 ;;
+                      XSOS_PS_LEVEL=$2; shift 2 ;;
+      -w|--width)   _OPT_CHECK "width" "$2" naturalnumber
+                      [[ $2 == 0 ]] && XSOS_FOLD_WIDTH=$(($(tput cols)-3)) || XSOS_FOLD_WIDTH=$2; shift 2 ;;
+                    
+      -x|--nocolor) shift; XSOS_COLORS=n     ;;
+      -y|--less)    shift; XSOS_OUTPUT_HANDLER='less -SR' ;;
+      -z|--more)    shift; XSOS_OUTPUT_HANDLER='more'     ;;
       -a|--all)     shift; opts=y; all=y     ;;
       -b|--bios)    shift; opts=y; bios=y    ;;
       -o|--os)      shift; opts=y; os=y      ;;
@@ -401,6 +410,7 @@ PARSE() {
       -n|--net)     shift; opts=y; net=y     ;;
       -s|--sysctl)  shift; opts=y; sysctl=y  ;;
       -p|--ps)      shift; opts=y; ps=y      ;;
+      
       --B)  sfile[B]=$2; shift 2 ;;
       --C)  sfile[C]=$2; shift 2 ;;
       --M)  sfile[M]=$2; shift 2 ;;
@@ -456,24 +466,43 @@ fi
 
 
 DMIDECODE() {
-  [[ -z $1 ]] && dmidecode=$(dmidecode 2>/dev/null) || dmidecode=$(<"$1")
+  # Local vars:
+  local dmidecode_input
+  
+  if [[ -z $1 ]]; then
+    dmidecode_input=$(dmidecode 2>/dev/null)
+  elif [[ -f $1 ]]; then
+    dmidecode_input=$(<"$1")
+  elif [[ -r $1/dmidecode ]]; then
+    dmidecode_input=$(<"$1/dmidecode")
+  elif [[ -r $1/sos_commands/kernel.dmidecode ]]; then
+    dmidecode_input=$(<"$1/sos_commands/kernel.dmidecode")
+  fi
+  
   echo -e "${c[H1]}DMIDECODE${c[0]}"
+  
+  # If bad dmidecode input, return
+  if head -n3 <<<"$dmidecode_input" | grep -qs 'No such file or directory'; then
+    echo -en $XSOS_HEADING_SEPARATOR
+    return 1
+  fi
+  
   # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
   echo -e "${c[H2]}  BIOS:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode" |
+  awk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode_input" |
     awk -F: '
-      /Vendor:/       { Vendor      = $2 }
-      /Version:/      { Version     = $2 }
-      /Release Date:/ { ReleaseDate = $2 }
+      /Vendor:/       { Vendor      = $2; gsub(/  */, " ", Vendor) }
+      /Version:/      { Version     = $2; gsub(/  */, " ", Version) }
+      /Release Date:/ { ReleaseDate = $2; gsub(/  */, " ", ReleaseDate) }
       END { printf "   %s, version%s,%s\n", Vendor, Version, ReleaseDate }
     '
   # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
   echo -e "${c[H2]}  System:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode" |
+  awk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode_input" |
     awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
-      /Manufacturer:/ { Mfr     = $2 }
-      /Product Name:/ { Product = $2 }
-      /Version:/      { Version = $2 }
+      /Manufacturer:/ { Mfr     = $2; gsub(/  */, " ", Mfr) }
+      /Product Name:/ { Product = $2; gsub(/  */, " ", Product) }
+      /Version:/      { Version = $2; gsub(/  */, " ", Version) }
       /Serial Number:/{ Serial  = $2 }
       /UUID:/         { UUID    = $2 }
       END {
@@ -488,15 +517,15 @@ DMIDECODE() {
   # Prints "<N> of <N> CPU sockets populated, <N> cores/<N> threads per CPU"
   # Prints "<N> total cores, <N> total threads"
   echo -e "${c[H2]}  CPU:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode" |
+  awk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode_input" |
     awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
       /Core Count:/   { SumCores   += $2; CoresPerCpu = $2 }
       /Thread Count:/ { SumThreads += $2; ThreadsPerCpu = $2 }
-      /Manufacturer:/ { if ($2 ~ /^ *$/)         next; Mfr         = $2; gsub(/  */, " ", Mfr) }
-      /Family:/       { if ($2 ~ /^ *$|Other/)   next; Family      = $2; gsub(/  */, " ", Family) }
-      /Current Speed:/{ if ($2 ~ /^ *$|Unknown/) next; CpuFreq     = $2; gsub(/  */, " ", CpuFreq) }
-      /Version:/      { if ($2 ~ /^ *$/)         next; Version     = $2; gsub(/  */, " ", Version) }
+      /Manufacturer:/ { if ($2 ~ /^ *$/)         next; Mfr      = $2; gsub(/  */, " ", Mfr) }
+      /Family:/       { if ($2 ~ /^ *$|Other/)   next; Family   = $2; gsub(/  */, " ", Family) }
+      /Current Speed:/{ if ($2 ~ /^ *$|Unknown/) next; CpuFreq  = $2; gsub(/  */, " ", CpuFreq) }
+      /Version:/      { if ($2 ~ /^ *$/)         next; Version  = $2; gsub(/  */, " ", Version) }
       END {
         printf "    %s%d of %d CPU sockets populated, %d cores/%d threads per CPU\n",
           H_IMP, PopulatedSockets, SumSockets, CoresPerCpu, ThreadsPerCpu
@@ -510,7 +539,7 @@ DMIDECODE() {
   # Prints "<N> MB (<N> GB) total"
   # Prints "<N> of <N> DIMMs populated (max capacity <N>)"
   echo -e "${c[H2]}  Memory:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode" |
+  awk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode_input" |
     awk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Size:/ { NumDimmSlots ++; if ($2 ~ /^[0-9]/) { NumDimms ++; SumRam+=$2 } }
       /Maximum Capacity:/ { MaxRam = $3" "$4 }
@@ -525,10 +554,13 @@ DMIDECODE() {
 
 
 _CHECK_DISTRO() {
+  # Local vars:
+  local OS_INDENT files file
+  
   OS_INDENT="             "
   # Parse redhat-release if we have it
   if [[ ! -r $1/etc/redhat-release ]]; then
-    distrorelease="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
+    distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
     
   else
     # If release is RHEL 4,5,6 in standard expected format ...
@@ -541,46 +573,48 @@ _CHECK_DISTRO() {
       [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
       
         # ... Then print it in orange
-        distrorelease=${c[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
+        distro_release=${c[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
         
           # Otherwise, if only 1 line, all is well -- print it normally
-          distrorelease=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+          distro_release=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
           
     # If release is not RHEL 4,5,6 in standard expected format, freak out
     else
-      distrorelease=$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
+      distro_release=$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
       
-      if grep -qi fedora <<<"$distrorelease"; then
-        distrorelease=${c[bg_BLUE]}$distrorelease
+      if grep -qi fedora <<<"$distro_release"; then
+        distro_release=${c[bg_BLUE]}$distro_release
       
-      elif egrep -qi 'alpha|beta' <<<"$distrorelease"; then
-        distrorelease=${c[bg_RED]}${c[ORANGE]}$distrorelease
+      elif egrep -qi 'alpha|beta' <<<"$distro_release"; then
+        distro_release=${c[bg_RED]}${c[ORANGE]}$distro_release
         
       else
-        distrorelease=${c[bg_ORANGE]}${c[RED]}$distrorelease
+        distro_release=${c[bg_ORANGE]}${c[RED]}$distro_release
       fi
     fi
     # Prepend the distro information with "[redhat-release] " and do a little color fun
-    distrorelease="${c[Imp]}[redhat-release]${c[0]} $distrorelease${c[0]}"
+    distro_release="${c[Imp]}[redhat-release]${c[0]} $distro_release${c[0]}"
   fi
 
-  # Check for any /etc/*-release or /etc/*_version files and add their content to the distrorelease variable
+  # Check for any /etc/*-release or /etc/*_version files and add their content to the distro_release variable
   files=$(ls "$1"/etc/*{-release,_version} 2>/dev/null | egrep -sv '/etc/(os|redhat|system)-release')
   if [[ -n $files ]]; then
     for file in $files; do
       if [[ -r $file ]]; then
-        distrorelease="$distrorelease\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} $(sed "1!s/^/$OS_INDENT/" <"$file")"
+        distro_release="$distro_release\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} $(sed "1!s/^/$OS_INDENT/" <"$file")"
       elif [[ -L $file ]]; then
-        distrorelease="$distrorelease\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} ${c[RED]}(error: broken link)${c[0]}"
+        distro_release="$distro_release\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} ${c[RED]}(error: broken link)${c[0]}"
       else
-        distrorelease="$distrorelease\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} ${c[RED]}(error: file exists, but cannot read it)${c[0]}"
+        distro_release="$distro_release\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} ${c[RED]}(error: file exists, but cannot read it)${c[0]}"
       fi
     done
   fi
   
+  # I don't like blindly sourcing a file -- that provides a vector to screw with this script...
+  # But in modern Linux boxen this file is standard
   # If able to source the new standard /etc/os-release, list it out
   if source "$1/etc/os-release" 2>/dev/null; then
-    distrorelease="$distrorelease\n$OS_INDENT${c[Imp]}[os-release]${c[0]} $PRETTY_NAME"
+    distro_release="$distro_release\n$OS_INDENT${c[Imp]}[os-release]${c[0]} $PRETTY_NAME"
   fi
 }
 
@@ -624,7 +658,10 @@ _CHECK_KERNELBUILD() {
 }
 
 
-_CHECK_SELINUX() {
+CHECK_SELINUX() {
+  # Local vars:
+  local sestatus sestatus2 selinux enforcing
+  
   # Grab input from sestatus command if localhost
   if [[ $1 == / ]]; then
     sestatus=$(sestatus)
@@ -634,7 +671,7 @@ _CHECK_SELINUX() {
     sestatus=$(awk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null) || {
       [[ -r $1/etc/selinux/config ]] && sestatus2=$(<"$1/etc/selinux/config")
       # Set "selinux" and "enforcing" variables per $sosroot's kernel args
-      eval $(egrep -io 'selinux=.|enforcing=.' "$1/proc/cmdline" | tr 'A-Z' 'a-z')
+      eval $(egrep -io 'selinux=.|enforcing=.' "$1/proc/cmdline" | tr '[:upper:]' '[:lower:]')
     }
   fi
   
@@ -692,8 +729,10 @@ _CHECK_SELINUX() {
 
 
 OSINFO() {
+  # Local vars:
+  local distro_release kernel_build kernel_buildhost num_cpu btime hostname kernel uname systime boottime uptime_input runlevel initdefault default
   
-  # These functions just set variables for later use
+  # These functions populate variables for later use
   _CHECK_DISTRO "$1"
   _CHECK_KERNELBUILD "$1"
   
@@ -756,13 +795,13 @@ OSINFO() {
   # Start printing stuff
   echo -e "${c[H1]}OS${c[0]}"
   echo -e "  ${c[H2]}Hostname:${c[0]}  $hostname"
-  echo -e "  ${c[H2]}Distro:${c[0]}    $distrorelease"
+  echo -e "  ${c[H2]}Distro:${c[0]}    $distro_release"
   echo -e "  ${c[H2]}Kernel:${c[0]}    $kernel"
   echo -e "  ${c[H2]}Arch:${c[0]}      $uname"
   
   [[ -n $runlevel ]] &&
   echo -e "  ${c[H2]}Runlevel:${c[0]}  $runlevel  (default $initdefault)"
-  echo -e "  ${c[H2]}SELinux:${c[0]}   $(_CHECK_SELINUX "$1")"
+  echo -e "  ${c[H2]}SELinux:${c[0]}   $(CHECK_SELINUX "$1")"
   
   [[ -n $systime ]] &&
   echo -e "  ${c[H2]}Sys time:${c[0]}  $systime"
@@ -826,7 +865,7 @@ OSINFO() {
   ' <"$1/proc/stat"
   
   # Print kernel tainted-status
-  echo -e "  ${c[H2]}Kernel taint-check:${c[0]} $(_CHECK_TAINTED "$1" H2)"
+  echo -e "  ${c[H2]}Kernel taint-check:${c[0]} $(CHECK_TAINTED "$1" H2)"
 
   # Print kernel cmdline from proc/cmdline
   echo -e "  ${c[H2]}Booted kernel cmdline:${c[0]}"
@@ -869,15 +908,18 @@ OSINFO() {
 
 
 CPUINFO() {
-  [[ -f $1 ]] && cpuinfo=$1 || cpuinfo=$1/proc/cpuinfo
+  # Local vars:
+  local cpuinfo_input model_cpu vendor family num_cpu num_cpu_phys num_threads_per_cpu cpu_cores core_id num_cores_per_cpu cores1 cores2 coresNthreads cpu_flags
+  
+  [[ -f $1 ]] && cpuinfo_input=$1 || cpuinfo_input=$1/proc/cpuinfo
   
   # Get model of cpu
-  model_cpu=$(awk -F: '/^model name/{print $2; exit}' <"$cpuinfo")
+  model_cpu=$(awk -F: '/^model name/{print $2; exit}' <"$cpuinfo_input")
   
   # If no model detected (e.g. on Itanium), try to use vendor+family
   [[ -z $model_cpu ]] && {
-    vendor=$(awk -F: '/^vendor /{print $2; exit}' <"$cpuinfo")
-    family=$(awk -F: '/^family /{print $2; exit}' <"$cpuinfo")
+    vendor=$(awk -F: '/^vendor /{print $2; exit}' <"$cpuinfo_input")
+    family=$(awk -F: '/^family /{print $2; exit}' <"$cpuinfo_input")
     model_cpu="$vendor$family"
   }
   
@@ -885,10 +927,10 @@ CPUINFO() {
   model_cpu=$(sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g' -e 's,^ ,,' <<<"$model_cpu")
   
   # Get number of logical processors
-  num_cpu=$(awk '/^processor/{n++} END{print n}' <"$cpuinfo")
+  num_cpu=$(awk '/^processor/{n++} END{print n}' <"$cpuinfo_input")
   
   # Get number of physical processors
-  num_cpu_phys=$(grep '^physical id' <"$cpuinfo" | sort -u | wc -l)
+  num_cpu_phys=$(grep '^physical id' <"$cpuinfo_input" | sort -u | wc -l)
   
   # If "physical id" not found, we cannot make any assumptions (Virtualization--)
   # But still, multiplying by 0 in some crazy corner case is bad, so set it to 1
@@ -899,11 +941,11 @@ CPUINFO() {
   if [[ $num_cpu != $num_cpu_phys ]]; then
     
     # Detect number of threads (logical) per cpu
-    num_threads_per_cpu=$(awk '/^siblings/{print $3; exit}' <"$cpuinfo")
+    num_threads_per_cpu=$(awk '/^siblings/{print $3; exit}' <"$cpuinfo_input")
     
     # Two possibile ways to detect number of cores
-    cpu_cores=$(awk '/^cpu cores/{print $4; exit}' <"$cpuinfo")
-    core_id=$(grep '^core id' <"$cpuinfo" | sort -u | wc -l)
+    cpu_cores=$(awk '/^cpu cores/{print $4; exit}' <"$cpuinfo_input")
+    core_id=$(grep '^core id' <"$cpuinfo_input" | sort -u | wc -l)
     
     # The first is the most accurate, if it works
     if [[ -n $cpu_cores ]]; then
@@ -931,7 +973,7 @@ CPUINFO() {
   # Check important cpu flags
   # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
   # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
-  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc" <"$cpuinfo" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
+  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
   
   # Print it all out
@@ -943,15 +985,20 @@ CPUINFO() {
 
 
 MEMINFO() {
-  [[ -f $1 ]] && meminfo=$1 || meminfo=$1/proc/meminfo
+  # Local vars:
+  local meminfo_input
+  
+  [[ -f $1 ]] && meminfo_input=$1 || meminfo_input=$1/proc/meminfo
+  
   echo -e "${c[H1]}MEMORY${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
     echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
     echo -e "${c[Warn1]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c[0]}"
   fi
-  awk -vu="$XSOS_MEM_UNIT" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+  awk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_MEM_UNIT) -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     
     # Grab variables from meminfo
+    
     /^MemTotal:/        { MemTotal  = $2 }
     /^MemFree:/         { MemFree   = $2 }
     /^Buffers:/         { BuffCache += $2 }
@@ -964,14 +1011,15 @@ MEMINFO() {
     /^Dirty:/           { Dirty     = $2 }
     /^Shmem:/           { Shmem     = $2 }
     /^Slab:/            { Slab      = $2 }
-    /^PageTables:/      { PageTables      = $2 }
-    /^Hugepagesize:/    { Hugepagesize    = $2 }
-    /^HugePages_Total:/ { HugepagesTotal  = $2 }
-    /^HugePages_Free:/  { HugepagesFree   = $2 }
+    /^PageTables:/      { PageTables     = $2 }
+    /^Hugepagesize:/    { Hugepagesize   = $2 }
+    /^HugePages_Total:/ { HugepagesTotal = $2 }
+    /^HugePages_Free:/  { HugepagesFree  = $2 }
     
     END {
       
       # Compute additional variables
+      
       MemUsed         = MemTotal - MemFree
       Mem_Percent     = MemUsed * 100 / MemTotal
       MemUsedNoBC     = MemUsed - BuffCache
@@ -984,23 +1032,29 @@ MEMINFO() {
       HP_PercentRam   = HP * 100 / MemTotal
       
       # If have hugepages, calculate in-use
+      
       if (HugepagesTotal > 0) {
         HP_Used         = (HugepagesTotal - HugepagesFree) * Hugepagesize
         HP_Used_Percent = (HugepagesTotal - HugepagesFree) * 100 / HugepagesTotal
       }
+      
       # Else, need to avoid divide-by-zero errors
+      
       else {
         HP_Used         = 0
         HP_Used_Percent = 0
       }
       
       # If meminfo has LowTotal (modern x86_64 boxes do not)...
+      
       if (LowTotal ~ /[0-9]+/) {
         SHOW_Lowmem=1
         LowUsed         = LowTotal - LowFree
         LowUsed_Percent = LowUsed * 100 / LowTotal
       }
+      
       # Else, avoid divide-by-zero and hide it
+      
       else {
         SHOW_Lowmem=0
         LowTotal        = 0
@@ -1009,55 +1063,109 @@ MEMINFO() {
       }
       
       # If have swap-space...
+      
       if (SwapTotal > 0) {
         SwapUsed      = SwapTotal - SwapFree
         Swap_Percent  = SwapUsed * 100 / SwapTotal
       }
+      
       # Else, avoid divide-by-zero errors
+      
       else {
         SwapUsed      = 0
         Swap_Percent  = 0
       }
       
       # If meminfo has Shmem, we show it; otherwise not
+      
       if (Shmem ~ /[0-9]+/)
         SHOW_Shmem=1
       else
         SHOW_Shmem=0
       
-      # If unit is set to megabytes or gigabytes,
-      # do one round of division to convert to megabytes
-      if (u == "m" || u == "g") {
-        MemUsed     /= 1024
-        MemTotal    /= 1024
-        MemUsedNoBC /= 1024
-        Dirty       /= 1024
-        Shmem       /= 1024
-        Slab        /= 1024
-        PageTables  /= 1024
-        HP          /= 1024
-        if (HugepagesTotal > 0) HP_Used /= 1024
-        if (LowTotal > 0) { LowUsed /= 1024; LowTotal /= 1024 }
-        if (SwapTotal > 0) { SwapUsed /= 1024; SwapTotal /= 1024 }
+      # If unit is set to B, convert native KiB to bytes
+      
+      if (u == "B") {
+        MemUsed     *= 1024
+        MemTotal    *= 1024
+        MemUsedNoBC *= 1024
+        Dirty       *= 1024
+        Shmem       *= 1024
+        Slab        *= 1024
+        PageTables  *= 1024
+        HP          *= 1024
+        if (HugepagesTotal > 0) HP_Used *= 1024
+        if (LowTotal > 0) { LowUsed *= 1024; LowTotal *= 1024 }
+        if (SwapTotal > 0) { SwapUsed *= 1024; SwapTotal *= 1024 }
       }
       
-      # If unit is set to gigabytes, do an additional division round
-      # and print units with 1 decimal-point of precision
-      if (u == "g") {
+      # Figure out what number to divide by to end up with MiB, GiB, or TiB
+      
+      if      (u == "M") divisor = 1024
+      else if (u == "G") divisor = 1024 ** 2
+      else if (u == "T") divisor = 1024 ** 3
+      
+      # If unit is set to M or G or T, do the division to convert from native KiB
+      
+      if (u == "M" || u == "G" || u == "T") {
+        MemUsed     /= divisor
+        MemTotal    /= divisor
+        MemUsedNoBC /= divisor
+        Dirty       /= divisor
+        Shmem       /= divisor
+        Slab        /= divisor
+        PageTables  /= divisor
+        HP          /= divisor
+        if (HugepagesTotal > 0) HP_Used /= divisor
+        if (LowTotal > 0)  { LowUsed  /= divisor; LowTotal  /= divisor }
+        if (SwapTotal > 0) { SwapUsed /= divisor; SwapTotal /= divisor }
+      }
+      
+      # The unit string used just for printing
+      
+      if (u == "B")
+        Unit = " "u
+      else
+        Unit = " "u"iB"
         
-        Unit = " GiB"
+      # If unit is T, print byteunits with 2-3 decimal-points of precision (depending)
+      
+      if (u == "T") {
         
-        MemUsed     /= 1024
-        MemTotal    /= 1024
-        MemUsedNoBC /= 1024
-        Dirty       /= 1024
-        Shmem       /= 1024
-        Slab        /= 1024
-        PageTables  /= 1024
-        HP          /= 1024
-        if (HugepagesTotal > 0) HP_Used /= 1024
-        if (LowTotal > 0) { LowUsed /= 1024; LowTotal /= 1024 }
-        if (SwapTotal > 0) { SwapUsed /= 1024; SwapTotal /= 1024 }
+        printf    "  %sRAM:%s\n", H2, H0
+        printf    "    %s%.2f%s total%s [%.2f%s (%.0f%%) used]\n", H_IMP, MemTotal, Unit, H0, MemUsed, Unit, Mem_Percent
+        printf    "    %s%.2f%s (%.0f%%) used excluding buffers/cache%s\n", H_IMP, MemUsedNoBC, Unit, MemNoBC_Percent, H0
+        if (Dirty_Percent > 5)
+          printf  "    %s%.3f%s (%.0f%%) dirty%s\n", color_warn, Dirty, Unit, Dirty_Percent, H0
+        else
+          printf  "    %.3f%s (%.0f%%) dirty\n", Dirty, Unit, Dirty_Percent
+        
+        printf    "  %sHugePages:%s\n", H2, H0
+        if (HugepagesTotal == 0)
+          printf  "    ZERO ram pre-allocated to HugePages\n"
+        else {
+          printf  "    %s%.2f%s pre-allocated to HugePages (%.0f%% of total ram)%s\n", H_IMP, HP, Unit, HP_PercentRam, H0
+          printf  "    %.2f%s of HugePages (%.0f%%) in-use by applications\n", HP_Used, Unit, HP_Used_Percent
+        }
+        
+        printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
+        if (SHOW_Lowmem == 1)
+          printf  "    %.2f%s (%.0f%%) of %.1f%s LowMem in-use\n", LowUsed, Unit, LowUsed_Percent, LowTotal, Unit
+        printf    "    %.3f%s (%.0f%%) of total ram used for Slab\n", Slab, Unit, Slab_Percent
+        printf    "    %.3f%s (%.0f%%) of total ram used for PageTables\n", PageTables, Unit, PT_Percent
+        if (SHOW_Shmem == 1)
+          printf  "    %.3f%s (%.0f%%) of total ram used for Shmem\n", Shmem, Unit, Shmem_Percent
+        
+        printf    "  %sSwap:%s\n", H2, H0
+        if (SwapTotal == 0)
+          printf  "    %sZERO system swap space configured%s\n", color_warn, H0
+        else
+          printf  "    %.2f%s (%.0f%%) used of %.2f%s total\n", SwapUsed, Unit, Swap_Percent, SwapTotal, Unit
+      }
+
+      # If unit is G, print byteunits with 1 to 2 decimal-points of precision (depending)
+      
+      else if (u == "G") {
         
         printf    "  %sRAM:%s\n", H2, H0
         printf    "    %s%.1f%s total%s [%.1f%s (%.0f%%) used]\n", H_IMP, MemTotal, Unit, H0, MemUsed, Unit, Mem_Percent
@@ -1090,16 +1198,10 @@ MEMINFO() {
           printf  "    %.1f%s (%.0f%%) used of %.1f%s total\n", SwapUsed, Unit, Swap_Percent, SwapTotal, Unit
       }
       
-      # Else, if unit is megabytes or kilobytes,
-      # print units with 0 decimal-points of precision,
-      # print percentages with an extra decimal-point of precision
-      else {
-        
-        if (u == "m")
-          Unit = " MiB"
-        else
-          Unit = " KiB"
-        
+      # If unit is B or K or M, print byteunits with no decimal but print percentages with an extra decimal-point of precision
+      
+      else if (u == "B" ||  u == "K" || u == "M") {
+              
         printf    "  %sRAM:%s\n", H2, H0
         printf    "    %s%.0f%s total%s [%.0f%s (%.1f%%) used]\n", H_IMP, MemTotal, Unit, H0, MemUsed, Unit, Mem_Percent
         printf    "    %s%.0f%s (%.1f%%) used excluding buffers/cache%s\n", H_IMP, MemUsedNoBC, Unit, MemNoBC_Percent, H0
@@ -1131,12 +1233,15 @@ MEMINFO() {
           printf  "    %.0f%s (%.1f%%) used of %.0f%s total\n", SwapUsed, Unit, Swap_Percent, SwapTotal, Unit
       }
     }
-  ' <"$meminfo"
+  ' <"$meminfo_input"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
 STORAGE() {
+  # Local vars:
+  local mpath_input scsi_blacklist mdstat_input raid_components bl partitions_input
+  
   echo -e "${c[H1]}STORAGE${c[0]}"
   if [[ $2 == --mpath ]]; then
     # Get multipath input from command, because $1 is system
@@ -1185,11 +1290,11 @@ STORAGE() {
 
   # Yay, let's go.
   [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
-  [[ -f $1 ]] && partitions=$1 || partitions=$1/proc/partitions
+  [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
   echo -e "  ${c[H2]}Disks:${c[0]}"
-  egrep -v "${scsi_blacklist%?}" "$partitions" |
+  egrep -v "${scsi_blacklist%?}" "$partitions_input" |
     awk -vblacklisted=$bl '
-      $4 ~ /^hd.$|^sd[[:alpha:]]+$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]+$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd[[:alpha:]]+$|^vd[[:alpha:]]+$/ {
+      $4 ~ /^hd.$|^sd[[:alpha:]]+$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]+$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd[[:alpha:]]+$|^vd[[:alpha:]]+$|^dasd[[:alpha:]]+$/ {
         numdisks ++
         disksize =  $3/1024/1024
         sum_gb   += disksize
@@ -1209,6 +1314,9 @@ STORAGE() {
 
 
 LSPCI() {
+  # Local vars:
+  local lspci_input
+  
   if [[ -z $1 ]]; then
     lspci_input=$(lspci)
   elif [[ -f $1 ]]; then
@@ -1271,26 +1379,29 @@ IPADDR() {
     echo -en $XSOS_HEADING_SEPARATOR >&2
     return
   fi
-
+  
+  # Local vars:
+  local ip_a_input ipdevs i n ipv4addr alias
+  
+  # Declare our 6 associative arrays:
+  local -A iface_input slaveof ipv4 ipv4_alias state mac 
+  
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
-    ip_addr=$(ip a)
+    ip_a_input=$(ip a)
   # If passed a file (i.e. xsos --I <file>), use that
   elif [[ -f $1 ]]; then
-    ip_addr=$(<"$1")
+    ip_a_input=$(<"$1")
   # Otherwise, use file from $sosroot
   else
-    ip_addr=$(<"$1/sos_commands/networking/ip_address")
+    ip_a_input=$(<"$1/sos_commands/networking/ip_address")
   fi
   
   # Prepare input for awk by separating each interface block
-  ip_addr=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"$ip_addr")
+  ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"$ip_a_input")
   
   # Grab a list of the interface names
-  ipdevs=$(awk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"$ip_addr" | egrep -v 'sit0')
-  
-  # Declare our 6 associative arrays
-  declare -A ip_input slaveof ipv4 ipv4_alias state mac 
+  ipdevs=$(awk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"$ip_a_input" | egrep -v 'sit0')
   
   # Begin ...
   echo -e "${c[H1]}IP${c[0]}"
@@ -1305,19 +1416,19 @@ IPADDR() {
     for i in $ipdevs; do
       
       # Pull out input for specific interface and save to interface key in array
-      ip_input[$i]=$(awk "BEGIN {RS=\"\n\n\"} /^[0-9]+: $i:/" <<<"$ip_addr")
+      iface_input[$i]=$(awk "BEGIN {RS=\"\n\n\"} /^[0-9]+: $i:/" <<<"$ip_a_input")
       
       # Figure out if $i is a slave of some bond device
-      slaveof[$i]=$(grep -q SLAVE <<<"${ip_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${ip_input[$i]}" | awk '{print $2}' || echo "-")
+      slaveof[$i]=$(grep -q SLAVE <<<"${iface_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | awk '{print $2}' || echo "-")
       
       # Get up/down state for $i
-      state[$i]=$(grep -q "$i: .*,UP"  <<<"${ip_input[$i]}" && echo up || echo DOWN)
+      state[$i]=$(grep -q "$i: .*,UP"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
       
       # Get macaddr for $i (don't show if all zeros)
-      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${ip_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${ip_input[$i]}" || echo "-")
+      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${iface_input[$i]}" || echo "-")
       
       # If $i has an ipv4 address, time to figure out what it is
-      if grep -q "inet .* ${i%@*}\$" <<<"${ip_input[$i]}"; then
+      if grep -q "inet .* ${i%@*}\$" <<<"${iface_input[$i]}"; then
         
         # We could potentially have more than one non-alias ipaddr...
         # So we need to set up a counter and do a loop
@@ -1328,7 +1439,7 @@ IPADDR() {
             echo "   ~ ~$ipv4addr~ ~ "
           fi
           n=$((n+1))
-        done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${ip_input[$i]}")"
+        done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}")"
       
       # Otherwise, print out all info with ipv4 addr set to "-"
       else
@@ -1338,11 +1449,11 @@ IPADDR() {
       fi
 
       # If $i had an ipv4 addr, it's ALIAS time!
-      if grep -q "inet .* $i:" <<<"${ip_input[$i]}"; then
+      if grep -q "inet .* $i:" <<<"${iface_input[$i]}"; then
       
         # For each "alias" (additional address) found ...
-        for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${ip_input[$i]}"); do
-          ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${ip_input[$i]}")
+        for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${iface_input[$i]}"); do
+          ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}")
           
           # ... Print out a new line with its ipv4 addr
           echo "  $alias~ ~${ipv4_alias[$alias]}~ ~ "
@@ -1369,6 +1480,9 @@ IPADDR() {
 
 
 ETHTOOL() {
+  # Local vars:
+  local changedir ethdevs i
+  
   # If localhost, grab interfaces from /sys
   if [[ -z $1 ]]; then
     ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0')
@@ -1377,16 +1491,13 @@ ETHTOOL() {
     __ethtool_i() { ethtool -i $1; }
     
   # If sosreport, determine interfaces from ethtool_<iface> files
-  elif ls "$1"/sos_commands/networking/ethtool* &>/dev/null; then
-    pushd "$1"/sos_commands/networking >/dev/null
+  else
+    changedir=1
+    pushd "$1"/sos_commands/networking &>/dev/null
     ethdevs=$(ls ethtool_[[:alpha:]]* | cut -d_ -f2)
     # Setup local functions for ethtool & ethtool -i
     __ethtool()   { cat ethtool_$1; }
     __ethtool_i() { [[ -r ethtool_-i_$1 ]] && cat ethtool_-i_$1; }
-  
-  # Otherwise, set ethdevs to null
-  else
-    ethdevs=
   fi
   
   # If have ethdevs to work on ...
@@ -1416,17 +1527,21 @@ ETHTOOL() {
     )"
     done | column -ts~ |
       awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" '/DOWN/{print D $0 H0}  /up/{print U $0 H0}'
-    [[ ${PWD##*/} == networking ]] && popd >/dev/null
+    [[ -n $changedir ]] && popd &>/dev/null
   fi
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
 
 PROC_NET() {
-  [[ -f $1 ]] && netdev=$1 || netdev=$1/proc/net/dev
+  # Local vars:
+  local netdev_input
+  
+  [[ -f $1 ]] && netdev_input=$1 || netdev_input=$1/proc/net/dev
+  
   echo -e "${c[H1]}NETDEV${c[0]}"
-  tail -n+3 "$netdev" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
-    awk -vu=$(tr 'bkmgt' 'BKMGT' <<<$XSOS_NET_UNIT) '
+  tail -n+3 "$netdev_input" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
+    awk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_NET_UNIT) '
       {
         Interface[$1] = $1
         RxBytes[$1]   = $2
@@ -1493,6 +1608,8 @@ PROC_NET() {
           if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }'
+
+# Disabled this cuz ... well, it took up space and I had no evidence that anyone uses it
 #  if [[ -d $1 ]]; then
 #    echo -en $XSOS_HEADING_SEPARATOR
 #    echo -e "${c[H1]}SOCKSTAT${c[0]}"
@@ -1503,30 +1620,37 @@ PROC_NET() {
 }
 
 
-_CHECK_TAINTED() {
-  tainted=$(<"$1/proc/sys/kernel/tainted")
-  if [[ $tainted -eq 0 ]]; then
+CHECK_TAINTED() {
+  # Local vars:
+  local sys_tainted_status tainvals taint indent t n
+  
+  sys_tainted_status=$(<"$1/proc/sys/kernel/tainted")
+  
+  if [[ $sys_tainted_status == 0 ]]; then
     echo "0 (kernel untainted)"
     return
+    
   else
     case $2 in
-      H0) unset indent   ;;
-      H1) indent="  "    ;;
-      H2) indent="    "  ;;
-      H3) indent="      "
+      H0) indent=                ;;
+      H1) indent=$XSOS_INDENT_H1 ;;
+      H2) indent=$XSOS_INDENT_H2 ;;
+      H3) indent=$XSOS_INDENT_H3
     esac
+    
     taintvals=$(
       for taint in 536870912 268435456 4096 2048 1024 512 256 128 64 32 16 8 4 2 1; do
-        if [[ $tainted -gt $taint ]]; then
+        if [[ $sys_tainted_status -gt $taint ]]; then
           printf "$taint "
-          tainted=$((tainted-taint))
-        elif [[ $tainted -eq $taint ]]; then
+          sys_tainted_status=$((tainted-taint))
+        elif [[ $sys_tainted_status == $taint ]]; then
           printf "$taint "                                                                                     
           break
         fi
       done
     )
   fi
+  
   # See /usr/share/doc/kernel-doc*/Documentation/sysctl/kernel.txt
   # Or linux/kernel/panic.c
   t[1]="Proprietary module has been loaded"
@@ -1552,8 +1676,12 @@ _CHECK_TAINTED() {
 
 
 SYSCTL() {
+  # Local vars:
+  local pgsz
+  
   # VM PageSize (don't know how to find this from a sosreport, but I doubt that will often be a problem)
   [[ $1 == / ]] && pgsz=$(getconf PAGESIZE) || pgsz=4
+  
   echo -e "${c[H1]}SYSCTLS${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
     echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
@@ -1561,7 +1689,7 @@ SYSCTL() {
   fi
   echo -e "  ${c[H2]}kernel.${c[0]}
     ${c[H3]}osrelease:${c[0]} $(<"$1/proc/sys/kernel/osrelease")
-    ${c[H3]}tainted:${c[0]} $(_CHECK_TAINTED "$1" H3)
+    ${c[H3]}tainted:${c[0]} $(CHECK_TAINTED "$1" H3)
     ${c[H3]}random.boot_id:${c[0]} $(<"$1/proc/sys/kernel/random/boot_id")
     ${c[H3]}random.entropy_avail:${c[0]} $(<"$1/proc/sys/kernel/random/entropy_avail")
     ${c[H3]}panic:${c[0]} $(<"$1/proc/sys/kernel/panic") (seconds til reboot after panic)
@@ -1569,7 +1697,7 @@ SYSCTL() {
     ${c[H3]}panic_on_oops:${c[0]} $(<"$1/proc/sys/kernel/panic_on_oops")
     ${c[H3]}panic_on_unrecovered_nmi:${c[0]} $(<"$1/proc/sys/kernel/panic_on_unrecovered_nmi")
     ${c[H3]}sysrq:${c[0]} $(<"$1/proc/sys/kernel/sysrq")
-    ${c[H3]}sem:${c[0]} $(awk -vS="$H3INDENT" '{print $1,$2,$3,$4; printf "%smax semaphores per array = %d\n%smax sems system-wide     = %d\n%smax ops per semop call   = %d\n%smax number of arrays     = %d\n", S,$1,S,$2,S,$3,S,$4}' <"$1/proc/sys/kernel/sem")
+    ${c[H3]}sem:${c[0]} $(awk -vS="$XSOS_INDENT_H3" '{print $1,$2,$3,$4; printf "%smax semaphores per array = %d\n%smax sems system-wide     = %d\n%smax ops per semop call   = %d\n%smax number of arrays     = %d\n", S,$1,S,$2,S,$3,S,$4}' <"$1/proc/sys/kernel/sem")
     ${c[H3]}shmall (pages):${c[0]} $(<"$1/proc/sys/kernel/shmall") ($(awk -vPGSZ="$pgsz" '{printf "%.1f G max total shared memory\n", $1*PGSZ/1024/1024}' <"$1/proc/sys/kernel/shmall"))
     ${c[H3]}shmmax (bytes):${c[0]} $(<"$1/proc/sys/kernel/shmmax") ($(awk '{printf "%.2f G max segment size\n", $1/1024/1024/1024}' <"$1/proc/sys/kernel/shmmax"))
     ${c[H3]}shmmni (segments):${c[0]} $(<"$1/proc/sys/kernel/shmmni") (max number of segs)
@@ -1599,13 +1727,16 @@ SYSCTL() {
 
 
 PSCHECK() {
+  # Local vars:
+  local ps_input ps_header num_top_users num_comm_args num_process_lines process_line_length Dsleepers Zombies top_users top_users_header
+  
   # Get input from proper place dependent on what was passed
   if [[ -z $1 ]]; then
-    input=$(ps aux)
+    ps_input=$(ps aux)
   elif [[ -f $1 ]]; then
-    input=$(awk '!/\/.*bin/ && NF!=0' "$1")
+    ps_input=$(awk '!/\/.*bin/ && NF!=0' "$1")
   else
-    input=$(awk '!/\/.*bin/ && NF!=0' "$1/ps")
+    ps_input=$(awk '!/\/.*bin/ && NF!=0' "$1/ps")
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
@@ -1648,10 +1779,10 @@ PSCHECK() {
   }
   
   # Perfectly columnize ps input and chop off extra command args based on above options
-  input=$(awk -vMAX_fields=$((num_comm_args+12)) '{for (i=1; i<11; i++) printf $i"~"; for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "; printf "\n"}' <<<"$input" | cut -c-$process_line_length | column -ts~ | sed 's,^,    ,')
+  ps_input=$(awk -vMAX_fields=$((num_comm_args+12)) '{for (i=1; i<11; i++) printf $i"~"; for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "; printf "\n"}' <<<"$ps_input" | cut -c-$process_line_length | column -ts~ | sed 's,^,    ,')
   # Deal with header
-  ps_header=$(head -n1 <<<"$input")
-  ps_input=$(tail -n+2 <<<"$input")
+  ps_header=$(head -n1 <<<"$ps_input")
+  ps_input=$(tail -n+2 <<<"$ps_input")
   
   # Format and prepare sleeping/zombie processes
   Dsleepers=$(awk -vcolor_warn="${c[Warn1]}" -vc_0="${c[0]}" '$8~/D/ {print color_warn $0 c_0}' <<<"$ps_input")
@@ -1685,22 +1816,52 @@ PSCHECK() {
 # Eventually I'll probably replace all of this with a python loader.
 # Python's argparse is so much better than dealing with all this crap.
 
+# Used to check for existence of files on a sosreport and print errors to stderr
+SOS_CHECKFILE() {
+  local module firstfile
+  # $1: module name, e.g. bios, os, cpu, mem
+  # $2+: file names, i.e. potential files to be found in sosreport root
+  module=$1; shift; firstfile=$1
+  # If module needs to be called, check for files
+  if [[ $(eval echo \$$module) == y ]]; then
+    while [[ $# -gt 0 ]]; do
+      # If ethtool module being called, do something specific
+      if [[ $module == ethtool ]] && ls "$sosroot"/$2 &>/dev/null; then
+          return  # Return successfully if ethtool files found
+      # If file ends in slash, look for dir
+      elif [[ $1 =~ /$ ]]; then
+        [[ -d $sosroot/$1 ]] && return  # Return successfully if dir found
+      else
+        [[ -r $sosroot/$1 ]] && return  # Return successfully if file readable
+      fi
+      shift
+    done
+  else
+    return  # If module doesn't need to be called, return success
+  fi
+  # If we're still here, a module for which we don't have files was requested -- warn
+  echo -e "${c[Warn2]}Warning:${c[Warn1]} '$sosroot/$firstfile' file unreadable; skipping $module check${c[0]}" >&2
+  echo -en $XSOS_HEADING_SEPARATOR >&2
+  return 1
+}
+
 # Used to conditionally run certain functions when running on localhost
 COND_RUN() {
-  if [[ $2 ==  --require_root && $UID != 0 ]]; then
-    echo -e "${c[Warn1]}Warning: Need root access to run $1 command on localhost${c[0]}" >&2
+  if [[ $2 == --require_root && $UID != 0 ]]; then
+    echo -e "${c[Warn2]}Warning:${c[Warn1]} Need root access to run $1 command on localhost${c[0]}" >&2
     echo -en $XSOS_HEADING_SEPARATOR >&2
   elif command -v $1 &>/dev/null; then
     # The following tr command translates $1 to the uppercase function name, e.g. lspci --> LSPCI
     # In a BASHv4-only world, this could be done with simply: ${1^^}
     $(tr '[:lower:]' '[:upper:]' <<<"$1")
   else
-    echo -e "${c[Warn1]}Warning: $1 command not present in PATH${c[0]}" >&2
+    echo -e "${c[Warn2]}Warning:${c[Warn1]} $1 command not present in PATH${c[0]}" >&2
     echo -en $XSOS_HEADING_SEPARATOR >&2
   fi
 }
 
 
+{
 # If special options and files were provided ....
 if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
@@ -1714,38 +1875,31 @@ if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
 
 # If SOSREPORT-ROOT provided, use that
 elif [[ -n $sosroot ]]; then
-  if [[ -n $bios ]]; then
-    if [[ -r $sosroot/dmidecode ]]; then
-      DMIDECODE "$sosroot/dmidecode"
-    elif [[ -r $sosroot/sos_commands/kernel.dmidecode ]]; then
-      DMIDECODE "$sosroot/sos_commands/kernel.dmidecode"
-    fi
-  fi
-  [[ -n $os && -d $sosroot/proc ]] &&                       OSINFO "$sosroot"
-  [[ -n $cpu   && -r $sosroot/proc/cpuinfo ]] &&            CPUINFO "$sosroot"
-  [[ -n $mem   && -r $sosroot/proc/meminfo ]] &&            MEMINFO "$sosroot"
-  [[ -n $disks && -r $sosroot/proc/partitions ]] &&         STORAGE "$sosroot" --mpath
-  [[ -n $lspci && -r $sosroot/lspci ]] &&                   LSPCI "$sosroot"
-  [[ -n $ethtool ]] &&                                      ETHTOOL "$sosroot"
-  [[ -n $ip && -r $sosroot/sos_commands/networking/ip_address ]] &&
-                                                            IPADDR "$sosroot"
-  [[ -n $net && -d $sosroot/proc/net ]] &&                  PROC_NET "$sosroot"
-  [[ -n $sysctl && -d $sosroot/proc/sys ]] &&               SYSCTL "$sosroot" 2>/dev/null
-  [[ -n $ps && -r $sosroot/ps ]] &&                         PSCHECK "$sosroot"
+  SOS_CHECKFILE bios    {,sos_commands/kernel.}dmidecode     && DMIDECODE "$sosroot"
+  SOS_CHECKFILE os      "proc/"                              && OSINFO    "$sosroot"
+  SOS_CHECKFILE cpu     "proc/cpuinfo"                       && CPUINFO   "$sosroot"
+  SOS_CHECKFILE mem     "proc/meminfo"                       && MEMINFO   "$sosroot"
+  SOS_CHECKFILE disks   "proc/partitions"                    && STORAGE   "$sosroot" --mpath
+  SOS_CHECKFILE lspci   "lspci"                              && LSPCI     "$sosroot"
+  SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && ETHTOOL   "$sosroot"
+  SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && IPADDR    "$sosroot"
+  SOS_CHECKFILE net     "proc/net/"                          && PROC_NET  "$sosroot"
+  SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
+  SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
   
 # If no SOSREPORT-ROOT provided, run checks against local system
 else
-  [[ -n $bios ]] &&    COND_RUN dmidecode --require_root
-  [[ -n $os ]] &&      OSINFO /
-  [[ -n $cpu ]] &&     CPUINFO /
-  [[ -n $mem ]] &&     MEMINFO /
-  [[ -n $disks ]] &&   STORAGE / --mpath
-  [[ -n $lspci ]] &&   COND_RUN lspci
+  [[ -n $bios ]]    && COND_RUN dmidecode --require_root
+  [[ -n $os ]]      && OSINFO /
+  [[ -n $cpu ]]     && CPUINFO /
+  [[ -n $mem ]]     && MEMINFO /
+  [[ -n $disks ]]   && STORAGE / --mpath
+  [[ -n $lspci ]]   && COND_RUN lspci
   [[ -n $ethtool ]] && COND_RUN ethtool --require_root
-  [[ -n $ip ]] &&      IPADDR
-  [[ -n $net ]] &&     PROC_NET /
-  [[ -n $sysctl ]] &&  SYSCTL / 2>/dev/null
-  [[ -n $ps ]] &&      PSCHECK
+  [[ -n $ip ]]      && IPADDR
+  [[ -n $net ]]     && PROC_NET /
+  [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
+  [[ -n $ps ]]      && PSCHECK
 
 fi
-
+} | $XSOS_OUTPUT_HANDLER
