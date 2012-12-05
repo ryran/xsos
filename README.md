@@ -17,7 +17,7 @@ INSTALLATION
 
 *"I'm sold! How do I install xsos?"*
 
-Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your `PATH`. Make it executable and you'll be good to go!  
+Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your `$PATH`. Make it executable and you'll be good to go!  
 
 **Example:**
 
@@ -126,15 +126,16 @@ IP
 ```
 
 
-**While xsos is always changing, here's the minimal help page from v0.0.9rc7:**
+**While xsos is always changing, here's the minimal help page from v0.1.0rc1:**
 
 ```
 [rsaw]$ xsos -h
-Usage: xsos [-xKMG] [-w N] [-v N] [-abocmdleinsp] [SOSREPORT-ROOT]
-  or:  xsos [--B|--C|--M|--D|--L|--I|--N|--P FILE]...
+Usage: xsos [DISPLAY OPTIONS] [-abocmdleinsp] [SOSREPORT ROOT]
+  or:  xsos [DISPLAY OPTIONS] {--B|--C|--M|--D|--L|--I|--N|--P FILE}...
   or:  xsos [-?|-h|--help]
   or:  xsos [-U|--update]
-Extract useful data about system from SOSREPORT-ROOT or else localhost
+
+Display system info from localhost or extracted sosreport
 
 Content options:
  -a, --all      show everything
@@ -151,12 +152,13 @@ Content options:
  -p, --ps       inspect running processes via ps
 
 Display options:
- -x, --nocolor    disable output colorization
- -K, --kb         show /proc/meminfo & /proc/net/dev in KiB
- -M, --mb         show /proc/meminfo & /proc/net/dev in MiB
- -G, --gb         show /proc/meminfo & /proc/net/dev in GiB
- -w, --width=N    change fold-width (76-char default; 0 autodetects)
- -v, --verbose=N  specify ps verbosity level (0-4, defaults to 1)
+ -u, --unit=P       change byte display for /proc/meminfo & /proc/net/dev,
+                    where P is "b" for byte, or else "k", "m", "g", or "t"
+ -v, --verbose=NUM  specify ps verbosity level (0-4, defaults to 1)
+ -w, --width=NUM    change fold-width (76-char default; 0 autodetects)
+ -x, --nocolor      disable output colorization
+ -y, --less         send output to `less -SR`
+ -z, --more         send output to `more`
 
 Special options (BASH v4+ required):
  --B=FILE  read from FILE containing `dmidecode` dump
@@ -168,9 +170,9 @@ Special options (BASH v4+ required):
  --N=FILE  read from FILE containing /proc/net/dev dump
  --P=FILE  read from FILE containing `ps aux` dump
 
-Run with '--help' to see full help page
+Run with "--help" to see full help page
 
-Version info: xsos v0.0.9rc7 last mod 2012/12/02
+Version info: xsos v0.1.0rc1 last mod 2012/12/05
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
@@ -263,7 +265,7 @@ PS CHECK
 **Run on another sosreport with some options:**
 
 ```
-[rsaw]$ xsos 8308201prodserv --disks --mem --mb
+[rsaw]$ xsos 8308201prodserv --disks --mem --unit=m
 MEMORY
   RAM:
     64363 MiB total [61815 MiB (96.0%) used]
@@ -295,7 +297,7 @@ STORAGE
     1 disks, totaling 272 GiB (0.27 TiB)
     sda   271.9 G
 
-[rsaw]$ xsos --net --kb 8308201prodserv
+[rsaw]$ xsos --net --unit k 8308201prodserv
 NETDEV
   Interface  RxKiBytes     RxPackets     RxErrs  RxDrop  TxKiBytes     TxPackets     TxErrs  TxDrop
   =========  =========     =========     ======  ======  =========     =========     ======  ======
@@ -304,7 +306,7 @@ NETDEV
   eth2       428438229206  392560553366  0       373     122422250847  330736051661  0       0
   eth4       37184228554   55232280858   0       2350    23097311644   35535848225   0       0
 
-[rsaw]$ xsos -nG 8308201prodserv
+[rsaw]$ xsos -nug 8308201prodserv
 NETDEV
   Interface  RxGiBytes  RxPackets  RxErrs  RxDrop  TxGiBytes  TxPackets  TxErrs  TxDrop
   =========  =========  =========  ======  ======  =========  =========  ======  ======
@@ -450,12 +452,13 @@ REQUIREMENTS
 THINGS THAT MIGHT SURPRISE YOU
 -------
 
-* `xsos` does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
-  * If you like the color but need to use a pager, pipe to `more` or `less -R`
+* xsos does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
+  * If you like the color but need to use a pager, use the `--less` (`-y`) or `--more` (`-z`) options to auto-pipe output to `less -SR` or `more`.
   * There are multiple environment variables for managing the colors. You don't need to modify the script itself. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
-* `xsos` can update itself via the internet in 10 seconds if run with `--update` or `-U`.
+* xsos can update itself via the internet in 10 seconds if run with `--update` or `-U`.
   * Set environment variable `XSOS_UPDATE_CONFIRM` to "`n`" if you don't want `--update` to prompt for confirmation.
-* When printing disk info with `-d/--disks`, `xsos` automatically detects linux software raid (md) devices and hides their components. The `multipath` command is also consulted to print info about native multipathd devices. All LUNs that are part of a dm-multipath map are also hidden from the disk output.
+* When printing disk info with `-d/--disks`, xsos automatically detects linux software raid (md) devices and hides their components. The `multipath` command is also consulted to print info about native multipathd devices. All LUNs that are part of a dm-multipath map are also hidden from the disk output.
+* You can use the `--unit` (`-u`) option to change how `/proc/meminfo` and `/proc/net/dev` are parsed -- displaying units in anything from bytes up to tebibytes.
 * There are a bunch of environment variables that you can use to tweak behavior. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
 * When printing info on pci net devices (`-l/--lspci`), `xsos` simplifies the net output in an intelligent way. Example:
 
