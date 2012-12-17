@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.0rc2 last mod 2012/12/14
+# xsos v0.1.0rc3 last mod 2012/12/14
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -184,8 +184,8 @@ Display options:"
   echo "
  -u, --unit=P@change byte display for /proc/meminfo & /proc/net/dev,
              @where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
- -v, --verbose=NUM@specify ps verbosity level (0-4, defaults to 1)
- -w, --width=NUM@change fold-width (76-char default; 0 autodetects)
+ -v, --verbose=NUM@specify ps verbosity level (0-4, default: 1)
+ -w, --width=NUM@change fold-width (w autodetects, 0 disables, default: 76)
  -x, --nocolor@disable output colorization
  -y, --less@send output to \`less -SR\`
  -z, --more@send output to \`more\`" | column -ts@
@@ -370,7 +370,11 @@ _OPT_CHECK() {
   chosen_opt=$(tr '[:upper:]' '[:lower:]' <<<"$2")
   check_type=$3
   valid_opts=$4
-  if [[ $check_type == range ]]; then
+  if [[ $option == width ]]; then
+    egrep -qs '^[0-9]*$|^w$' <<<"$chosen_opt" && return
+    echo "$pzero: option '$option' expects a positive number or 'w' (auto-detect width) or '0' (disable wrapping)"
+  
+  elif [[ $check_type == range ]]; then
     for n in $(seq $valid_opts); do
       [[ $n == $chosen_opt ]] && return
     done
@@ -396,12 +400,18 @@ PARSE() {
   until [[ $1 = -- ]]; do
     case $1 in
       -u|--unit)    _OPT_CHECK "unit" "$2" string "b k m g t"
-                      XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2 ;;
+                      XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2
+                    ;;
       -v|--verbose) _OPT_CHECK "verbose" "$2" range "0 4"
-                      XSOS_PS_LEVEL=$2; shift 2 ;;
-      -w|--width)   _OPT_CHECK "width" "$2" naturalnumber
-                      [[ $2 == 0 ]] && XSOS_FOLD_WIDTH=$(($(tput cols)-3)) || XSOS_FOLD_WIDTH=$2; shift 2 ;;
-                    
+                      XSOS_PS_LEVEL=$2; shift 2
+                    ;;
+      -w|--width)   _OPT_CHECK "width" "$2"
+                      if   [[ $2 == w ]]; then XSOS_FOLD_WIDTH=$(($(tput cols)-3))
+                      elif [[ $2 == 0 ]]; then XSOS_FOLD_WIDTH=99999
+                      else XSOS_FOLD_WIDTH=$2
+                      fi
+                      shift 2
+                    ;;
       -x|--nocolor) shift; XSOS_COLORS=n     ;;
       -y|--less)    shift; XSOS_OUTPUT_HANDLER='less -SR' ;;
       -z|--more)    shift; XSOS_OUTPUT_HANDLER='more'     ;;
@@ -671,7 +681,7 @@ CHECK_SELINUX() {
   
   # Grab input from sestatus command if localhost
   if [[ $1 == / ]]; then
-    sestatus=$(sestatus)
+    sestatus=$(sestatus 2>/dev/null)
     
   # Else, from $sosroot/sestatus or $sosroot/etc/selinux/config
   else
@@ -1824,14 +1834,15 @@ PSCHECK() {
   
   # First, we need to convert VSZ & RSS in the ps input to MiB or GiB (if necessary)
   # We also need to perfectly columnize the input and chop off extra command args based on above options
-  ps_input=$(awk -vMAX_fields=$((num_comm_args+12)) -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_PS_UNIT) '
+  ps_input=$(awk -vMAX_fields=$((num_comm_args+12)) -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
     BEGIN {
       # Not going to worry about down-converting to bytes or up-converting to TiB
-      if (u == "B") u = "K"
-      if (u == "T") u = "G"
-      if (u != "K" || u != "M" || u != "G") u = "M"
+      if      (u == "B") u = "K"
+      else if (u == "T") u = "G"
+      else if (u == "K" || u == "G") u = u
+      else u = "M"
       
-      # Figure out what number to divide by to end up with MiB or GiB
+      # Figure out what number to divide by to end up with KiB or MiB or GiB
       if      (u == "K") divisor = 1
       else if (u == "M") divisor = 1024
       else if (u == "G") divisor = 1024 ** 2
@@ -1845,7 +1856,7 @@ PSCHECK() {
       
       # Print field 5 & 6 (VSZ & RSS)
       for (i=5; i<7; i++) {
-        if      (NR == 1)  printf "%s %s~", $i, U
+        if      (NR == 1)  printf "%s-%s~", $i, U
         else if (u == "G") printf "%.1f~", $i/divisor
         else               printf "%.0f~", $i/divisor
       }
