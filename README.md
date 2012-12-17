@@ -126,7 +126,7 @@ IP
 ```
 
 
-**While xsos is always changing, here's the minimal help page from v0.1.0rc1:**
+**While xsos is always changing, here's the minimal help page from v0.1.0rc3:**
 
 ```
 [rsaw]$ xsos -h
@@ -154,8 +154,8 @@ Content options:
 Display options:
  -u, --unit=P       change byte display for /proc/meminfo & /proc/net/dev,
                     where P is "b" for byte, or else "k", "m", "g", or "t"
- -v, --verbose=NUM  specify ps verbosity level (0-4, defaults to 1)
- -w, --width=NUM    change fold-width (76-char default; 0 autodetects)
+ -v, --verbose=NUM  specify ps verbosity level (0-4, default: 1)
+ -w, --width=NUM    change fold-width (w autodetects, 0 disables, default: 76)
  -x, --nocolor      disable output colorization
  -y, --less         send output to `less -SR`
  -z, --more         send output to `more`
@@ -172,7 +172,7 @@ Special options (BASH v4+ required):
 
 Run with "--help" to see full help page
 
-Version info: xsos v0.1.0rc1 last mod 2012/12/05
+Version info: xsos v0.1.0rc3 last mod 2012/12/14
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
