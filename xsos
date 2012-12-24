@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.0rc3 last mod 2012/12/14
+# xsos v0.1.0rc4 last mod 2012/12/23
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -87,11 +87,12 @@ fi
       [[ -z $XSOS_INDENT_H3 ]] && XSOS_INDENT_H3="      "
 #
 #
-# XSOS_FOLD_WIDTH (natural number)
+# XSOS_FOLD_WIDTH (w, 0, or positive number)
 #   Some content modules print line of unpredictable length
 #   This setting controls the wrapping width for commands that use it
-#   Changing to 0 causes width of terminal to be used
-    [[ -z $XSOS_FOLD_WIDTH ]] && XSOS_FOLD_WIDTH=76
+#   Changing to w causes width of terminal to be used
+#   Changing to 0 causes 99999 to be used
+    [[ -z $XSOS_FOLD_WIDTH ]] && XSOS_FOLD_WIDTH=94
 #
 #
 # XSOS_UPDATE_CONFIRM (bool: y/n)
@@ -112,7 +113,7 @@ fi
 #
 # XSOS_DEFAULT_VIEW (str of variables, semicolon-separated)
 #   Controls default content modules, i.e. what to run when none are specififed
-    [[ -z $XSOS_DEFAULT_VIEW ]] && XSOS_DEFAULT_VIEW='os=y; cpu=y; mem=y; lspci=y; ip=y'
+    [[ -z $XSOS_DEFAULT_VIEW ]] && XSOS_DEFAULT_VIEW='os=y'
 #
 #
 # XSOS_PS_LEVEL (int: 0-4)
@@ -185,7 +186,7 @@ Display options:"
  -u, --unit=P@change byte display for /proc/meminfo & /proc/net/dev,
              @where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
  -v, --verbose=NUM@specify ps verbosity level (0-4, default: 1)
- -w, --width=NUM@change fold-width (w autodetects, 0 disables, default: 76)
+ -w, --width=NUM@change fold-width (w autodetects, 0 disables, default: 94)
  -x, --nocolor@disable output colorization
  -y, --less@send output to \`less -SR\`
  -z, --more@send output to \`more\`" | column -ts@
@@ -224,9 +225,10 @@ If no content options are specified, $pzero parses the environment variable
 XSOS_DEFAULT_VIEW to figure out what information to display. If this variable
 is unset at runtime, it is initialized internally as follows:
 
-   XSOS_DEFAULT_VIEW='os=y; cpu=y; mem=y; lspci=y; ip=y'
+   XSOS_DEFAULT_VIEW='os=y;'
 
-If desired, follow the pattern to tweak it to your preference.
+Tweak it to preference by adding additional semicolon-separated MODULE=y
+statements.
 
 If SOSREPORT ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
@@ -406,11 +408,7 @@ PARSE() {
                       XSOS_PS_LEVEL=$2; shift 2
                     ;;
       -w|--width)   _OPT_CHECK "width" "$2"
-                      if   [[ $2 == w ]]; then XSOS_FOLD_WIDTH=$(($(tput cols)-3))
-                      elif [[ $2 == 0 ]]; then XSOS_FOLD_WIDTH=99999
-                      else XSOS_FOLD_WIDTH=$2
-                      fi
-                      shift 2
+                      XSOS_FOLD_WIDTH=$2; shift 2
                     ;;
       -x|--nocolor) shift; XSOS_COLORS=n     ;;
       -y|--less)    shift; XSOS_OUTPUT_HANDLER='less -SR' ;;
@@ -475,6 +473,14 @@ if [[ $XSOS_COLORS == y && $BASH_VERSINFO -ge 4 ]]; then
 else
   unset c
 fi
+
+# Properly setup fold setting
+if [[ $XSOS_FOLD_WIDTH == w ]]; then
+  XSOS_FOLD_WIDTH=$(($(tput cols)-3))
+elif [[ $XSOS_FOLD_WIDTH == 0 ]]; then
+  XSOS_FOLD_WIDTH=99999
+fi
+
 
 
 # ON TO THE CONTENT MODULE FUNCTIONS!
@@ -574,10 +580,10 @@ _CHECK_DISTRO() {
   # Local vars:
   local OS_INDENT files file
   
-  OS_INDENT="             "
+  OS_INDENT="            "
   # Parse redhat-release if we have it
   if [[ ! -r $1/etc/redhat-release ]]; then
-    distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
+    distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[red]}(missing)${c[0]}"
     
   else
     # If release is RHEL 4,5,6 in standard expected format ...
@@ -606,7 +612,7 @@ _CHECK_DISTRO() {
         distro_release=${c[bg_RED]}${c[ORANGE]}$distro_release
         
       else
-        distro_release=${c[bg_ORANGE]}${c[RED]}$distro_release
+        distro_release=${c[bg_GREY]}${c[RED]}$distro_release
       fi
     fi
     # Prepend the distro information with "[redhat-release] " and do a little color fun
@@ -707,7 +713,7 @@ CHECK_SELINUX() {
     
   # Have /etc/selinux/config output
   elif [[ -n $sestatus2 ]]; then
-    awk -F= -vselinux="$selinux" -venforcing="$enforcing" '
+    awk -F= -vselinux="$selinux" -venforcing="$enforcing" -vH0="${c[0]}" -vH0="${c[0]}" -vcolor_warn="${c[Warn1]}" '
       /^SELINUX=/     { mode = $2 }
       /^SELINUXTYPE=/ { policy = $2 }
       END {
@@ -725,7 +731,7 @@ CHECK_SELINUX() {
           else if (enforcing == 1)
             printf "enforcing via kernel arg  (default %s)\n", mode
           else
-            printf "status unknown  (default %s)\n", mode
+            printf "%sstatus unknown%s  (default %s)\n", color_warn, H0, mode
         }
       }
     ' <<<"$sestatus2"
@@ -739,7 +745,7 @@ CHECK_SELINUX() {
       [[ $enforcing -eq 0 ]] && echo "permissive via kernel arg  (default unknown)"
       [[ $enforcing -eq 1 ]] && echo "enforcing via kernel arg  (default unknown)"
     else
-      echo "status unknown  (default unknown)"
+      echo -e "${c[Warn1]}status unknown${c[0]}  (default unknown)"
     fi
   fi
 }
@@ -767,7 +773,7 @@ OSINFO() {
   if serverURL=$(grep ^serverURL= "$1/etc/sysconfig/rhn/up2date" 2>/dev/null); then
     sURLtmp=$(egrep --color=always -si 'oracle' <<<"$serverURL") && serverURL=$sURLtmp
   else
-    serverURL="${c[RED]}(missing)${c[0]}"
+    serverURL="${c[red]}(missing)${c[0]}"
   fi
   
   # If running on localhost
@@ -786,7 +792,7 @@ OSINFO() {
     # If sosreport ran in rescue mode, try to get good hostname
     if grep -qsw rescue "$1/proc/cmdline"; then
       hostname=$(awk -F= /^HOSTNAME=/{print\$2}  "$1/etc/sysconfig/network" 2>/dev/null) ||
-        hostname="${c[Warn1]}unknown${c[0]} (sosreport collected from rescue mode)"
+        hostname="${c[Warn1]}unknown${c[0]}  (sosreport collected from rescue mode)"
     # Otherwise, if no hostname from proc/, try to get from sosroot/hostname or sosroot/uname
     else
       [[ -z $hostname ]] && {
@@ -797,7 +803,7 @@ OSINFO() {
     fi
     # If sosreport ran in rescue mode, leave it to the kernel-build funness
     if grep -qsw rescue "$1/proc/cmdline"; then
-      kernel="${c[Warn1]}unknown${c[0]} (sosreport collected from rescue mode -- see below)"
+      kernel="$kernel  ${c[Warn1]}(Rescue mode kernel version)${c[0]}"
     # Otherwise, if no kernel version from proc/, try to get from sosroot/uname
     else
       [[ -z $kernel ]] && {
@@ -806,9 +812,16 @@ OSINFO() {
       }
     fi
     uname=$(awk '!/\/.*bin/ && NF!=0 {printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}' "$1/uname" 2>/dev/null) ||
-        uname="${c[Warn1]}unknown${c[0]}"
-    systime=$(awk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null)
-    boottime=$(echo $(TZ=$(awk '!/\/.*bin/ && NF!=0 {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null && echo " ($btime)"))
+      uname="${c[Warn1]}unknown${c[0]}"
+    
+    systime=$(awk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null) 
+    [[ $(wc -w <<<"$systime") == 6 ]] &&
+      systime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
+    
+    boottime=$(echo -n $(TZ=$(awk '!/\/.*bin/ && NF!=0 {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null))
+    [[ $(wc -w <<<"$boottime") == 6 ]] &&
+      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (%s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+    
     uptime_input=$(awk '!/\/.*bin/ && NF!=0' "$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] &&
@@ -818,15 +831,68 @@ OSINFO() {
   
   # Start printing stuff
   echo -e "${c[H1]}OS${c[0]}"
-  echo -e "  ${c[H2]}Hostname:${c[0]}  $hostname"
-  echo -e "  ${c[H2]}Distro:${c[0]}    $distro_release"
-  echo -e "  ${c[H2]}RHN:${c[0]}       $serverURL"
-  echo -e "  ${c[H2]}Kernel:${c[0]}    $kernel"
-  echo -e "  ${c[H2]}Arch:${c[0]}      $uname"
-  
+  echo -e "  ${c[H2]}Hostname:${c[0]} $hostname"
+  echo -e "  ${c[H2]}Distro:${c[0]}   $distro_release"
+  echo -e "  ${c[H2]}RHN:${c[0]}      $serverURL"
   [[ -n $runlevel ]] &&
-  echo -e "  ${c[H2]}Runlevel:${c[0]}  $runlevel  (default $initdefault)"
-  echo -e "  ${c[H2]}SELinux:${c[0]}   $(CHECK_SELINUX "$1")"
+  echo -e "  ${c[H2]}Runlevel:${c[0]} $runlevel  (default $initdefault)"
+  echo -e "  ${c[H2]}SELinux:${c[0]}  $(CHECK_SELINUX "$1")"
+  echo -e "  ${c[H2]}Arch:${c[0]}     $uname"
+  echo -e "  ${c[H2]}Kernel:${c[0]}"
+  
+  echo -e "    ${c[H3]}Booted kernel:${c[0]}  $kernel"
+  
+  # Print default grub title statement
+  if [[ -r $1/boot/grub/grub.conf ]]; then
+    eval $(grep -qs ^default= "$1/boot/grub/grub.conf") || {
+      default=0
+      # echo -e "${c[Warn1]}   (Warning: \"default=\" missing in grub.conf; showing info from 1st title instead)${c[0]}"
+    }
+    grub_cmdline=$(sed 's,^title,\n\n,' "$1/boot/grub/grub.conf" | grep -v ^[[:graph:]] | awk -vDEFAULT=$((default+2)) -vRS="\n\n " 'NR == DEFAULT {print}' | grep -o '/vmlinuz-.*')
+    grub_kernel=$(awk {print\$1} <<<"${grub_cmdline#/vmlinuz-}" 2>/dev/null)
+    grub_cmdline=$(cut -d' ' -f2- <<<"$grub_cmdline")
+  else
+    grub_cmdline="${c[Warn1]}unknown (no grub.conf)${c[0]}"
+    grub_kernel="${c[Warn1]}unknown (no grub.conf)${c[0]}"
+  fi
+  
+  echo -e "    ${c[H3]}GRUB default:${c[0]}   $grub_kernel"
+  
+  # Print and format kernel version
+  echo -e "    ${c[H3]}Build version:${c[0]}"
+  # If kernel build was detected ...
+  if [[ -n $kernel_build ]]; then
+    # Print a notice if rescue mode
+    grep -qsw rescue "$1/proc/cmdline" &&
+      echo -e "${c[Warn1]}     (Rescue mode detected; build info captured from logs of last boot)${c[0]}"
+    # Format it to fit properly
+    kernel_build=$(fold -sw$XSOS_FOLD_WIDTH <<<"$kernel_build" | sed 's,^,      ,')
+    # Change color to warning color (orange) if can't find "build.redhat.com"
+    grep -qe '\.z900\.redhat\.com' -e '\.build\.redhat\.com' -e '\.bos\.redhat\.com' -e '\.perf\.redhat\.com' <<<"$kernel_buildhost" ||
+      kernel_build="${c[Warn1]}$kernel_build${c[0]}"
+    echo -e "$kernel_build"
+  else
+    echo -e "$XSOS_INDENT_H3${c[Warn1]}unknown${c[0]}"
+  fi
+  
+  # Print kernel cmdline from proc/cmdline
+  echo -e "    ${c[H3]}Booted kernel cmdline:${c[0]}"
+  # If rescue mode detected, print a warning
+  grep -qsw rescue "$1/proc/cmdline" &&
+    echo -e "     ${c[Warn1]}(Rescue mode detected)${c[0]}"
+  [[ ! -r $1/proc/cmdline ]] && 
+    echo -e "$XSOS_INDENT_H3${c[Warn1]}unknown${c[0]}" ||
+    fold -sw$XSOS_FOLD_WIDTH "$1/proc/cmdline" 2>/dev/null | sed "s,^,$XSOS_INDENT_H3,"
+
+  echo -e "    ${c[H3]}GRUB default kernel cmdline:${c[0]}"
+  grep -qs unknown <<<"$grub_cmdline" &&
+    echo -e "$XSOS_INDENT_H3$grub_cmdline" ||
+    fold -sw$XSOS_FOLD_WIDTH <<<"$grub_cmdline" 2>/dev/null | sed "s,^,$XSOS_INDENT_H3,"
+  
+  # Print kernel tainted-status
+  echo -e "    ${c[H3]}Taint-check:${c[0]} $(CHECK_TAINTED "$1" H3)"
+  
+  echo -e "    ${c[GREY]}- - - - - - - - - - - - - - - - - - -${c[0]}"
   
   [[ -n $systime ]] &&
   echo -e "  ${c[H2]}Sys time:${c[0]}  $systime"
@@ -858,13 +924,13 @@ OSINFO() {
         printf "  %sSys time:%s  %s\n", H2, H0, Time
       printf   "  %sBoot time:%s %s\n", H2, H0, BTIME
       printf   "  %sUptime:%s    %s\n", H2, H0, Uptime
-      printf   "  %sLoadAvg:%s   %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
-        H2, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
+      printf   "  %sLoadAvg:%s   %s[%d CPU]%s %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
+        H2, H0, H_IMP, NUM_CPU, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
     }' <<<"$uptime_input"
     
   # Print info from proc/stat
   [[ -n $btime ]] &&
-  awk -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  awk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
     /^cpu / {
       TotalTime = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9 + $10 + $11
       user    = $2 * 100 / TotalTime
@@ -878,56 +944,21 @@ OSINFO() {
      #guest      = $10
      #guest_nice = $11
     }
-    /procs_running/ { procs_running = $2 }
-    /procs_blocked/ { procs_blocked = $2 }
-   
+    /^cpu[[:graph:]]+/ { num_cpu++ }
+    /procs_running/    { procs_running = $2 }
+    /procs_blocked/    { procs_blocked = $2 }
+    /processes/        { processes = $2 }
+    
     END {
-      printf "  %sCpu time since boot:%s\n    us %.0f%%, ni %.0f%%, sys %.0f%%, idle %.0f%%, iowait %.0f%%, irq %.0f%%, sftirq %.0f%%, steal %.0f%%\n",
-        H2, H0, user, nice, sys, idle, iowait, irq, softirq, steal
-      printf "  %sprocs_running (procs_blocked):%s\n    %d (%d)\n",
-        H2, H0, procs_running, procs_blocked
+      printf "  %s/proc/stat:%s\n",
+        H2, H0
+      printf "    %sprocs_running:%s %d    %sprocs_blocked:%s %d    %sprocesses:%s %d\n",
+        H3, H0, procs_running, H3, H0, procs_blocked, H3, H0, processes
+      printf "    %scpu:  [Break-down of CPU time since boot]%s\n      us %.0f%%, ni %.0f%%, sys %.0f%%, idle %.0f%%, iowait %.0f%%, irq %.0f%%, sftirq %.0f%%, steal %.0f%%\n",
+        H3, H0, user, nice, sys, idle, iowait, irq, softirq, steal
     }
   ' <"$1/proc/stat"
   
-  # Print kernel tainted-status
-  echo -e "  ${c[H2]}Kernel taint-check:${c[0]} $(CHECK_TAINTED "$1" H2)"
-
-  # Print kernel cmdline from proc/cmdline
-  echo -e "  ${c[H2]}Booted kernel cmdline:${c[0]}"
-  # If rescue mode detected, print a warning
-  grep -qsw rescue "$1/proc/cmdline" &&
-    echo -e "${c[Warn1]}   (Rescue mode detected)${c[0]}"
-  fold -sw$XSOS_FOLD_WIDTH "$1/proc/cmdline" 2>/dev/null | sed 's,^,    ,'
-  
-  # Print default grub title statement
-  echo -e "  ${c[H2]}GRUB default kernel line:${c[0]}"
-  if [[ -r $1/boot/grub/grub.conf ]]; then
-    eval $(grep -qs ^default= "$1/boot/grub/grub.conf") || {
-      default=0
-      echo -e "${c[Warn1]}   (Warning: \"default=\" missing in grub.conf; showing first title instead)${c[0]}"
-    }
-    sed 's,^title,\n\n,' "$1/boot/grub/grub.conf" | grep -v ^[[:graph:]] | awk -vDEFAULT=$((default+2)) -vRS="\n\n " 'NR == DEFAULT {print}' | grep -o 'vmlinuz-.*' | fold -sw$XSOS_FOLD_WIDTH | sed 's,^,    ,'
-  else
-    echo -e "${c[Warn1]}    Unable to detect${c[0]}"
-  fi
-  
-  # Print and format kernel version
-  echo -e "  ${c[H2]}Kernel version/build:${c[0]}"
-  # If kernel build was detected ...
-  if [[ -n $kernel_build ]]; then
-    # Print a notice if rescue mode
-    grep -qsw rescue "$1/proc/cmdline" &&
-      echo -e "${c[Warn1]}   (Rescue mode detected; build info captured from logs of last boot)${c[0]}"
-    # Format it to fit properly
-    kernel_build=$(fold -sw$XSOS_FOLD_WIDTH <<<"$kernel_build" | sed 's,^,    ,')
-    # Change color to warning color (orange) if can't find "build.redhat.com"
-    grep -qe '\.z900\.redhat\.com' -e '\.build\.redhat\.com' -e '\.bos\.redhat\.com' -e '\.perf\.redhat\.com' <<<"$kernel_buildhost" ||
-      kernel_build="${c[Warn1]}$kernel_build${c[0]}"
-    echo -e "$kernel_build"
-  else
-    echo -e "${c[Warn1]}    Unable to detect${c[0]}"
-  fi
-      
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
