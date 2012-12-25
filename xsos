@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.0rc5 last mod 2012/12/25
+# xsos v0.1.0rc5b last mod 2012/12/25
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1913,12 +1913,45 @@ PSCHECK() {
   
   # Calculte top cpu-using & mem-using users
   if [[ $XSOS_PS_LEVEL < 3 ]]; then  # If verbosity level 0-2, restrict number of users shown
-    top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) if (pCPU[user]>0 || sRSS[user]>4096) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+    # Process ps input to generate summary user-list of top-users
+    top_users=$(
+      awk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
+        BEGIN { print "USER~%CPU~%MEM~RSS" }
+        { pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6 }
+        END {
+          # Figure out what number to divide by to end up with GiB
+          if      (u == "K") divisor = 1024 ** 2
+          else if (u == "M") divisor = 1024
+          else if (u == "G") divisor = 1
+          for (user in pCPU)
+            # Only show if greater than 0% CPU and 0.1% MEM
+            if (pCPU[user]>0 || pMEM[user]>0.1)
+              printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/divisor
+        }
+      ' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+    # Grab header from the top
     top_users_header=$(head -n1 <<<"$top_users")
+  
   else  # If verbosity level 3-4, show all users
-    top_users=$(awk 'BEGIN{print "USER~%CPU~%MEM~RSS"} {pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6} END {for (user in pCPU) printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/1024/1024 }' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+    # Process ps input to generate summary user-list of top-users
+    top_users=$(
+      awk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
+        BEGIN { print "USER~%CPU~%MEM~RSS" }
+        { pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6 }
+        END {
+          # Figure out what number to divide by to end up with GiB
+          if      (u == "K") divisor = 1024 ** 2
+          else if (u == "M") divisor = 1024
+          else if (u == "G") divisor = 1
+          for (user in pCPU)
+            printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/divisor
+        }
+      ' <<<"$ps_input" | column -ts~ | sed 's,^,    ,')
+    # Grab header from the top
     top_users_header=$(head -n1 <<<"$top_users")
   fi
+  
+  # Remove header from the top and sort everything else by %CPU, potentially trimming down list
   top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2 | $(__conditional_head $num_top_users))
   
   # Print!
