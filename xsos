@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.0rc4 last mod 2012/12/23
+# xsos v0.1.0rc5 last mod 2012/12/25
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1819,9 +1819,9 @@ PSCHECK() {
   if [[ -z $1 ]]; then
     ps_input=$(ps aux)
   elif [[ -f $1 ]]; then
-    ps_input=$(awk '!/\/.*bin/ && NF!=0' "$1")
+    ps_input=$(<"$1")
   else
-    ps_input=$(awk '!/\/.*bin/ && NF!=0' "$1/ps")
+    ps_input=$(<"$1/ps")
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
@@ -1899,6 +1899,7 @@ PSCHECK() {
       for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "
       printf "\n"
     }' <<<"$ps_input" | cut -c-$process_line_length | column -ts~ | sed 's,^,    ,')
+    
   # Deal with header
   ps_header=$(head -n1 <<<"$ps_input")
   ps_input=$(tail -n+2 <<<"$ps_input")
@@ -1925,7 +1926,7 @@ PSCHECK() {
   ${c[H2]}Top users of CPU & MEM:${c[0]} \n${c[H3]}$top_users_header${c[0]} \n$top_users
   ${c[H2]}Uninteruptible sleep & Defunct processes:${c[0]} \n${c[H3]}$ps_header${c[0]} $Dsleepers $Zombies
   ${c[H2]}Top CPU-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk3 <<<"$ps_input" | $(__conditional_head $num_process_lines))
-  ${c[H2]}Top MEM-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk4 <<<"$ps_input" | $(__conditional_head $num_process_lines))"
+  ${c[H2]}Top MEM-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk6 <<<"$ps_input" | $(__conditional_head $num_process_lines))"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
