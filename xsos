@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.0rc5b last mod 2012/12/25
+# xsos v0.1.0rc5c last mod 2012/12/27
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1384,7 +1384,7 @@ LSPCI() {
   echo -e "${c[H1]}LSPCI${c[0]}"
 
   awk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
-    !/Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:/ {
+    !/Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:|InfiniBand:/ {
       next
     }
     {
@@ -1979,7 +1979,7 @@ SOS_CHECKFILE() {
   if [[ $(eval echo \$$module) == y ]]; then
     while [[ $# -gt 0 ]]; do
       # If ethtool module being called, do something specific
-      if [[ $module == ethtool ]] && ls "$sosroot"/$2 &>/dev/null; then
+      if [[ $module == ethtool ]] && ls "$sosroot"/$1 &>/dev/null; then
           return  # Return successfully if ethtool files found
       # If file ends in slash, look for dir
       elif [[ $1 =~ /$ ]]; then
