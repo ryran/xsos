@@ -48,63 +48,43 @@ The lovely thing that isn't going to be captured here is all the coloring done t
 ```
 [rsaw]$ xsos aczx998pinkle/
 OS
-  Hostname:  aczx998pinkle
-  Distro:    Red Hat Enterprise Linux Server release 5.5 (Tikanga)
-  Kernel:    2.6.18-194.26.1.el5
-  Arch:      mach=x86_64  cpu=x86_64  platform=x86_64
-  Runlevel:  3 5  (default 3)
-  SELinux:   permissive  (default enforcing)
-  Sys time:  Thu Jun 28 12:09:05 CDT 2012
-  Boot time: Thu Jun 28 07:29:14 CDT 2012 (1340868554)
-  Uptime:    9:39, 16 users
-  LoadAvg:   120.46 (94%), 95.32 (74%), 50.82 (40%)
-  Cpu time since boot:
-    us 6%, ni 0%, sys 2%, idle 74%, iowait 18%, irq 0%, sftirq 1%, steal 0%
-  procs_running (procs_blocked):
-    5 (0)
-  Kernel taint-check: 536870912 512 64 16 1
-    Technology Preview code is loaded
-    Taint on warning
-    Userspace-defined naughtiness
-    System experienced a machine check exception
-    Proprietary module has been loaded
-  Booted kernel cmdline:
-    ro root=LABEL=/ pci=nommconf rhgb quiet crashkernel=128M@16M
-    enforcing=0
-  GRUB default kernel line:
-    vmlinuz-2.6.18-194.26.1.el5 ro root=LABEL=/ pci=nommconf rhgb quiet 
-    crashkernel=128M@16M
-  Kernel version/build:
-    Unable to detect
+  Hostname: aczx998pinkle
+  Distro:   [redhat-release] Red Hat Enterprise Linux Server release 5.5 (Carthage)
+            [enterprise-release] Enterprise Linux Enterprise Linux Server release 5.5 (Carthage)
+  RHN:      serverURL=https://linux-update.oracle.com/XMLRPC
+  Runlevel: N 3  (default 3)
+  SELinux:  permissive  (default enforcing)
+  Arch:     mach=x86_64  cpu=x86_64  platform=x86_64
+  Kernel:
+    Booted kernel:  2.6.18-238.12.2.0.2.el5
+    GRUB default:   2.6.18-238.12.2.0.2.el5
+    Build version:
+      Linux version 2.6.18-238.12.2.0.2.el5 (mockbuild@ca-build9.us.oracle.com) (gcc version 4.1.2 
+      20080704 (Red Hat 4.1.2-50)) #1 SMP Tue Jun 28 05:21:19 EDT 2011
+    Booted kernel cmdline:
+      root=/dev/md6 ro bootarea=c0d0 loglevel=7 panic=60 debug rhgb numa=off console=ttyS0,115200n8 
+      console=tty1 crashkernel=128M@16M bootfrom=CELLBOOT audit=1 processor.max_cstate=1 nomce
+    GRUB default kernel cmdline:
+      root=/dev/md6 ro bootarea=c0d0 loglevel=7 panic=60 debug rhgb numa=off console=ttyS0,115200n8 
+      console=tty1 crashkernel=128M@16M bootfrom=BOOT audit=1 processor.max_cstate=1 nomce
+    Kernel taint-check: 536870912 512 64 16 1
+      Technology Preview code is loaded
+      Taint on warning
+      Userspace-defined naughtiness
+      System experienced a machine check exception
+      Proprietary module has been loaded
+    - - - - - - - - - - - - - - - - - - -
+  Sys time:  Mon Oct 29 10:55:02 CDT 2012
+  Boot time: Sat Apr 28 03:29:56 CDT 2012  (1335583796)
+  Uptime:    184 days, 12:25,  1 user
+  LoadAvg:   [24 CPU] 2.34 (10%), 1.27 (5%), 0.95 (4%)
+  /proc/stat:
+    procs_running: 4    procs_blocked: 1    processes: 248052571
+    cpu:  [Break-down of CPU time since boot]
+      us 1%, ni 0%, sys 1%, idle 96%, iowait 2%, irq 0%, sftirq 0%, steal 0%
+```
 
-CPU
-  128 logical processors (64 CPU cores)
-  8 Intel Xeon CPU X7560 @ 2.27GHz (flags: constant_tsc,ht,lm,pae,vmx) 
-  └─16 threads / 8 cores each
-
-MEMORY
-  RAM:
-    990.5 GiB total [527.1 GiB (53%) used]
-    517.9 GiB (52%) used excluding buffers/cache
-    0.28 GiB (0%) dirty
-  HugePages:
-    512.0 GiB pre-allocated to HugePages (52% of total ram)
-    0.0 GiB of HugePages (0%) in-use by applications
-  LowMem/Slab/PageTables/Shmem:
-    527.1 GiB (53%) of 990.5 GiB LowMem in-use
-    3.98 GiB (0%) of total ram used for Slab
-    0.03 GiB (0%) of total ram used for PageTables
-  Swap:
-    0.0 GiB (0%) used of 200.0 GiB total
-
-LSPCI
-  Net/Storage:
-    1 quad-port (4) NetXen Incorporated NX3031 Multifunction 1/10-Gigabit Server Adapter (rev 42)
-    6 dual-port (12) QLogic Corp. ISP2532-based 8Gb Fibre Channel to PCI Express HBA (rev 02)
-    3 dual-port (6) ServerEngines Corp. Emulex OneConnect 10Gb NIC (rev 02)
-  VGA:
-    ATI Technologies Inc ES1000 (rev 02)
-
+```
 IP
   Interface       Slave Of  IPv4 Address        State  MAC Address
   =========       ========  ==================  =====  =================
@@ -125,8 +105,7 @@ IP
 
 ```
 
-
-**While xsos is always changing, here's the minimal help page from v0.1.0rc3:**
+**While xsos is always changing, here's the minimal help page from v0.1.0rc5:**
 
 ```
 [rsaw]$ xsos -h
@@ -155,7 +134,7 @@ Display options:
  -u, --unit=P       change byte display for /proc/meminfo & /proc/net/dev,
                     where P is "b" for byte, or else "k", "m", "g", or "t"
  -v, --verbose=NUM  specify ps verbosity level (0-4, default: 1)
- -w, --width=NUM    change fold-width (w autodetects, 0 disables, default: 76)
+ -w, --width=NUM    change fold-width (w autodetects, 0 disables, default: 94)
  -x, --nocolor      disable output colorization
  -y, --less         send output to `less -SR`
  -z, --more         send output to `more`
@@ -172,15 +151,35 @@ Special options (BASH v4+ required):
 
 Run with "--help" to see full help page
 
-Version info: xsos v0.1.0rc3 last mod 2012/12/14
+Version info: xsos v0.1.0rc5c last mod 2012/12/27
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
 
-**Run on my laptop as root, with a few options:**
+**Here it is run on my laptop as root, with specific options:**
 
 ```
-[rsaw]$ sudo xsos --ip --lspci --ethtool --net --ps
+[rsaw]$ sudo xsos --bios --ip --lspci --ethtool --net --ps  # would be same as 'xsos -bilenp'
+DMIDECODE
+  BIOS:
+    LENOVO, version 8CET50WW (1.30 ), 11/01/2011
+  System:
+    Mfr:  LENOVO
+    Prod: 4174AQ5
+    Vers: ThinkPad T420s
+    Ser:  R9XXXXXXXX
+    UUID: 56EABD01-XXXX-11CB-9DE6-XXXXXXXXXX
+  CPU:
+    1 of 1 CPU sockets populated, 2 cores/4 threads per CPU
+    2 total cores, 4 total threads
+    Mfr:  Intel(R) Corporation
+    Fam:  Core i5
+    Freq: 2600 MHz
+    Vers: Intel(R) Core(TM) i5-2540M CPU @ 2.60GHz
+  Memory:
+    8192 MB (8 GB) total
+    2 of 4 DIMMs populated (system max capacity 16 GB)
+
 LSPCI
   Net/Storage:
     (1) Intel Corporation Centrino Ultimate-N 6300 (rev 3e)
@@ -190,10 +189,11 @@ LSPCI
 
 ETHTOOL
   em1         link=DOWN                        drv e1000e v2.0.0-k / fw 0.13-3
-  tun0        link=UP 10Mb/s full (autoneg=N)  drv tun v1.6
-  virbr0      link=DOWN                        drv bridge v2.3 / fw N/A
+  tun0        link=up 10Mb/s full (autoneg=N)  drv tun v1.6
+  virbr0      link=up                          drv bridge v2.3 / fw N/A
   virbr0-nic  link=DOWN                        drv tun v1.6
-  wlan0       link=UP                          drv iwlwifi v3.5.3-1.fc17.x86_64 / fw 9.221.4.1
+  vnet0       link=up 10Mb/s full (autoneg=N)  drv tun v1.6
+  wlan0       link=up                          drv iwlwifi v3.6.10-2.fc17.x86_64 / fw 9.221.4.1
 
 IP
   Interface   Slave Of  IPv4 Address        State  MAC Address
@@ -204,56 +204,56 @@ IP
                         192.168.17.17/32            
   virbr0      -         192.168.122.1/24    up     52:54:00:97:e3:ee
   virbr0-nic  -         -                   DOWN   52:54:00:97:e3:ee
-  tun0        -         10.11.11.249/32     up     -
-
+  tun0        -         10.10.49.81/32      up     -
+  vnet0       -         -                   up     fe:54:00:f9:3d:ec
 
 NETDEV
   Interface   RxMiBytes  RxPackets  RxErrs  RxDrop  TxMiBytes  TxPackets  TxErrs  TxDrop
   =========   =========  =========  ======  ======  =========  =========  ======  ======
-  em1         3211.9     4389k      0       0       5073.6     5120k      0       0
-  virbr0      4.4        40k        0       0       244.1      42k        0       0
-  virbr0-nic  0.0        0k         0       0       0.0        0k         0       0
-  wlan0       4172.2     3964k      0       0       310.4      2198k      0       0
+  em1         1729       1974 k     0       0       1729       705 k      0       0 
+  tun0        9          12 k       0       0       9          9 k        0       0 
+  virbr0      0          0 k        0       0       0          0 k        0       0 
+  virbr0-nic  0          0 k        0       0       0          0 k        0       0 
+  vnet0       0          0 k        0       0       0          0 k        0       0 
+  wlan0       194        194 k      0       0       194        140 k      0       0 
 
 PS CHECK
   Top users of CPU & MEM: 
     USER  %CPU   %MEM   RSS 
-    rsaw  14.9%  45.0%  0.00 GiB
-    qemu  3.5%   6.5%   0.00 GiB
-    root  1.4%   1.5%   0.00 GiB
+    rsaw  34.1%  46.0%  3.81 GiB
+    qemu  27.4%  4.9%   0.38 GiB
+    root  2.7%   1.0%   0.20 GiB
   Uninteruptible sleep & Defunct processes: 
-    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME   COMMAND  
-    rsaw     5287   0.0   0.0   0        0        pts/0  D+     17:19  0:00   [cat]  
-    rsaw     5125   0.0   0.0   0        0        ?      Z      Dec16  0:48   [chromium-browse] <defunct> 
-    rsaw     8307   0.2   0.0   0        0        ?      Z      Dec17  3:07   [chromium-browse] <defunct> 
-    rsaw     8867   0.0   0.0   0        0        ?      Z      Dec17  1:20   [xchat] <defunct> 
-    rsaw     9533   0.0   0.0   0        0        ?      Z      Dec17  0:32   [gedit] <defunct> 
-    rsaw     9643   0.0   0.0   0        0        ?      Z      Dec17  0:01   [terminator] <defunct> 
-    rsaw     30986  2.4   0.0   0        0        ?      Z      Dec17  44:49  [thunderbird] <defunct> 
+    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND  
+    rsaw     5287   0.0   0.0   0        0        pts/0  D+     17:19  0:00    [cat]  
+    rsaw     5125   0.0   0.0   0        0        ?      Z      Dec16  0:48    [chromium-browse] <defunct> 
+    rsaw     8307   0.2   0.0   0        0        ?      Z      Dec17  3:07    [chromium-browse] <defunct> 
+    rsaw     8867   0.0   0.0   0        0        ?      Z      Dec17  1:20    [xchat] <defunct> 
+    rsaw     9533   0.0   0.0   0        0        ?      Z      Dec17  0:32    [gedit] <defunct> 
   Top CPU-using processes: 
-    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME   COMMAND  
-    qemu     16474  3.5   6.5   3030     512      ?      Sl     11:40  12:10  /usr/bin/qemu-kvm -S -M 
-    rsaw     17310  3.0   1.9   808      155      ?      Sl     12:02  9:40   /usr/lib64/chromium-browser/chromium-browser --type=plugin --plugin-path=/usr/lib64/flash-plugin/libflashpl
-    rsaw     5717   2.6   13.6  2315     1075     ?      Sl     Dec16  67:50  /usr/lib64/firefox/firefox 
-    rsaw     27187  2.6   0.8   896      67       ?      Ss     15:32  2:51   python /usr/share/virt-manager/virt-manager.py 
-    rsaw     30986  2.4   0.0   0        0        ?      Z      Dec17  44:49  [thunderbird] <defunct> 
-    rsaw     1664   1.6   2.9   1998     232      ?      Sl     Dec16  42:05  /usr/bin/gnome-shell 
-    root     1222   1.1   0.5   134      42       tty1   Ss+    Dec16  28:48  /usr/bin/Xorg :0 -background 
-    rsaw     13283  0.4   2.2   919      180      ?      Sl     10:07  1:55   /usr/lib64/thunderbird/thunderbird 
-    rsaw     17391  0.3   1.8   1163     149      ?      Sl     12:02  1:11   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     17343  0.3   1.2   1110     95       ?      Sl     12:02  0:59   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND  
+    qemu     613    27.4  4.9   3094     393      ?      Sl     00:38  0:29    /usr/bin/qemu-kvm -S -M 
+    rsaw     23059  13.7  2.3   1091     185      ?      Sl     Dec26  21:34   /proc/self/exe --type=plugin --plugin-path=/usr/lib64/flash-plugin/libflashplayer.so 
+    rsaw     621    5.9   0.8   964      65       ?      Ss     00:38  0:06    python /usr/share/virt-manager/virt-manager.py 
+    rsaw     2137   5.3   18.7  2705     1472     ?      Sl     Dec24  204:37  /usr/lib64/firefox/firefox 
+    root     1226   2.2   0.5   135      42       tty1   Ss+    Dec24  87:57   /usr/bin/Xorg :0 -background 
+    rsaw     11901  2.1   4.2   2319     335      ?      SLl    Dec24  74:54   /usr/bin/gnome-shell 
+    rsaw     22866  2.0   1.6   898      128      ?      Sl     Dec26  3:11    /usr/lib64/chromium-browser/chromium-browser --enable-plugins --enable-extensions 
+    rsaw     29408  1.3   0.5   1218     39       ?      Sl     Dec26  0:37    gedit 
+    rsaw     23084  0.8   1.2   1140     99       ?      Sl     Dec26  1:18    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     22952  0.8   1.7   1168     141      ?      Sl     Dec26  1:22    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
   Top MEM-using processes: 
-    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME   COMMAND  
-    rsaw     5717   2.6   13.6  2315     1075     ?      Sl     Dec16  67:50  /usr/lib64/firefox/firefox 
-    qemu     16474  3.5   6.5   3030     512      ?      Sl     11:40  12:10  /usr/bin/qemu-kvm -S -M 
-    rsaw     1664   1.6   2.9   1998     232      ?      Sl     Dec16  42:05  /usr/bin/gnome-shell 
-    rsaw     13283  0.4   2.2   919      180      ?      Sl     10:07  1:55   /usr/lib64/thunderbird/thunderbird 
-    rsaw     17310  3.0   1.9   808      155      ?      Sl     12:02  9:40   /usr/lib64/chromium-browser/chromium-browser --type=plugin --plugin-path=/usr/lib64/flash-plugin/libflashpl
-    rsaw     17391  0.3   1.8   1163     149      ?      Sl     12:02  1:11   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     17198  0.1   1.8   1163     145      ?      Sl     12:02  0:24   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     17261  0.2   1.6   1194     134      ?      Sl     12:02  0:47   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     17245  0.3   1.4   1135     117      ?      Sl     12:02  1:07   /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
-    rsaw     17159  0.3   1.4   879      113      ?      Sl     12:02  1:12   /usr/lib64/chromium-browser/chromium-browser --enable-plugins --enable-extensions 
+    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND  
+    rsaw     2137   5.3   18.7  2705     1472     ?      Sl     Dec24  204:37  /usr/lib64/firefox/firefox 
+    qemu     613    27.4  4.9   3094     393      ?      Sl     00:38  0:29    /usr/bin/qemu-kvm -S -M 
+    rsaw     11901  2.1   4.2   2319     335      ?      SLl    Dec24  74:54   /usr/bin/gnome-shell 
+    rsaw     23059  13.7  2.3   1091     185      ?      Sl     Dec26  21:34   /proc/self/exe --type=plugin --plugin-path=/usr/lib64/flash-plugin/libflashplayer.so 
+    rsaw     22952  0.8   1.7   1168     141      ?      Sl     Dec26  1:22    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     22866  2.0   1.6   898      128      ?      Sl     Dec26  3:11    /usr/lib64/chromium-browser/chromium-browser --enable-plugins --enable-extensions 
+    rsaw     23214  0.6   1.5   1141     121      ?      Sl     Dec26  0:59    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     23004  0.0   1.2   1130     100      ?      Sl     Dec26  0:06    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     22959  0.0   1.2   1127     100      ?      Sl     Dec26  0:05    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
+    rsaw     23084  0.8   1.2   1140     99       ?      Sl     Dec26  1:18    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
 ```
 
 
@@ -318,7 +318,7 @@ NETDEV
 **Run on a sosreport again, showing sysctls:**
 
 ```
-[rsaw]$ xsos --sysctl aczx998pinkle/
+[rsaw]$ xsos --sysctl boomyaow/
 SYSCTLS
   kernel.
     osrelease: 2.6.18-194.26.1.el5
@@ -379,8 +379,8 @@ DMIDECODE
     Mfr:  HP
     Prod: ProLiant DL980 G7
     Vers: Not Specified
-    Ser:  CZ3140XXXX      
-    UUID: 35344D41-4131-5A43-3331-XXXXXXXXXXX
+    Ser:  CZ3XXXXXXXX      
+    UUID: 35344D41-XXXXXX-5A43-3331-XXXXXXXXXXX
   CPU:
     8 of 8 CPU sockets populated, 8 cores/16 threads per CPU
     64 total cores, 128 total threads
@@ -410,30 +410,37 @@ IP
 PS CHECK
   Top users of CPU & MEM: 
     USER    %CPU    %MEM      RSS 
-    oracle  909.4%  60648.5%  37.24 GiB
-    root    5.4%    0.0%      0.00 GiB
+    oracle  909.8%  60649.2%  38137.57 GiB
+    root    130.8%  2.7%      1.93 GiB
   Uninteruptible sleep & Defunct processes: 
     USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT  START  TIME      COMMAND  
     oracle   7883   0.3   59.3  141      38177    ?      Ds    Jul31  2:33      oracleCRELSP4 
     oracle   11028  0.1   59.3  154      38170    ?      Ds    Jun30  49:08     ora_arc8_CRELSP4 
     oracle   13816  0.0   59.3  140      38171    ?      Ds    Jul31  0:12      oracleCRELSP4 
     oracle   15184  0.4   59.3  141      38176    ?      Ds    Jul31  3:01      oracleCRELSP4 
+    oracle   15423  0.5   59.3  143      38179    ?      Ds    Jul31  3:32      oracleCRELSP4 
+    oracle   17334  0.0   59.3  143      38176    ?      Ds    Jul31  0:14      oracleCRELSP4 
+    oracle   18502  0.3   59.3  141      38176    ?      Ds    Jul31  2:39      oracleCRELSP4 
+    root     18514  2.0   0.0   0        0        ?      D<    10:33  0:00      /bin/grep 
+    oracle   20751  0.8   59.3  143      38178    ?      Ds    Jul31  5:21      oracleCRELSP4 
+    oracle   24385  0.6   59.3  142      38175    ?      Ds    Jul31  4:05      oracleCRELSP4 
+    oracle   24557  0.4   59.3  140      38173    ?      Ds    10:22  0:02      oracleCRELSP4 
     oracle   24718  1.3   59.3  143      38178    ?      Ds    Jul31  8:57      oracleCRELSP4 
     oracle   29008  2.8   59.3  143      38176    ?      Ds    09:38  1:34      oracleCRELSP4  
   Top CPU-using processes: 
     USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT  START  TIME      COMMAND  
+    root     18329  104   0.0   50       2        pts/6  R+    10:33  0:03      /bin/netstat 
     oracle   11160  19.7  59.3  146      38174    ?      Ss    Jun30  9012:36   oracleCRELSP4 
     oracle   14014  10.6  59.3  140      38173    ?      Ss    10:32  0:05      oracleCRELSP4 
+    root     6455   5.9   0.1   415      83       ?      Sl    Jan25  16265:29  /space/java/jdk1.5.0_20/bin/java 
     root     6515   5.3   0.0   0        0        ?      R     Jan14  15483:17  [rpciod] 
-    oracle   19944  5.1   59.2  138      38167    ?      Ss    10:20  0:40      oracleCRELSP4 
-    oracle   24559  4.1   59.3  141      38175    ?      Ss    10:22  0:27      oracleCRELSP4 
   Top MEM-using processes: 
     USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT  START  TIME      COMMAND  
     oracle   7847   0.0   59.4  249      38257    ?      Ss    Jun30  0:52      ora_diag_CRELSP4 
-    oracle   9976   0.7   59.3  141      38176    ?      Ss    Jul31  5:22      oracleCRELSP4 
-    oracle   9969   0.8   59.3  141      38176    ?      Ss    Jul31  6:05      oracleCRELSP4 
-    oracle   9962   0.8   59.3  143      38179    ?      Ss    Jul31  6:32      oracleCRELSP4 
-    oracle   9958   0.6   59.3  143      38178    ?      Ss    Jul31  4:31      oracleCRELSP4 
+    oracle   1912   0.0   59.3  160      38185    ?      Ss    Jul22  12:29     ora_j001_CRELSP4 
+    oracle   10937  0.1   59.3  167      38185    ?      Ss    Jun30  53:14     ora_arc3_CRELSP4 
+    oracle   10920  0.1   59.3  167      38185    ?      Ss    Jun30  58:05     ora_arc1_CRELSP4 
+    oracle   11037  0.1   59.3  167      38184    ?      Ss    Jun30  53:33     ora_arc9_CRELSP4 
 ```
 
 
