@@ -84,26 +84,6 @@ OS
       us 1%, ni 0%, sys 1%, idle 96%, iowait 2%, irq 0%, sftirq 0%, steal 0%
 ```
 
-```
-IP
-  Interface       Slave Of  IPv4 Address        State  MAC Address
-  =========       ========  ==================  =====  =================
-  lo              -         127.0.0.1/8         up     -
-  __tmp876605649  -         -                   DOWN   aa:bb:cc:dd:ee:ff
-  __tmp471023714  -         -                   DOWN   aa:bb:cc:dd:ee:ff
-  eth6            bond2     -                   up     aa:bb:cc:dd:ee:ff
-  eth7            bond1     -                   up     aa:bb:cc:dd:ee:ff
-  eth4            -         -                   DOWN   aa:bb:cc:dd:ee:ff
-  eth9            bond1     -                   up     aa:bb:cc:dd:ee:ff
-  eth0            bond0     -                   up     aa:bb:cc:dd:ee:ff
-  eth1            bond0     -                   up     aa:bb:cc:dd:ee:ff
-  eth2            -         -                   DOWN   aa:bb:cc:dd:ee:ff
-  eth3            -         -                   DOWN   aa:bb:cc:dd:ee:ff
-  bond0           -         10.0.22.36/25       up     aa:bb:cc:dd:ee:ff
-  bond1           -         192.168.214.21/24   up     aa:bb:cc:dd:ee:ff
-  bond2           -         10.0.29.43/26       up     aa:bb:cc:dd:ee:ff
-
-```
 
 **While xsos is always changing, here's the minimal help page from v0.1.0rc5:**
 
