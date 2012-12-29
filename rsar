@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0 last mod 2012/12/28
+# rsar v0.0.1 last mod 2012/12/28
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -102,9 +102,7 @@ extraopts='Et:x:D:N:P:z'
 shortopts=$saropts$extraopts
 
 # Check for bad switches
-#getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
 getopt -Q --name=$pzero -o $shortopts -- "$@" || { HELP_USAGE; exit 64; }
-
 
 # Setup file-input array
 declare -A Input
@@ -134,11 +132,10 @@ SARFILECHECK() {
   fi
 }
 
-  
+
 # Parse command-line arguments
 PARSE() {
   local file
-  unset Selection
   until [[ $1 = -- ]]; do
     case $1 in
       # Standard sar selection options
