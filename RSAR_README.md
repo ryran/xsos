@@ -94,7 +94,7 @@ Average:     77145109  54940339     41.59    502192  47449826  33551744         
 
 
 
-**For those more unfamiliar with `sar` options, regex searching for headers with `-x` is supported. You can also use `-P` in the same way as with the `sar` command, namely, to specify which CPUs to display info for (comma,separated numbers or else `ALL` to see each CPU + combined avg). With this example output, we can see how easy rsar makes it to spot in the data when a system was rebooted -- no scrolling halfway through the file necessary.**
+**For those more unfamiliar with `sar` options, regex searching for headers with `-x` is supported. You can also use `-P` in the same way as with the `sar` command, namely, to specify which CPUs to display info for (comma-separated numbers or else `ALL` to see each CPU + combined avg). With this example output, we can see how easy rsar makes it to spot in the data when a system was rebooted -- no scrolling halfway through the file necessary.**
 
 ```
 [rsaw:sa]$ rsar sar22 -t'^1(3:5|4:[0-5])' -x nice -P 0,9
@@ -139,10 +139,10 @@ Average:        -0.80      0.01      0.70
 
 
 
-**Interface-specific data from multiple compressed files:**
+**Interface-specific selection (`-N`) of network stats from multiple compressed files:**
 
 ```
-[rsaw:sa]$ rsar -N eth4 -n sar24.gz -t^19:[12] sar26.bz2 
+[rsaw:sa]$ rsar -nN eth4 sar24.gz -t^19:[12] sar26.bz2 
 ------------------------ sar24.gz ------------------------
 00:00:01        IFACE   rxpck/s   txpck/s   rxbyt/s   txbyt/s   rxcmp/s   txcmp/s  rxmcst/s
 19:10:01         eth4      2.42      2.56    203.47    225.20      0.00      0.00      0.00
@@ -179,7 +179,7 @@ Average:      dev8-16      0.07      0.01     14.89    218.58      0.00      5.1
 
 
 
-**And just like with network interfaces, there's an option to specify specific block devices. Here I did that (`-D`) along with the `-z` option to hide the "Average" lines, plus threw in network errs (`E`) with specific interface selection (`-N`).**
+**And just like with network interfaces, there's an option to specify specific block devices. Here I did that (`-D`) along with the `-z` option to hide the "Average" lines, plus threw in network errs (`E`).**
 ```
 [rsaw:sa]$ rsar -x await sar19 -t^04:[0-4] -D 16 -zEN eth0
 00:00:01          DEV       tps  rd_sec/s  wr_sec/s  avgrq-sz  avgqu-sz     await     svctm     %util
