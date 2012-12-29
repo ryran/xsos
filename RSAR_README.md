@@ -1,9 +1,9 @@
 rsar - Extract data from plain-text sar files
 =============================================
 
-When dealing with sar data in a sosreport, it's almost allways easier to parse through the plain-text sar data files than it is to get the binary sa files onto a system where you can use `sar` to parse through them for exactly what you're looking for.
+When dealing with sysstat sar data in a sosreport, it's almost always easier to parse through the plain-text sar data files than it is to get the binary sa files onto a system where you can use `sar` to parse through them for exactly what you're looking for.
 
-`rsar` is like the `sar` command, but for sar files. It supports a limited set of the same data-selection options `sar` uses, but can also do generic searches.
+The goal behind `rsar` is to make this process a little bit easier. rsar is like the `sar` command, but for plain-text sar files instead of sa files. It supports a limited set of the same data-selection options `sar` uses.
 
 
 INSTALLATION
@@ -18,63 +18,24 @@ $ su -
 # wget -O /usr/local/bin/rsar bit.ly/rsar-direct
 # chmod +x /usr/local/bin/rsar
 # exit
-$ xsos -h
+$ rsar -h
 ```
+
 
 
 USAGE
 -----
 
-Perhaps I'll write up something more later. For now, here's the help page:
 
-```
-Usage: rsar SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]
-   or: rsar -?|-h|--help
+`rsar` has a brief help page. Use it. Feel free to make it better.
 
-Note: GNU getopt is used for arg-parsing -- order of arguments is arbitrary
-  
-SARFILE -- need at least 1 plaintext sar data file (optionally compressed)
-  Spaces in SARFILE name or path will break things
 
-TIME is a regex for what time period to display
-  eg: '^1[2-5]' or ':[23]0:' or '^(0[6-9]|1[23])'
-
-SAROPTIONS is any mix of regular sar data-selection options, ie any of:
-  -B -d -n -q -r -R -u -v -w -W -y
-  plus non-standard: -E, for interface errors
-
-SEARCHSTR may be used only once and is a regex for what section(s) to select
-  eg: 'svctm', 'iowait', 'runq', 'memfree|fault'
-
-SAROPTIONS and -x SEARCHSTR may be used together
-If neither are provided, rsar shows CPU utilization (like sar does)
-
-Simple examples:
-  rsar sar03 -q -t^2
-  rsar sar25 -t^15:30 -x iowait /tmp/sar26.gz /tmp/sar27.xz
-  
-STOP READING NOW if you're confused; that ^^ is all you need to know
-
-Additional optional selectors:
-
-  -z  Disables auto-selection of the lines beginning with 'Average:'
-  
-  -D BLOCKDEV  Where BLOCKDEV is a regex for which block devices to select
-    e.g.: 'dev8-16' or '7.$' or 'sda2|rootlv'
-  
-  -N NETDEV  Where NETDEV is a regex for which interfaces to select
-    e.g.: 'eth0' or 'eth[12]' or 'bond[1-3]'
-  
-  -P CPU  Where CPU is handled the same way as 'sar -P', namely:
-    '-P 1'   shows only info for CPU1
-    '-P 0,3' shows CPU0 & CPU3
-    '-P ALL' shows all CPUs, plus the combined 'ALL' lines
-```
 
 EXAMPLES IN ACTION
 ------------------
 
-**Single file with no options:**
+
+**rsar doesn't read binary files; it's meant to read `sar`-generated plain-text sar files. Reading a single file with no options, rsar behaves the same as `sar` would, i.e.: shows the combined cpu-utilization.**
 
 ```
 [rsaw:sa]$ rsar sa22
@@ -96,10 +57,11 @@ Need a plain-text sar data file to continue
 02:00:01          all      0.10      0.00      0.08      0.00      0.00     99.82
 02:10:01          all      0.10      0.00      0.08      0.00      0.00     99.82
 ```
-*(output truncated)*
+*(Note: Output truncated. That would have shown all available cpu utilization data, including any new header-lines caused by reboots and plus any "Average" lines.)*
 
 
-**Single file with time-selection:**
+
+**Time-selection is NOT like the `-e` and `-s` options of `sar`; instead, rsar has a `-t` option that takes a regular expression which is matched against the time field in the sar data. Be as specific or as general as you want.**
 
 ```
 [rsaw:sa]$ rsar sar22 -t ^21
@@ -114,33 +76,54 @@ Average:          all      0.10      0.00      0.08      0.00      0.00     99.8
 ```
 
 
-**Single file with very specific time-selection and a sar selection-option:**
+
+**rsar supports many `sar`-specific data-selection options like `-q` for queue/loadavg or `-r` for memory utilization. So here's that, plus a very specific time selection.**
 
 ```
-[rsaw:sa]$ rsar -qt '^12:10|16:40' sar22
+[rsaw:sa]$ rsar -qt '^12:10|16:40' sar22 -r
 00:00:01      runq-sz  plist-sz   ldavg-1   ldavg-5  ldavg-15
 12:10:01            0      1221      1.14      1.14      1.12
 16:40:01            2      1228      1.22      1.25      1.20
 Average:            0      1221      1.21      1.21      1.18
-```
-
-
-**Single file with multiple options:**
-
-```
-[rsaw:sa]$ rsar sar22 -t2:30 -qrBR
-00:00:01      runq-sz  plist-sz   ldavg-1   ldavg-5  ldavg-15
-02:30:01            0      1219      1.20      1.21      1.18
-12:30:01            0      1218      1.17      1.23      1.17
-22:30:01            0      1221      1.12      1.18      1.26
-Average:            0      1221      1.21      1.21      1.18
 
 00:00:01    kbmemfree kbmemused  %memused kbbuffers  kbcached kbswpfree kbswpused  %swpused  kbswpcad
-02:30:01     77313504  54771944     41.47    499580  47297288  33551744         0      0.00         0
-12:30:01     77117468  54967980     41.62    502636  47473628  33551744         0      0.00         0
-22:30:01     77075600  55009848     41.65    503276  47515708  33551744         0      0.00         0
+12:10:01     77117704  54967744     41.62    502620  47472612  33551744         0      0.00         0
+16:40:01     77067032  55018416     41.65    502904  47516168  33551744         0      0.00         0
 Average:     77145109  54940339     41.59    502192  47449826  33551744         0      0.00         0
+```
 
+
+
+**For those more unfamiliar with `sar` options, regex searching for headers with `-x` is supported. You can also use `-P` in the same way as with the `sar` command, namely, to specify which CPUs to display info for (comma,separated numbers or else `ALL` to see each CPU + combined avg). With this example output, we can see how easy rsar makes it to spot in the data when a system was rebooted -- no scrolling halfway through the file necessary.**
+
+```
+[rsaw:sa]$ rsar sar22 -t'^1(3:5|4:[0-5])' -x nice -P 0,9
+00:00:01          CPU     %user     %nice   %system   %iowait    %steal     %idle
+13:50:01            0      0.05      0.00      0.12      0.00      0.00     99.82
+13:50:01            9      0.02      0.00      0.01      0.00      0.00     99.97
+14:00:01            0      5.38      0.00      0.22      0.00      0.00     94.40
+14:00:01            9      0.05      0.00      0.10      0.00      0.00     99.84
+14:10:01            0      0.04      0.00      0.05      0.00      0.00     99.91
+14:10:01            9      0.01      0.00      0.02      0.00      0.00     99.97
+14:20:01            0      0.04      0.00      0.13      0.00      0.00     99.83
+14:20:01            9      0.01      0.00      0.00      0.00      0.00     99.98
+Average:            0      0.13      0.00      0.07      0.00      0.00     99.80
+Average:            9      0.02      0.00      0.05      0.00      0.00     99.92
+14:40:01          CPU     %user     %nice   %system   %iowait    %steal     %idle
+14:50:01            0      0.22      0.00      0.19      0.01      0.00     99.58
+14:50:01            9      0.03      0.00      0.01      0.00      0.00     99.96
+Average:            0      0.08      0.00      0.08      0.00      0.00     99.84
+Average:            9      0.03      0.00      0.05      0.00      0.00     99.91
+[rsaw:sa]$ grep -i restart sar22
+14:31:23          LINUX RESTART
+```
+
+
+
+**Paging & page info:**
+
+```
+[rsaw:sa]$ rsar sar22 -t2:30 -BR
 00:00:01     pgpgin/s pgpgout/s   fault/s  majflt/s
 02:30:01         0.59    340.28  13167.06      0.00
 12:30:01         0.11    339.28  13130.51      0.00
@@ -153,6 +136,7 @@ Average:        53.62    379.68  13026.00      0.01
 22:30:01        -1.42      0.00      0.19
 Average:        -0.80      0.01      0.70
 ```
+
 
 
 **Interface-specific data from multiple compressed files:**
@@ -171,6 +155,48 @@ Average:         eth4      2.42      2.56    205.99    224.09      0.00      0.0
 19:20:01         eth4      2.41      2.57    205.94    225.02      0.00      0.00      0.00
 Average:         eth4      2.42      2.56    206.07    224.04      0.00      0.00      0.00
 ```
+
+
+
+**Disk stats via regex (could also use the `sar` option: `-d`).**
+
+```
+[rsaw:sa]$ rsar -x await sar19 -t^04:[0-4]
+00:00:01          DEV       tps  rd_sec/s  wr_sec/s  avgrq-sz  avgqu-sz     await     svctm     %util
+04:00:01       dev8-0      0.14      0.00      1.79     12.92      0.00      1.37      0.81      0.01
+04:00:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:10:01       dev8-0      0.22      6.28      2.28     39.51      0.00      1.74      1.04      0.02
+04:10:01      dev8-16      0.14      0.00      2.07     15.33      0.00      2.83      0.88      0.01
+04:20:01       dev8-0      0.19      0.00      2.40     12.74      0.00      1.78      0.80      0.02
+04:20:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:30:01       dev8-0      0.19      0.00      2.35     12.46      0.00      1.42      0.65      0.01
+04:30:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:40:01       dev8-0      0.19      0.00      2.48     13.05      0.00      1.61      0.75      0.01
+04:40:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+Average:       dev8-0      0.23      1.00      2.37     14.56      0.00      1.60      0.88      0.02
+Average:      dev8-16      0.07      0.01     14.89    218.58      0.00      5.12      1.44      0.01
+```
+
+
+
+**And just like with network interfaces, there's an option to specify specific block devices. Here I did that (`-D`) along with the `-z` option to hide the "Average" lines, plus threw in network errs (`E`) with specific interface selection (`-N`).**
+```
+[rsaw:sa]$ rsar -x await sar19 -t^04:[0-4] -D 16 -zEN eth0
+00:00:01          DEV       tps  rd_sec/s  wr_sec/s  avgrq-sz  avgqu-sz     await     svctm     %util
+04:00:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:10:01      dev8-16      0.14      0.00      2.07     15.33      0.00      2.83      0.88      0.01
+04:20:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:30:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:40:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+
+00:00:01        IFACE   rxerr/s   txerr/s    coll/s  rxdrop/s  txdrop/s  txcarr/s  rxfram/s  rxfifo/s  txfifo/s
+04:00:01         eth0      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:10:01         eth0      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:20:01         eth0      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:30:01         eth0      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+04:40:01         eth0      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
+```
+
 
 
 AUTHORS
