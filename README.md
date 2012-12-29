@@ -1,7 +1,7 @@
 xsos & rsar - Summarize system info from sosreports
 ===================================================
 
-See the [rsar README](/ryran/xsos/RSAR_README.md) for details on `rsar`.
+See the [rsar README](/ryran/xsos/blob/master/RSAR_README.md) for details on `rsar`.
 
 The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost on which xsos is being run or a system for which you have an unpacked sosreport.
 
