@@ -1,0 +1,258 @@
+#!/bin/bash
+# rsar v0 last mod 2012/12/28
+# Latest version at <http://github.com/ryran/xsos>
+# Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
+#
+#    This program is free software: you can redistribute it and/or modify
+#    it under the terms of the GNU General Public License as published by
+#    the Free Software Foundation, either version 3 of the License, or
+#    (at your option) any later version.
+#
+#    This program is distributed in the hope that it will be useful,
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#    General Public License <gnu.org/licenses/gpl.html> for more details.
+#-------------------------------------------------------------------------------
+
+# To make it easy to rename the script filename
+pzero=${0##*/}
+
+# Get version from line #2
+version=$(sed '2q;d' $0)
+
+# Colors
+reset='\033[0;0m'
+bold='\033[1;1m'
+red='\033[1;31m'
+
+HELP_USAGE() {
+  printf "
+${bold}Usage: $pzero SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]${reset}
+${bold}   or: $pzero -?|-h|--help${reset}
+"
+}
+
+HELP_BASIC() {
+  HELP_USAGE
+  printf "
+Note: GNU getopt is used for arg-parsing -- order of arguments is arbitrary
+  
+${bold}SARFILE${reset} -- need at least 1 plaintext sar data file (optionally compressed)
+  Spaces in SARFILE name or path will break things
+
+${bold}TIME${reset} is a regex for what time period to display
+  eg: '^1[2-5]' or ':[23]0:' or '^(0[6-9]|1[23])'
+
+${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
+  ${bold}-B -d -n -q -r -R -u -v -w -W -y${reset}
+  plus non-standard: ${bold}-E${reset}, for interface errors
+
+${bold}SEARCHSTR${reset} may be used only once and is a regex for what section(s) to select
+  eg: 'svctm', 'iowait', 'runq', 'memfree|fault'
+
+${bold}SAROPTIONS${reset} and ${bold}-x SEARCHSTR${reset} may be used together
+If neither are provided, $pzero shows CPU utilization (like sar does)
+
+Simple examples:
+  $pzero sar03 -q -t^2
+  $pzero -x iowait -t^15:30 /tmp/sar26.gz /tmp/sar27.xz
+  
+${bold}STOP READING NOW if you're confused; that ^^ is all you need to know${reset}
+
+Additional optional selectors:
+
+  ${bold}-z${reset}  Disables auto-selection of the lines beginning with 'Average:'
+  
+  ${bold}-D BLOCKDEV${reset}  Where BLOCKDEV is a regex for which block devices to select
+    e.g.: 'dev8-16' or '7.$' or 'sda2|rootlv'
+  
+  ${bold}-N NETDEV${reset}  Where NETDEV is a regex for which interfaces to select
+    e.g.: 'eth0' or 'eth[12]' or 'bond[1-3]'
+  
+  ${bold}-P CPU${reset}  Where CPU is handled the same way as 'sar -P', namely:
+    '-P 1'   shows only info for CPU1
+    '-P 0,3' shows CPU0 & CPU3
+    '-P ALL' shows all CPUs, plus the combined 'ALL' lines
+
+"
+  exit
+}
+
+# Help? Version? Update?
+case $1 in
+  -\?|-h)           HELP_BASIC
+;;
+  --help|help)      HELP_BASIC
+;;
+  --vers|--version) echo "Version info: ${version:2}"; exit
+;;
+  -U|--update)      HELP_USAGE; exit
+esac
+
+# If BASH is not v4+, fail
+if [[ $BASH_VERSINFO -lt 4 ]]; then
+  printf "$pzero: Requires BASH v4.0 or higher (RHEL6/Fedora11 and above)\n\n" >&2
+  exit 32
+fi
+  
+  
+# GNU getopt short options:
+saropts='bBdnqrRuvwWy'
+extraopts='Et:x:D:N:P:z'
+shortopts=$saropts$extraopts
+
+# Check for bad switches
+#getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
+getopt -Q --name=$pzero -o $shortopts -- "$@" || { HELP_USAGE; exit 64; }
+
+
+# Setup file-input array
+declare -A Input
+
+# Check that we have what appears to be a good sar file 
+SARFILECHECK() {
+  local filetype unzip
+  filetype=$(file -zb $1 2>/dev/null)
+  err="$pzero: Unable to read file: '$1'\n"
+  
+  if ! [[ -r $1 && ${filetype:0:5} == ASCII ]]; then
+    printf "${err}Need a plain-text sar data file to continue\n" >&2
+    exit 66
+  fi
+  
+  filetype=$(file -b $1)
+  if [[ $filetype =~ compressed.data ]]; then
+    case $(tr '[:upper:]' '[:lower:]' <<<"${filetype:0:2}") in
+      gz) unzip=zcat  ;;
+      bz) unzip=bzcat ;;
+      xz) unzip=xzcat ;;
+      *)  printf "${err}Unable to decompress compressed file; file appears to be:\n$filetype" >&2; exit 65
+    esac
+    Input[$1]=$unzip
+  else
+    Input[$1]=cat
+  fi
+}
+
+  
+# Parse command-line arguments
+PARSE() {
+  local file
+  unset Selection
+  until [[ $1 = -- ]]; do
+    case $1 in
+      # Standard sar selection options
+      -b)   Selection="$Selection iotransf" ; shift ;;
+      -B)   Selection="$Selection paging"   ; shift ;;
+      -d)   Selection="$Selection blockdev" ; shift ;;
+      -n)   Selection="$Selection nettraff" ; shift ;;
+      -q)   Selection="$Selection queue"    ; shift ;;
+      -r)   Selection="$Selection memutil"  ; shift ;;
+      -R)   Selection="$Selection mempages" ; shift ;;
+      -u)   Selection="$Selection cpuutil"  ; shift ;;
+      -v)   Selection="$Selection kerntbls" ; shift ;;
+      -w)   Selection="$Selection taskswch" ; shift ;;
+      -W)   Selection="$Selection swapping" ; shift ;;
+      -y)   Selection="$Selection tty"      ; shift ;;
+      # Additional selection options
+      -E)   Selection="$Selection neterrs"  ; shift ;;
+      # Other options 
+      -t)   Time=$2       ; shift 2 ;;
+      -x)   DirectSrch=$2 ; shift 2 ;;
+      -D)   BlockDevs=$2  ; shift 2 ;;
+      -N)   NetDevs=$2    ; shift 2 ;;
+      -P)   Cpus=$2       ; shift 2 ;;
+      -z)   AverageSrch=  ; shift   ;;
+    esac
+  done
+  shift #(to get rid of the '--')
+  [[ -z $1 ]] && { echo "$pzero: Need a plain-text sar data file to continue" >&2; HELP_USAGE; exit 1; }
+  for file in $@; do
+    SARFILECHECK $file
+  done
+}
+
+# 'Average:'-line selection: show by default
+[[ -z $AverageSrch ]] && AverageSrch='|Average'
+
+# Call the parser
+PARSE $(getopt -u --name=$pzero -o $shortopts -- "$@")
+
+# Time-period selection: show all by default
+[[ -z $Time ]] && Time='.'
+
+# Block device selection: show all by default
+[[ -z $BlockDevs ]] && BlockDevs='.'
+
+# Network interface selection: show all by default
+[[ -z $NetDevs ]] && NetDevs='.'
+
+# CPU selection: show only combined ('all' in field 2) by default
+[[ -z $Cpus ]] && Cpus='all' ||
+  Cpus=$(sed 's/,/|/g' <<<"$Cpus")  # Otherwise, replace commas with regex pipe
+[[ $Cpus == ALL ]] && Cpus='.'      # If passed '-P ALL', want to see everything
+
+
+# Our universal search function
+search() {
+  local header field2 file
+  header=$1
+  field2='.'
+  
+  # Deal with a couple ambiguous searches
+  if [[ $header == steal ]]; then
+    header='%steal'
+    echo "Assuming search for '%steal' from CPU utilization stats" >&2
+    echo "If looking for paging stats, use -B or search e.g. 'pgsteal', 'fault', etc" >&2
+  elif [[ $header == tps ]]; then
+    header='bread'
+    echo "Assuming search for 'tps' from I/O & transfer rate stats" >&2
+    echo "If looking for disk stats, use -d or search e.g. 'DEV', 'await', 'svctm', etc" >&2
+  fi
+  
+  # If we're dealing with CPU utilization, need some special handling
+  if [[ $header =~ CPU|usr|nice|sys|iowait|(^|%)steal|irq|soft|guest|idle ]]; then
+    field2="^($Cpus)$"
+
+  # Same for network statistics
+  elif [[ $header =~ IFACE|rx|tx|byt|drop|rxbyt|txbyt|rxpck|txpck|rxkB|txkB|rxcmp|txcmp|rxmcst|rxerr|txerr|coll|rxdrop|txdrop|txcarr|rxfram|rxfifo|txfifo ]]; then
+    field2=$NetDevs
+  
+  # Same for disk activity
+  elif [[ $header =~ DEV|rd_sec|wr_sec|avgrq-sz|avgqu-sz|await|svctm|util ]]; then
+    field2=$BlockDevs
+  fi
+  
+  for file in ${!Input[@]}; do
+    [[ ${#Input[@]} -gt 1 ]] &&
+      printf "${bold}------------------------ $file ------------------------${reset}\n"
+    ${Input[$file]} $file | awk "BEGIN{RS=\"\n\n\"} /$header/" | awk "/$header/ || (\$1 ~ /$Time$AverageSrch/ && \$2 ~ /$field2/)"
+    echo
+  done
+}
+
+# If a direct regex search was provided ...
+if [[ -n $DirectSrch ]]; then
+  search "$DirectSrch"
+  
+elif [[ -z $Selection ]]; then
+  Selection=cpuutil
+fi
+
+# If some sar options were used, time to get to work
+for module in $Selection; do case $module in
+  iotransf) search bread        ;;
+  paging)   search fault        ;;
+  blockdev) search await        ;;
+  nettraff) search rxpck        ;;
+  queue)    search runq         ;;
+  memutil)  search memfree      ;;
+  mempages) search frmpg        ;;
+  cpuutil)  search iowait       ;;
+  kerntbls) search dentunusd    ;;
+  taskswch) search 'proc|cswch' ;;
+  swapping) search pswpin       ;;
+  tty)      search TTY          ;;
+  neterrs)  search rxerr        ;;
+esac; done
+

@@ -1,7 +1,9 @@
-xsos - Summarize system info from sosreports
-============================================
+xsos & rsar - Summarize system info from sosreports
+===================================================
 
-The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost or a system for which you have an unpacked sosreport.
+See the [rsar README](/ryran/xsos/RSAR_README.md) for details on `rsar`.
+
+The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost on which xsos is being run or a system for which you have an unpacked sosreport.
 
 There is tons of useful amazing instructive data available to normal users (not to mention root) on a Linux system, but by design, this information is spread out across myriad files. Some of it even requires commands to parse through.
 
