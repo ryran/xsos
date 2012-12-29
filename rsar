@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.0.1 last mod 2012/12/28
+# rsar v0.0.2 last mod 2012/12/29
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -44,8 +44,10 @@ ${bold}TIME${reset} is a regex for what time period to display
   eg: '^1[2-5]' or ':[23]0:' or '^(0[6-9]|1[23])'
 
 ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
-  ${bold}-B -d -n -q -r -R -u -v -w -W -y${reset}
-  plus non-standard: ${bold}-E${reset}, for interface errors
+  ${bold}-b -B -c -d -q -r -R -u -v -w -W -y${reset}
+  Plus for networking:
+    ${bold}-n${reset} is synonmous with 'sar -n DEV'
+    ${bold}-E${reset} is synonmous with 'sar -n EDEV'
 
 ${bold}SEARCHSTR${reset} may be used only once and is a regex for what section(s) to select
   eg: 'svctm', 'iowait', 'runq', 'memfree|fault'
@@ -97,8 +99,8 @@ fi
   
   
 # GNU getopt short options:
-saropts='bBdnqrRuvwWy'
-extraopts='Et:x:D:N:P:z'
+saropts='bBcdqrRuvwWy'
+extraopts='nN:ED:P:zt:x:'
 shortopts=$saropts$extraopts
 
 # Check for bad switches
@@ -141,17 +143,18 @@ PARSE() {
       # Standard sar selection options
       -b)   Selection="$Selection iotransf" ; shift ;;
       -B)   Selection="$Selection paging"   ; shift ;;
+      -c)   Selection="$Selection process"  ; shift ;;
       -d)   Selection="$Selection blockdev" ; shift ;;
-      -n)   Selection="$Selection nettraff" ; shift ;;
       -q)   Selection="$Selection queue"    ; shift ;;
       -r)   Selection="$Selection memutil"  ; shift ;;
       -R)   Selection="$Selection mempages" ; shift ;;
       -u)   Selection="$Selection cpuutil"  ; shift ;;
       -v)   Selection="$Selection kerntbls" ; shift ;;
-      -w)   Selection="$Selection taskswch" ; shift ;;
+      -w)   Selection="$Selection cswitch"  ; shift ;;
       -W)   Selection="$Selection swapping" ; shift ;;
       -y)   Selection="$Selection tty"      ; shift ;;
       # Additional selection options
+      -n)   Selection="$Selection nettraff" ; shift ;;
       -E)   Selection="$Selection neterrs"  ; shift ;;
       # Other options 
       -t)   Time=$2       ; shift 2 ;;
@@ -240,16 +243,17 @@ fi
 for module in $Selection; do case $module in
   iotransf) search bread        ;;
   paging)   search fault        ;;
+  process)  search proc         ;;
   blockdev) search await        ;;
-  nettraff) search rxpck        ;;
   queue)    search runq         ;;
   memutil)  search memfree      ;;
   mempages) search frmpg        ;;
   cpuutil)  search iowait       ;;
   kerntbls) search dentunusd    ;;
-  taskswch) search 'proc|cswch' ;;
+  cswitch)  search cswch        ;;
   swapping) search pswpin       ;;
   tty)      search TTY          ;;
+  nettraff) search rxpck        ;;
   neterrs)  search rxerr        ;;
 esac; done
 
