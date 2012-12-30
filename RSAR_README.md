@@ -94,7 +94,7 @@ Average:     77145109  54940339     41.59    502192  47449826  33551744         
 
 
 
-**For those more unfamiliar with `sar` options, regex searching for headers with `-x` is supported. You can also use `-P` in the same way as with the `sar` command, namely, to specify which CPUs to display info for (comma-separated numbers or else `ALL` to see each CPU + combined avg). With this example output, we can see how easy rsar makes it to spot in the data when a system was rebooted -- no scrolling halfway through the file necessary.**
+**For those unfamiliar with `sar` options, regex searching for headers with `-x` is supported. You can also use `-P` in the same way as with the `sar` command, namely, to specify which CPUs to display info for (comma-separated numbers or else `ALL` to see each CPU + combined avg). With this example output, we can see how easy rsar makes it to spot in the data when a system was rebooted -- no scrolling halfway through the file necessary.**
 
 ```
 [rsaw:sa]$ rsar sar22 -t'^1(3:5|4:[0-5])' -x nice -P 0,9
