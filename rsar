@@ -1,7 +1,7 @@
 #!/bin/bash
-# rsar v0.0.2 last mod 2012/12/29
+# rsar v0.0.3 last mod 2013/01/01
 # Latest version at <http://github.com/ryran/xsos>
-# Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
+# Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -111,22 +111,22 @@ declare -A Input
 
 # Check that we have what appears to be a good sar file 
 SARFILECHECK() {
-  local filetype unzip
-  filetype=$(file -zb $1 2>/dev/null)
+  local file filetype unzip
+  file=$(file -zbL -e encoding -e cdf -e elf -e tar $1 2>/dev/null)
   err="$pzero: Unable to read file: '$1'\n"
   
-  if ! [[ -r $1 && ${filetype:0:5} == ASCII ]]; then
+  if ! [[ -r $1 && ${file:0:5} == ASCII ]]; then
     printf "${err}Need a plain-text sar data file to continue\n" >&2
     exit 66
   fi
   
-  filetype=$(file -b $1)
-  if [[ $filetype =~ compressed.data ]]; then
-    case $(tr '[:upper:]' '[:lower:]' <<<"${filetype:0:2}") in
+  if [[ $file =~ compressed.data ]]; then
+    filetype=${file:12:2}
+    case ${filetype,,} in
       gz) unzip=zcat  ;;
       bz) unzip=bzcat ;;
       xz) unzip=xzcat ;;
-      *)  printf "${err}Unable to decompress compressed file; file appears to be:\n$filetype" >&2; exit 65
+      *)  printf "${err}Unable to decompress compressed file; file appears to be:\n$file" >&2; exit 65
     esac
     Input[$1]=$unzip
   else
