@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.0.3 last mod 2013/01/01
+# rsar v0.0.4 last mod 2013/01/03
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -27,8 +27,10 @@ red='\033[1;31m'
 
 HELP_USAGE() {
   printf "
-${bold}Usage: $pzero SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]${reset}
-${bold}   or: $pzero -?|-h|--help${reset}
+Usage: ${bold}$pzero SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]${reset}
+   or: ${bold}$pzero -?|-h|--help${reset}
+   
+       ${bold}SAROPTIONS${reset} is any mix of: ${bold}-bBcdqrRuvwWynE${reset}
 "
 }
 
@@ -45,7 +47,7 @@ ${bold}TIME${reset} is a regex for what time period to display
 
 ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
   ${bold}-b -B -c -d -q -r -R -u -v -w -W -y${reset}
-  Plus for networking:
+  Plus, for networking:
     ${bold}-n${reset} is synonmous with 'sar -n DEV'
     ${bold}-E${reset} is synonmous with 'sar -n EDEV'
 
@@ -86,7 +88,7 @@ case $1 in
 ;;
   --help|help)      HELP_BASIC
 ;;
-  --vers|--version) echo "Version info: ${version:2}"; exit
+  -V|--vers|--version) echo "Version info: ${version:2}"; exit
 ;;
   -U|--update)      HELP_USAGE; exit
 esac
