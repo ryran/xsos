@@ -1,7 +1,7 @@
 #!/bin/bash
-# xsos v0.1.0rc5c last mod 2012/12/27
+# xsos v0.1.0 last mod 2013/01/04
 # Latest version at <http://github.com/ryran/xsos>
-# Copyright 2012 Ryan Sawhill <rsaw@redhat.com>
+# Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -349,7 +349,7 @@ case $1 in
 ;;
   --help|help)      HELP_EXTENDED
 ;;
-  --vers|--version) echo "Version info: ${version:2}"; exit
+  -V|--vers|--version) echo "Version info: ${version:2}"; exit
 ;;
   -U|--update)      UPDATE
 esac
@@ -1712,7 +1712,7 @@ CHECK_TAINTED() {
   sys_tainted_status=$(<"$1/proc/sys/kernel/tainted")
   
   if [[ $sys_tainted_status == 0 ]]; then
-    echo "0 (kernel untainted)"
+    echo "0  (kernel untainted)"
     return
     
   else
@@ -1762,10 +1762,13 @@ CHECK_TAINTED() {
 
 SYSCTL() {
   # Local vars:
-  local pgsz
+  local pgsz hpgsz
   
   # VM PageSize (don't know how to find this from a sosreport, but I doubt that will often be a problem)
-  [[ $1 == / ]] && pgsz=$(getconf PAGESIZE) || pgsz=4
+  [[ $1 == / ]] && pgsz=$(($(getconf PAGESIZE)/1024)) || pgsz=4     # Saved as KiB
+  
+  # HugePage size
+  hpgsz=$(awk '/Hugepagesize:/{print $2/1024}' <"$1/proc/meminfo")  # Saved as MiB
   
   echo -e "${c[H1]}SYSCTLS${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
@@ -1773,40 +1776,46 @@ SYSCTL() {
     echo -e "${c[Warn1]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c[0]}"
   fi
   echo -e "  ${c[H2]}kernel.${c[0]}
-    ${c[H3]}osrelease:${c[0]} $(<"$1/proc/sys/kernel/osrelease")
-    ${c[H3]}tainted:${c[0]} $(CHECK_TAINTED "$1" H3)
-    ${c[H3]}random.boot_id:${c[0]} $(<"$1/proc/sys/kernel/random/boot_id")
-    ${c[H3]}random.entropy_avail:${c[0]} $(<"$1/proc/sys/kernel/random/entropy_avail")
-    ${c[H3]}panic:${c[0]} $(<"$1/proc/sys/kernel/panic") (seconds til reboot after panic)
-    ${c[H3]}hung_task_panic:${c[0]} $(<"$1/proc/sys/kernel/hung_task_panic")
-    ${c[H3]}panic_on_oops:${c[0]} $(<"$1/proc/sys/kernel/panic_on_oops")
-    ${c[H3]}panic_on_unrecovered_nmi:${c[0]} $(<"$1/proc/sys/kernel/panic_on_unrecovered_nmi")
-    ${c[H3]}sysrq:${c[0]} $(<"$1/proc/sys/kernel/sysrq")
-    ${c[H3]}sem:${c[0]} $(awk -vS="$XSOS_INDENT_H3" '{print $1,$2,$3,$4; printf "%smax semaphores per array = %d\n%smax sems system-wide     = %d\n%smax ops per semop call   = %d\n%smax number of arrays     = %d\n", S,$1,S,$2,S,$3,S,$4}' <"$1/proc/sys/kernel/sem")
-    ${c[H3]}shmall (pages):${c[0]} $(<"$1/proc/sys/kernel/shmall") ($(awk -vPGSZ="$pgsz" '{printf "%.1f G max total shared memory\n", $1*PGSZ/1024/1024}' <"$1/proc/sys/kernel/shmall"))
-    ${c[H3]}shmmax (bytes):${c[0]} $(<"$1/proc/sys/kernel/shmmax") ($(awk '{printf "%.2f G max segment size\n", $1/1024/1024/1024}' <"$1/proc/sys/kernel/shmmax"))
-    ${c[H3]}shmmni (segments):${c[0]} $(<"$1/proc/sys/kernel/shmmni") (max number of segs)
-  ${c[H2]}vm.${c[0]}
-    ${c[H3]}dirty_ratio:${c[0]} $(<"$1/proc/sys/vm/dirty_ratio") %
-    ${c[H3]}dirty_background_ratio:${c[0]} $(<"$1/proc/sys/vm/dirty_background_ratio") %
-    ${c[H3]}dirty_bytes:${c[0]} $(<"$1/proc/sys/vm/dirty_bytes") b
-    ${c[H3]}dirty_background_bytes:${c[0]} $(<"$1/proc/sys/vm/dirty_background_bytes") b
-    ${c[H3]}dirty_expire_centisecs:${c[0]} $(<"$1/proc/sys/vm/dirty_expire_centisecs")
-    ${c[H3]}dirty_writeback_centisecs:${c[0]} $(<"$1/proc/sys/vm/dirty_writeback_centisecs")
-    ${c[H3]}nr_hugepages:${c[0]} $(<"$1/proc/sys/vm/nr_hugepages") pages
-    ${c[H3]}overcommit_memory:${c[0]} $(<"$1/proc/sys/vm/overcommit_memory")
-    ${c[H3]}overcommit_ratio:${c[0]} $(<"$1/proc/sys/vm/overcommit_ratio") %
-    ${c[H3]}panic_on_oom:${c[0]} $(<"$1/proc/sys/vm/panic_on_oom")
+    ${c[H3]}osrelease:${c[0]}  $(<"$1/proc/sys/kernel/osrelease")
+    ${c[H3]}tainted:${c[0]}  $(CHECK_TAINTED "$1" H3)
+    ${c[H3]}random.boot_id:${c[0]}  $(<"$1/proc/sys/kernel/random/boot_id")
+    ${c[H3]}random.entropy_avail:${c[0]}  $(<"$1/proc/sys/kernel/random/entropy_avail")
+    ${c[H3]}panic:${c[0]}  $(<"$1/proc/sys/kernel/panic")  (seconds til reboot after panic)
+    ${c[H3]}hung_task_panic:${c[0]}  $(<"$1/proc/sys/kernel/hung_task_panic")
+    ${c[H3]}panic_on_oops:${c[0]}  $(<"$1/proc/sys/kernel/panic_on_oops")
+    ${c[H3]}panic_on_unrecovered_nmi:${c[0]}  $(<"$1/proc/sys/kernel/panic_on_unrecovered_nmi")
+    ${c[H3]}sysrq:${c[0]}  $(<"$1/proc/sys/kernel/sysrq")
+    ${c[H3]}sem:${c[0]}  $(awk -vS="$XSOS_INDENT_H3" '{printf "%s  %s  %s  %s\n", $1,$2,$3,$4; printf "%smax semaphores per array =  %d\n%smax sems system-wide     =  %d\n%smax ops per semop call   =  %d\n%smax number of arrays     =  %d\n", S,$1,S,$2,S,$3,S,$4}' <"$1/proc/sys/kernel/sem")
+    ${c[H3]}shmall ($pgsz-KiB pages):${c[0]}  $(awk -vPGSZ="$pgsz" '{printf "%s  (%.1f GiB max total shared memory)\n", $1, $1*PGSZ/1024/1024}' <"$1/proc/sys/kernel/shmall")
+    ${c[H3]}shmmax (bytes):${c[0]}  $(awk '{printf "%s  (%.2f GiB max segment size)\n", $1, $1/1024/1024/1024}' <"$1/proc/sys/kernel/shmmax")
+    ${c[H3]}shmmni (segments):${c[0]}  $(<"$1/proc/sys/kernel/shmmni")  (max number of segs)
   ${c[H2]}net.${c[0]}
-    ${c[H3]}ipv4.icmp_echo_ignore_all:${c[0]} $(<"$1/proc/sys/net/ipv4/icmp_echo_ignore_all")
-    ${c[H3]}ipv4.ip_forward:${c[0]} $(<"$1/proc/sys/net/ipv4/ip_forward")
-    ${c[H3]}ipv4.tcp_max_orphans (sockets):${c[0]} $(<"$1/proc/sys/net/ipv4/tcp_max_orphans") ($(awk '{printf "%d M @ max 64 K per orphan\n", $1*64/1024}' <"$1/proc/sys/net/ipv4/tcp_max_orphans"))
-    ${c[H3]}ipv4.tcp_mem (pages):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_mem") ($(awk -vPGSZ="$pgsz" '{printf "%.2f G, %.2f G, %.2f G\n", $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/tcp_mem"))
-    ${c[H3]}ipv4.udp_mem (pages):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/udp_mem") ($(awk -vPGSZ="$pgsz" '{printf "%.2f G, %.2f G, %.2f G\n", $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/udp_mem"))
-    ${c[H3]}ipv4.tcp_rmem (bytes):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_rmem") ($(awk '{printf "%d K, %d K, %d K\n", $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_rmem"))
-    ${c[H3]}ipv4.tcp_wmem (bytes):${c[0]} $(awk '{print $1,$2,$3}' <"$1/proc/sys/net/ipv4/tcp_wmem") ($(awk '{printf "%d K, %d K, %d K\n", $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_wmem"))
-    ${c[H3]}ipv4.udp_rmem_min (bytes):${c[0]} $(<"$1/proc/sys/net/ipv4/udp_rmem_min") ($(awk '{printf "%d K\n", $1/1024}' <"$1/proc/sys/net/ipv4/udp_rmem_min"))
-    ${c[H3]}ipv4.udp_wmem_min (bytes):${c[0]} $(<"$1/proc/sys/net/ipv4/udp_wmem_min") ($(awk '{printf "%d K\n", $1/1024}' <"$1/proc/sys/net/ipv4/udp_wmem_min"))"
+    ${c[H3]}core.rmem_max (bytes):${c[0]}  $(awk '{printf "%s  (%d KiB)\n", $1, $1/1024}' <"$1/proc/sys/net/core/rmem_max")
+    ${c[H3]}core.wmem_max (bytes):${c[0]}  $(awk '{printf "%s  (%d KiB)\n", $1, $1/1024}' <"$1/proc/sys/net/core/wmem_max")
+    ${c[H3]}core.rmem_default (bytes):${c[0]}  $(awk '{printf "%s  (%d KiB)\n", $1, $1/1024}' <"$1/proc/sys/net/core/rmem_default")
+    ${c[H3]}core.wmem_default (bytes):${c[0]}  $(awk '{printf "%s  (%d KiB)\n", $1, $1/1024}' <"$1/proc/sys/net/core/wmem_default")
+    ${c[H3]}ipv4.icmp_echo_ignore_all:${c[0]}  $(<"$1/proc/sys/net/ipv4/icmp_echo_ignore_all")
+    ${c[H3]}ipv4.ip_forward:${c[0]}  $(<"$1/proc/sys/net/ipv4/ip_forward")
+    ${c[H3]}ipv4.tcp_window_scaling:${c[0]}  $(<"$1/proc/sys/net/ipv4/tcp_window_scaling")
+    ${c[H3]}ipv4.tcp_max_orphans (sockets):${c[0]}  $(awk '{printf "%s  (%d MiB @ max 64 KiB per orphan)\n", $1, $1*64/1024}' <"$1/proc/sys/net/ipv4/tcp_max_orphans")
+    ${c[H3]}ipv4.tcp_mem ($pgsz-KiB pages):${c[0]}  $(awk -vPGSZ="$pgsz" '{printf "%s  %s  %s  (%.2f GiB, %.2f GiB, %.2f GiB)\n", $1, $2, $3, $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/tcp_mem")
+    ${c[H3]}ipv4.udp_mem ($pgsz-KiB pages):${c[0]}  $(awk -vPGSZ="$pgsz" '{printf "%s  %s  %s  (%.2f GiB, %.2f GiB, %.2f GiB)\n", $1, $2, $3, $1*PGSZ/1024/1024,$2*PGSZ/1024/1024,$3*PGSZ/1024/1024}' <"$1/proc/sys/net/ipv4/udp_mem")
+    ${c[H3]}ipv4.tcp_rmem (bytes):${c[0]}  $(awk '{printf "%s  %s  %s  (%d KiB, %d KiB, %d KiB)\n", $1, $2, $3, $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_rmem")
+    ${c[H3]}ipv4.tcp_wmem (bytes):${c[0]}  $(awk '{printf "%s  %s  %s  (%d KiB, %d KiB, %d KiB)\n", $1, $2, $3, $1/1024,$2/1024,$3/1024}' <"$1/proc/sys/net/ipv4/tcp_wmem")
+    ${c[H3]}ipv4.udp_rmem_min (bytes):${c[0]}  $(awk '{printf "%s  (%d KiB)\n", $1, $1/1024}' <"$1/proc/sys/net/ipv4/udp_rmem_min")
+    ${c[H3]}ipv4.udp_wmem_min (bytes):${c[0]}  $(awk '{printf "%s  (%d KiB)\n", $1, $1/1024}' <"$1/proc/sys/net/ipv4/udp_wmem_min")
+  ${c[H2]}vm.${c[0]}
+    ${c[H3]}dirty_ratio (percent):${c[0]}  $(<"$1/proc/sys/vm/dirty_ratio")
+    ${c[H3]}dirty_background_ratio (percent):${c[0]}  $(<"$1/proc/sys/vm/dirty_background_ratio")
+    ${c[H3]}dirty_bytes:${c[0]}  $(<"$1/proc/sys/vm/dirty_bytes")
+    ${c[H3]}dirty_background_bytes:${c[0]}  $(<"$1/proc/sys/vm/dirty_background_bytes")
+    ${c[H3]}dirty_expire_centisecs:${c[0]}  $(<"$1/proc/sys/vm/dirty_expire_centisecs")
+    ${c[H3]}dirty_writeback_centisecs:${c[0]}  $(<"$1/proc/sys/vm/dirty_writeback_centisecs")
+    ${c[H3]}nr_hugepages ($hpgsz-MiB pages):${c[0]}  $(awk -vHPGSZ="$hpgsz" '{printf "%s  (%.1f GiB total)\n", $1, $1*HPGSZ/1024}' <"$1/proc/sys/vm/nr_hugepages")
+    ${c[H3]}overcommit_memory:${c[0]}  $(<"$1/proc/sys/vm/overcommit_memory")
+    ${c[H3]}overcommit_ratio (percent):${c[0]}  $(<"$1/proc/sys/vm/overcommit_ratio")
+    ${c[H3]}panic_on_oom:${c[0]}  $(<"$1/proc/sys/vm/panic_on_oom")
+    ${c[H3]}swappiness:${c[0]}  $(<"$1/proc/sys/vm/swappiness")"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
