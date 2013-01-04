@@ -1,7 +1,7 @@
 xsos & rsar - Summarize system info from sosreports
 ===================================================
 
-See the [rsar README](/ryran/xsos/blob/master/RSAR_README.md) for details on `rsar`.
+See the **[rsar README](/ryran/xsos/blob/master/RSAR_README.md)** for details on `rsar`.
 
 The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost on which xsos is being run or a system for which you have an unpacked sosreport.
 
@@ -303,50 +303,55 @@ NETDEV
 [rsaw]$ xsos --sysctl boomyaow/
 SYSCTLS
   kernel.
-    osrelease: 2.6.18-194.26.1.el5
+    osrelease:  2.6.32-274.el6.x86_64
     tainted: 536870912 512 64 16 1
       Technology Preview code is loaded
       Taint on warning
       Userspace-defined naughtiness
       System experienced a machine check exception
       Proprietary module has been loaded
-    random.boot_id: d0c940ea-77df-4167-919d-XXXXXXXXXXX
-    random.entropy_avail: 2006
-    panic: 0 (seconds til reboot after panic)
-    hung_task_panic: 0
-    panic_on_oops: 1
-    panic_on_unrecovered_nmi: 0
-    sysrq: 1
-    sem: 10000 100000 1000 1000
-      max semaphores per array = 10000
-      max sems system-wide     = 100000
-      max ops per semop call   = 1000
-      max number of arrays     = 1000
-    shmall (pages): 4294967296 (16384.0 G max total shared memory)
-    shmmax (bytes): 137438953471 (128.00 G max segment size)
-    shmmni (segments): 4096 (max number of segs)
-  vm.
-    dirty_ratio: 40 %
-    dirty_background_ratio: 10 %
-    dirty_bytes:  b
-    dirty_background_bytes:  b
-    dirty_expire_centisecs: 2999
-    dirty_writeback_centisecs: 499
-    nr_hugepages: 262144 pages
-    overcommit_memory: 0
-    overcommit_ratio: 50 %
-    panic_on_oom: 0
+    random.boot_id:  3d888986-XXXX-4eee-a064-XXXXXXXXXXXX
+    random.entropy_avail:  175
+    panic:  0  (seconds til reboot after panic)
+    hung_task_panic:  0
+    panic_on_oops:  1
+    panic_on_unrecovered_nmi:  0
+    sysrq:  0
+    sem:  250  32000  32  128
+      max semaphores per array =  250
+      max sems system-wide     =  32000
+      max ops per semop call   =  32
+      max number of arrays     =  128
+    shmall (4-KiB pages):  4294967296  (16384.0 GiB max total shared memory)
+    shmmax (bytes):  68719476736  (64.00 GiB max segment size)
+    shmmni (segments):  4096  (max number of segs)
   net.
-    ipv4.icmp_echo_ignore_all: 0
-    ipv4.ip_forward: 0
-    ipv4.tcp_max_orphans (sockets): 65536 (4096 M @ max 64 K per orphan)
-    ipv4.tcp_mem (pages): 196608 262144 393216 (0.75 G, 1.00 G, 1.50 G)
-    ipv4.udp_mem (pages): 97537152 130049536 195074304 (372.07 G, 496.10 G, 744.15 G)
-    ipv4.tcp_rmem (bytes): 4096 87380 4194304 (4 K, 85 K, 4096 K)
-    ipv4.tcp_wmem (bytes): 4096 16384 4194304 (4 K, 16 K, 4096 K)
-    ipv4.udp_rmem_min (bytes): 4096 (4 K)
-    ipv4.udp_wmem_min (bytes): 4096 (4 K)
-
+    core.rmem_max (bytes):  16777216  (16384 KiB)
+    core.wmem_max (bytes):  16777216  (16384 KiB)
+    core.rmem_default (bytes):  262144  (256 KiB)
+    core.wmem_default (bytes):  262144  (256 KiB)
+    ipv4.icmp_echo_ignore_all:  0
+    ipv4.ip_forward:  0
+    ipv4.tcp_window_scaling:  1
+    ipv4.tcp_max_orphans (sockets):  131072  (8192 MiB @ max 64 KiB per orphan)
+    ipv4.tcp_mem (4-KiB pages):  496300800  661734400  992601600  (1893.24 GiB, 2524.32 GiB, 3786.47 GiB)
+    ipv4.udp_mem (4-KiB pages):  496300800  661734400  992601600  (1893.24 GiB, 2524.32 GiB, 3786.47 GiB)
+    ipv4.tcp_rmem (bytes):  4096  1048574  16777216  (4 KiB, 1023 KiB, 16384 KiB)
+    ipv4.tcp_wmem (bytes):  4096  1048574  16777216  (4 KiB, 1023 KiB, 16384 KiB)
+    ipv4.udp_rmem_min (bytes):  4096  (4 KiB)
+    ipv4.udp_wmem_min (bytes):  4096  (4 KiB)
+  vm.
+    dirty_ratio (percent):  5
+    dirty_background_ratio (percent):  2
+    dirty_bytes:  0
+    dirty_background_bytes:  0
+    dirty_expire_centisecs:  600
+    dirty_writeback_centisecs:  100
+    nr_hugepages (2-MiB pages):  262144  (512.0 GiB total)
+    overcommit_memory:  0
+    overcommit_ratio (percent):  50
+    panic_on_oom:  0
+    swappiness:  15
 ```
 
 
