@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.2a last mod 2013/01/10
+# xsos v0.1.2b last mod 2013/01/10
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -490,6 +490,11 @@ if [[ $XSOS_COLORS == y && $BASH_VERSINFO -ge 4 ]]; then
   c[Warn2]=$XSOS_COLOR_WARN2
   c[Up]=$XSOS_COLOR_IFUP
   c[Down]=$XSOS_COLOR_IFDOWN
+  c[MemUsed]=$XSOS_COLOR_MEMGRAPH_MEMUSED
+  c[HugePages]=$XSOS_COLOR_MEMGRAPH_HUGEPAGES
+  c[Buffers]=$XSOS_COLOR_MEMGRAPH_BUFFERS
+  c[Cached]=$XSOS_COLOR_MEMGRAPH_CACHED
+  c[Dirty]=$XSOS_COLOR_MEMGRAPH_DIRTY
 else
   unset c
 fi
@@ -1072,7 +1077,7 @@ MEMINFO() {
     echo -e "${c[Warn1]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c[0]}"
   fi
   
-  awk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_MEM_UNIT) -vcolor_MemUsed="$XSOS_COLOR_MEMGRAPH_MEMUSED" -vcolor_HugePages="$XSOS_COLOR_MEMGRAPH_HUGEPAGES" -vcolor_Buffers="$XSOS_COLOR_MEMGRAPH_BUFFERS" -vcolor_Cached="$XSOS_COLOR_MEMGRAPH_CACHED" -vcolor_Dirty="$XSOS_COLOR_MEMGRAPH_DIRTY" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+  awk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_MEM_UNIT) -vcolor_MemUsed="${c[MemUsed]}" -vcolor_HugePages="${c[HugePages]}" -vcolor_Buffers="${c[Buffers]}" -vcolor_Cached="${c[Cached]}" -vcolor_Dirty="${c[Dirty]}" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     # These will come in handy
     
     function round(num, places) {
