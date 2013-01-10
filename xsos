@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.2 last mod 2013/01/10
+# xsos v0.1.2a last mod 2013/01/10
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1228,11 +1228,11 @@ MEMINFO() {
       # ASCII-ART fun
       
       printf "  %sStats graphed as percent of MemTotal:%s\n", H2, H0
-      memgraph(Mem_Percent, "MemUsed", color_MemUsed)
-      memgraph(HP_PercentRam, "HugePages", color_HugePages)
-      memgraph(Buffers_Percent, "Buffers", color_Buffers)
-      memgraph(Cached_Percent, "Cached", color_Cached)
-      memgraph(Dirty_Percent, "Dirty", color_Dirty)
+      memgraph(Mem_Percent,     "MemUsed    ", color_MemUsed)
+      memgraph(HP_PercentRam,   "HugePages  ", color_HugePages)
+      memgraph(Buffers_Percent, "Buffers    ", color_Buffers)
+      memgraph(Cached_Percent,  "Cached     ", color_Cached)
+      memgraph(Dirty_Percent,   "Dirty      ", color_Dirty)
 
       
       # If unit is T, print percentages with no decimal & byteunits with 2-3 decimal-points of precision
