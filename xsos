@@ -1081,7 +1081,7 @@ MEMINFO() {
     }
     
     function memgraph(var, PrettyName, color) {
-      printf "    %s%s\t", color, PrettyName
+      printf "    %s%s ", color, PrettyName
       for (i=0; i <    round(var/2, 0); i++) printf "◆"
       printf H0
       for (i=0; i < 50-round(var/2, 0); i++) printf "◇"
@@ -1228,11 +1228,11 @@ MEMINFO() {
       # ASCII-ART fun
       
       printf "  %sStats graphed as percent of MemTotal:%s\n", H2, H0
-      memgraph(Mem_Percent,     "MemUsed    ", color_MemUsed)
-      memgraph(HP_PercentRam,   "HugePages  ", color_HugePages)
-      memgraph(Buffers_Percent, "Buffers    ", color_Buffers)
-      memgraph(Cached_Percent,  "Cached     ", color_Cached)
-      memgraph(Dirty_Percent,   "Dirty      ", color_Dirty)
+      memgraph(Mem_Percent,     "MemUsed   ", color_MemUsed)
+      memgraph(HP_PercentRam,   "HugePages ", color_HugePages)
+      memgraph(Buffers_Percent, "Buffers   ", color_Buffers)
+      memgraph(Cached_Percent,  "Cached    ", color_Cached)
+      memgraph(Dirty_Percent,   "Dirty     ", color_Dirty)
 
       
       # If unit is T, print percentages with no decimal & byteunits with 2-3 decimal-points of precision
