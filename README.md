@@ -3,7 +3,15 @@ xsos & rsar - Summarize system info from sosreports
 
 ![xsos parsing general os info and /proc/meminfo](http://b19.org/linux/xsos-om.png)
 
-See the **[rsar README](/ryran/xsos/blob/master/RSAR_README.md)** for details on `rsar`.
+**Jump to ...**
+
+* [I'M LOOKING FOR RSAR](/ryran/xsos/blob/master/RSAR_README.md)
+* [INSTALLATION](/ryran/xsos#installation)
+* [EXAMPLES IN ACTION](/ryran/xsos#examples-in-action)
+* [REQUIREMENTS](/ryran/xsos#requirements)
+* [THINGS THAT MIGHT SURPRISE YOU](/ryran/xsos#things-that-might-surprise-you)
+* [AUTHORS](/ryran/xsos#authors)
+* [LICENSE](/ryran/xsos#license)
 
 The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost on which xsos is being run or a system for which you have an unpacked sosreport.
 
@@ -16,6 +24,7 @@ New features are being added all the time -- see [the tracker](/ryran/xsos/issue
 **[Why another tool? Why not add stuff to `sxconsole`?](https://github.com/ryran/xsos/issues/9)**
 
 ![xsos parsing /proc/cpuinfo, lspci, /proc/net/dev](http://b19.org/linux/xsos-cln.png)
+
 
 INSTALLATION
 -------
@@ -36,14 +45,6 @@ $ xsos -h
 
 Additionally, if you want intelligent BASH autocompletion, save [this file](https://raw.github.com/ryran/xsos/master/xsos-bash-completion.bash) to your `/etc/bash_completion.d/` directory. (Make sure to read the very last 2 lines of it.)
 
-**Jump to ...**
-
-* [INSTALLATION](/ryran/xsos#installation)
-* [EXAMPLES IN ACTION](/ryran/xsos#examples-in-action)
-* [REQUIREMENTS](/ryran/xsos#requirements)
-* [THINGS THAT MIGHT SURPRISE YOU](/ryran/xsos#things-that-might-surprise-you)
-* [AUTHORS](/ryran/xsos#authors)
-* [LICENSE](/ryran/xsos#license)
 
 
 EXAMPLES IN ACTION
@@ -92,7 +93,7 @@ OS
 ```
 
 
-**While xsos is always changing, here's the minimal help page from v0.1.0rc5:**
+**While xsos is always being improved, here's the minimal help page from v0.1.3:**
 
 ```
 [rsaw]$ xsos -h
@@ -106,7 +107,7 @@ Display system info from localhost or extracted sosreport
 Content options:
  -a, --all      show everything
  -b, --bios     show info from dmidecode
- -o, --os       show release, hostname, uptime, loadavg, cmdline
+ -o, --os       show hostname, distro, SELinux, kernel info, uptime, etc
  -c, --cpu      show info from /proc/cpuinfo
  -m, --mem      show info from /proc/meminfo
  -d, --disks    show info from /proc/partitions + dm-multipath
@@ -138,7 +139,7 @@ Special options (BASH v4+ required):
 
 Run with "--help" to see full help page
 
-Version info: xsos v0.1.0rc5c last mod 2012/12/27
+Version info: xsos v0.1.3 last mod 2013/01/13
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
@@ -416,6 +417,8 @@ IP
   bond0      -         ZZ:zz:ZZ:zz:ZZ:zz  up     10.180.162.22/24
 
 PS CHECK
+  Total number of processes: 
+    1393
   Top users of CPU & MEM: 
     USER    %CPU    %MEM      RSS 
     oracle  909.8%  60649.2%  38137.57 GiB
@@ -487,7 +490,7 @@ Please contact me if you have ideas, suggestions, questions, or want to collabor
 LICENSE
 -------
 
-Copyright (C) 2012 [Ryan Sawhill](http://b19.org)
+Copyright (C) 2012, 2013 [Ryan Sawhill](http://b19.org)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

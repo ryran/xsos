@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.2b last mod 2013/01/10
+# xsos v0.1.3 last mod 2013/01/13
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -186,7 +186,7 @@ Content options:"
   echo "
  -a, --all@show everything
  -b, --bios@show info from dmidecode
- -o, --os@show release, hostname, uptime, loadavg, cmdline
+ -o, --os@show hostname, distro, SELinux, kernel info, uptime, etc
  -c, --cpu@show info from /proc/cpuinfo
  -m, --mem@show info from /proc/meminfo
  -d, --disks@show info from /proc/partitions + dm-multipath
@@ -706,72 +706,93 @@ _CHECK_KERNELBUILD() {
 }
 
 
-CHECK_SELINUX() {
+_CHECK_SELINUX() {
   # Local vars:
-  local sestatus sestatus2 selinux enforcing
+  local input_sestatus have_dmesg input_seconfig selinux enforcing selinux_dmesg sestatus_status sestatus_mode sestatus_cfgmode sestatus_policy seconfig_cfgmode seconfig_policy
+  
+  __cond_print_cfgmode() {
+    [[ -n $seconfig_cfgmode ]] &&
+      printf "  (default $seconfig_cfgmode)" || printf "  (default unknown)"
+  }
   
   # Grab input from sestatus command if localhost
   if [[ $1 == / ]]; then
-    sestatus=$(sestatus 2>/dev/null)
+    input_sestatus=$(sestatus 2>/dev/null)
     
-  # Else, from $sosroot/sestatus or $sosroot/etc/selinux/config
+  # Else, from $sosroot/sestatus & dmesg
   else
-    sestatus=$(awk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null) || {
-      [[ -r $1/etc/selinux/config ]] && sestatus2=$(<"$1/etc/selinux/config")
-      # Set "selinux" and "enforcing" variables per $sosroot's kernel args
-      eval $(egrep -io 'selinux=.|enforcing=.' "$1/proc/cmdline" | tr '[:upper:]' '[:lower:]')
-    }
+    input_sestatus=$(awk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null)
+    egrep -qis '^SELinux: *Disabled at (boot|runtime)' "$1"/var/log/dmesg "$1"/sos_commands/general/dmesg* && selinux_dmesg=disabled
+    # Could also check /var/log/messages, but it would be too expensive and complicated
+    # to ensure any hits were for the current boot-cycle
   fi
   
-  # We have definitive sestatus command output
-  if [[ -n $sestatus ]]; then
-    awk '
+  # Read in /etc/selinux/config from sosroot or localhost
+  input_seconfig=$(cat "$1"/etc/selinux/config 2>/dev/null)
+  
+  # Set "selinux" and "enforcing" variables per kernel args
+  eval $(egrep -ios 'selinux=.|enforcing=.' "$1"/proc/cmdline | tr '[:upper:]' '[:lower:]')
+  
+  # Check /etc/selinux/config input
+  if [[ -n $input_seconfig ]]; then
+    eval $(awk -F= '
+      /^SELINUX=/     { cfgmode = $2 }
+      /^SELINUXTYPE=/ { policy  = $2 }
+      END { 
+        printf "seconfig_cfgmode=%s; seconfig_policy=%s", cfgmode, policy
+      }
+    ' <<<"$input_seconfig")
+  fi
+  
+  # Check sestatus input
+  if [[ -n $input_sestatus ]]; then
+    eval $(awk '
       /SELinux status/                    { status  = $NF }
       /Current mode/                      { mode    = $NF }
       /Mode from config file/             { cfgmode = $NF }
       /Loaded policy|Policy from config/  { policy  = $NF }
       END { 
-        if (status == "disabled") print status
-        else printf "%s  (default %s)\n", mode, cfgmode
+        printf "sestatus_status=%s; sestatus_mode=%s; sestatus_cfgmode=%s; sestatus_policy=%s",
+          status, mode, cfgmode, policy
       }
-    ' <<<"$sestatus"
+    ' <<<"$input_sestatus")
     
-  # Have /etc/selinux/config output
-  elif [[ -n $sestatus2 ]]; then
-    awk -F= -vselinux="$selinux" -venforcing="$enforcing" -vH0="${c[0]}" -vH0="${c[0]}" -vcolor_warn="${c[Warn1]}" '
-      /^SELINUX=/     { mode = $2 }
-      /^SELINUXTYPE=/ { policy = $2 }
-      END {
-        if (mode == "disabled") {
-          if (selinux == 1)
-            printf "enforcing via kernel arg  (default %s)\n", mode
-          else
-            print "disabled"
-        }
-        else {
-          if (selinux == 0)
-            printf "disabled via kernel arg  (default %s)\n", mode
-          else if (enforcing == 0)
-            printf "permissive via kernel arg  (default %s)\n", mode
-          else if (enforcing == 1)
-            printf "enforcing via kernel arg  (default %s)\n", mode
-          else
-            printf "%sstatus unknown%s  (default %s)\n", color_warn, H0, mode
-        }
-      }
-    ' <<<"$sestatus2"
-    
-  # Only have /proc/cmdline
-  else
-    if [[ -n $selinux ]]; then
-      [[ $selinux -eq 0 ]] && echo "disabled via kernel arg  (default unknown)"
-      [[ $selinux -eq 1 ]] && echo "enforcing via kernel arg  (default unknown)"
-    elif [[ -n $enforcing ]]; then
-      [[ $enforcing -eq 0 ]] && echo "permissive via kernel arg  (default unknown)"
-      [[ $enforcing -eq 1 ]] && echo "enforcing via kernel arg  (default unknown)"
+    # Since we have sestatus input, primarily rely on that
+    if [[ $sestatus_status == disabled ]]; then
+      # If sestatus says disabled, need to rely on config file for default mode
+      printf "disabled"; __cond_print_cfgmode
     else
-      echo -e "${c[Warn1]}status unknown${c[0]}  (default unknown)"
+      # Otherwise, just use sestatus output 
+      printf "$sestatus_mode  (default $sestatus_cfgmode)"
     fi
+  
+  # If we don't have sestatus input, things are more complicated...
+  else
+  
+    # If dmesg from sosreport says disabled, print it out
+    if [[ $selinux_dmesg == disabled ]]; then
+      printf "dmesg says disabled"; __cond_print_cfgmode
+    
+    # If we have selinux/enforcing kernel args, use those for current status
+    elif [[ -n $selinux || -n $enforcing ]]; then
+      case $selinux in
+        0)  printf "disabled"   ;;
+        1)  printf "enforcing"  ;;
+      esac
+      case $enforcing in
+        0)  printf "permissive" ;;
+        1)  printf "enforcing"  ;;
+      esac
+      __cond_print_cfgmode
+      
+    # If we only have stuff from /etc/selinux/config
+    elif [[ -n $seconfig_cfgmode ]]; then
+      printf "${c[Warn1]}status unknown${c[0]} (default $seconfig_cfgmode)"
+    
+    # Otherwise, we have no clue ... :(
+    else
+      printf "${c[Warn1]}status unknown (default unknown)${c[0]}"
+    fi    
   fi
 }
 
@@ -861,7 +882,7 @@ OSINFO() {
   echo -e "  ${c[H2]}RHN:${c[0]}      $serverURL"
   [[ -n $runlevel ]] &&
   echo -e "  ${c[H2]}Runlevel:${c[0]} $runlevel  (default $initdefault)"
-  echo -e "  ${c[H2]}SELinux:${c[0]}  $(CHECK_SELINUX "$1")"
+  echo -e "  ${c[H2]}SELinux:${c[0]}  $(_CHECK_SELINUX "$1")"
   echo -e "  ${c[H2]}Arch:${c[0]}     $uname"
   echo -e "  ${c[H2]}Kernel:${c[0]}"
   
