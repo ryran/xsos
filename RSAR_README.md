@@ -9,7 +9,7 @@ The goal behind `rsar` is to make this process a little bit easier. rsar is like
 INSTALLATION
 -------
 
-Simply download [this one file](https://raw.github.com/ryran/xsos/master/rsar) and save it to a directory that's in your `$PATH`. Make it executable and you'll be good to go!  
+Simply download [this one file](http://bit.ly/rsar-direct) and save it to a directory that's in your `$PATH`. Make it executable and you'll be good to go!  
 
 **Example:**
 
@@ -21,6 +21,7 @@ $ su -
 $ rsar -h
 ```
 
+Additionally, if you want intelligent BASH autocompletion, save [this file](https://raw.github.com/ryran/xsos/master/rsar-bash-completion.bash) to your `/etc/bash_completion.d/` directory. (Make sure to read the very last 2 lines of it if you change the name of `rsar` or call it by an alias .)
 
 
 USAGE
@@ -210,7 +211,7 @@ Please contact me if you have ideas, suggestions, questions, or want to collabor
 LICENSE
 -------
 
-Copyright (C) 2012 [Ryan Sawhill](http://b19.org)
+Copyright (C) 2013 [Ryan Sawhill](http://b19.org)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
