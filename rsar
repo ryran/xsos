@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.0.4 last mod 2013/01/03
+# rsar v0.0.5 last mod 2013/01/13
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -12,10 +12,11 @@
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 #    General Public License <gnu.org/licenses/gpl.html> for more details.
+#
 #-------------------------------------------------------------------------------
 
 # To make it easy to rename the script filename
-pzero=${0##*/}
+pzero=rsar
 
 # Get version from line #2
 version=$(sed '2q;d' $0)
@@ -30,7 +31,7 @@ HELP_USAGE() {
 Usage: ${bold}$pzero SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]${reset}
    or: ${bold}$pzero -?|-h|--help${reset}
    
-       ${bold}SAROPTIONS${reset} is any mix of: ${bold}-bBcdqrRuvwWynE${reset}
+       ${bold}SAROPTIONS${reset} is any mix of: ${bold}-bBcdHqrRSuvwWynE${reset}
 "
 }
 
@@ -46,13 +47,14 @@ ${bold}TIME${reset} is a regex for what time period to display
   eg: '^1[2-5]' or ':[23]0:' or '^(0[6-9]|1[23])'
 
 ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
-  ${bold}-b -B -c -d -q -r -R -u -v -w -W -y${reset}
+  ${bold}-b -B -c -d -H -q -r -R -S -u -v -w -W -y${reset}
   Plus, for networking:
     ${bold}-n${reset} is synonmous with 'sar -n DEV'
     ${bold}-E${reset} is synonmous with 'sar -n EDEV'
-
+  See the sar man page for details
+  
 ${bold}SEARCHSTR${reset} may be used only once and is a regex for what section(s) to select
-  eg: 'svctm', 'iowait', 'runq', 'memfree|fault'
+  eg: 'svctm', 'iowait', 'runq', 'proc|cswch'
 
 ${bold}SAROPTIONS${reset} and ${bold}-x SEARCHSTR${reset} may be used together
 If neither are provided, $pzero shows CPU utilization (like sar does)
@@ -101,7 +103,7 @@ fi
   
   
 # GNU getopt short options:
-saropts='bBcdqrRuvwWy'
+saropts='bBcdHqrRSuvwWy'
 extraopts='nN:ED:P:zt:x:'
 shortopts=$saropts$extraopts
 
@@ -147,9 +149,11 @@ PARSE() {
       -B)   Selection="$Selection paging"   ; shift ;;
       -c)   Selection="$Selection process"  ; shift ;;
       -d)   Selection="$Selection blockdev" ; shift ;;
+      -H)   Selection="$Selection hugepage" ; shift ;;
       -q)   Selection="$Selection queue"    ; shift ;;
       -r)   Selection="$Selection memutil"  ; shift ;;
       -R)   Selection="$Selection mempages" ; shift ;;
+      -S)   Selection="$Selection memswap"  ; shift ;;
       -u)   Selection="$Selection cpuutil"  ; shift ;;
       -v)   Selection="$Selection kerntbls" ; shift ;;
       -w)   Selection="$Selection cswitch"  ; shift ;;
@@ -213,7 +217,7 @@ search() {
   fi
   
   # If we're dealing with CPU utilization, need some special handling
-  if [[ $header =~ CPU|usr|nice|sys|iowait|(^|%)steal|irq|soft|guest|idle ]]; then
+  if [[ $header =~ CPU|usr|user|nice|sys|iowait|(^|%)steal|irq|soft|guest|idle ]]; then
     field2="^($Cpus)$"
 
   # Same for network statistics
@@ -247,9 +251,11 @@ for module in $Selection; do case $module in
   paging)   search fault        ;;
   process)  search proc         ;;
   blockdev) search await        ;;
+  hugepage) search hugfree      ;;
   queue)    search runq         ;;
   memutil)  search memfree      ;;
   mempages) search frmpg        ;;
+  memswap)  search swpfree      ;;
   cpuutil)  search iowait       ;;
   kerntbls) search dentunusd    ;;
   cswitch)  search cswch        ;;
