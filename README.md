@@ -1,6 +1,8 @@
 xsos & rsar - Summarize system info from sosreports
 ===================================================
 
+![xsos parsing general os info and /proc/meminfo](http://b19.org/linux/xsos-om.png)
+
 See the **[rsar README](/ryran/xsos/blob/master/RSAR_README.md)** for details on `rsar`.
 
 The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost on which xsos is being run or a system for which you have an unpacked sosreport.
@@ -13,23 +15,26 @@ New features are being added all the time -- see [the tracker](/ryran/xsos/issue
 
 **[Why another tool? Why not add stuff to `sxconsole`?](https://github.com/ryran/xsos/issues/9)**
 
+![xsos parsing /proc/cpuinfo, lspci, /proc/net/dev](http://b19.org/linux/xsos-cln.png)
 
 INSTALLATION
 -------
 
 *"I'm sold! How do I install xsos?"*
 
-Simply download [this one file](https://raw.github.com/ryran/xsos/master/xsos) and save it to a directory that's in your `$PATH`. Make it executable and you'll be good to go!  
+Simply download [this one file](http://bit.ly/xsos-direct) and save it to a directory that's in your `$PATH`. Make it executable and you'll be good to go!  
 
 **Example:**
 
 ```
-$ su -
+$ su -c 
 # wget -O /usr/local/bin/xsos bit.ly/xsos-direct
 # chmod +x /usr/local/bin/xsos
 # exit
 $ xsos -h
 ```
+
+Additionally, if you want intelligent BASH autocompletion, save [this file](https://raw.github.com/ryran/xsos/master/xsos-bash-completion.bash) to your `/etc/bash_completion.d/` directory. (Make sure to read the very last 2 lines of it.)
 
 **Jump to ...**
 
@@ -200,6 +205,8 @@ NETDEV
   wlan0       194        194 k      0       0       194        140 k      0       0 
 
 PS CHECK
+  Total number of processes: 
+    291
   Top users of CPU & MEM: 
     USER  %CPU   %MEM   RSS 
     rsaw  34.1%  46.0%  3.81 GiB
@@ -245,15 +252,22 @@ PS CHECK
 ```
 [rsaw]$ xsos 8308201prodserv --disks --mem --unit=m
 MEMORY
+  Stats graphed as percent of MemTotal:
+    MemUsed    ◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◇◇  96.0%
+    HugePages  ◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◆◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇  60.5%
+    Buffers    ◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇   0.6%
+    Cached     ◆◆◆◆◆◆◆◆◆◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇  18.6%
+    Dirty      ◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇   0.0%
   RAM:
-    64363 MiB total [61815 MiB (96.0%) used]
-    49451 MiB (76.8%) used excluding buffers/cache
-    5 MiB (0.0%) dirty
+    64363 MiB total ram
+    61815 MiB (96%) used
+    49451 MiB (76.8%) used excluding Buffers/Cached
+    5 MiB (0%) dirty
   HugePages:
     38912 MiB pre-allocated to HugePages (60.5% of total ram)
-    38146 MiB of HugePages (98.0%) in-use by applications
+    38146 MiB of HugePages (98%) in-use by applications
   LowMem/Slab/PageTables/Shmem:
-    61815 MiB (96.0%) of 64363 MiB LowMem in-use
+    61815 MiB (96%) of 64363 MiB LowMem in-use
     1192 MiB (1.9%) of total ram used for Slab
     349 MiB (0.5%) of total ram used for PageTables
   Swap:
@@ -303,55 +317,62 @@ NETDEV
 [rsaw]$ xsos --sysctl boomyaow/
 SYSCTLS
   kernel.
-    osrelease:  2.6.32-274.el6.x86_64
-    tainted: 536870912 512 64 16 1
-      Technology Preview code is loaded
-      Taint on warning
-      Userspace-defined naughtiness
-      System experienced a machine check exception
-      Proprietary module has been loaded
-    random.boot_id:  3d888986-XXXX-4eee-a064-XXXXXXXXXXXX
-    random.entropy_avail:  175
-    panic:  0  (seconds til reboot after panic)
-    hung_task_panic:  0
-    panic_on_oops:  1
-    panic_on_unrecovered_nmi:  0
-    sysrq:  0
-    sem:  250  32000  32  128
-      max semaphores per array =  250
-      max sems system-wide     =  32000
-      max ops per semop call   =  32
-      max number of arrays     =  128
-    shmall (4-KiB pages):  4294967296  (16384.0 GiB max total shared memory)
-    shmmax (bytes):  68719476736  (64.00 GiB max segment size)
-    shmmni (segments):  4096  (max number of segs)
+    hostname =  boomyaow03
+    osrelease =  2.6.32-220.13.1.el6.x86_64
+    tainted =  0  (kernel untainted)
+    random.boot_id =  defb55c5-c2bb-4e4e-86c3-745d80a6585d
+    random.entropy_avail [bits] =  154
+    hung_task_panic [bool] =  0
+    hung_task_timeout_secs =  120  (secs task must be D-state to trigger)
+    msgmax [bytes] =  65536
+    msgmnb [bytes] =  65536
+    msgmni [msg queues] =  32768
+    panic [secs] =  0  (no autoreboot on panic)
+    panic_on_oops [bool] =  1
+    panic_on_unrecovered_nmi [bool] =  0
+    pid_max =  32768
+    threads-max =  1029998
+    sem [array] =  250  32000  32  4096
+      SEMMSL (max semaphores per array) =  250
+      SEMMNS (max sems system-wide)     =  32000
+      SEMOPM (max ops per semop call)   =  32
+      SEMMNI (max number of sem arrays) =  4096
+    shmall [4-KiB pages] =  4294967296  (16384.0 GiB max total shared memory)
+    shmmax [bytes] =  68719476736  (64.00 GiB max segment size)
+    shmmni [segments] =  4096  (max number of segs)
+    sysrq [bitmask] =  0  (disallowed)
+  fs.
+    file-max [fds] =  6512672  (system-wide limit on nr open file descriptors)
+    file-nr [fds] =  2496  0  6512672  (nr allocated fds, N/A, nr free fds)
+    inode-nr [inodes] =  78574  1  (nr_inodes allocated, nr_free_inodes)
   net.
-    core.rmem_max (bytes):  16777216  (16384 KiB)
-    core.wmem_max (bytes):  16777216  (16384 KiB)
-    core.rmem_default (bytes):  262144  (256 KiB)
-    core.wmem_default (bytes):  262144  (256 KiB)
-    ipv4.icmp_echo_ignore_all:  0
-    ipv4.ip_forward:  0
-    ipv4.tcp_window_scaling:  1
-    ipv4.tcp_max_orphans (sockets):  131072  (8192 MiB @ max 64 KiB per orphan)
-    ipv4.tcp_mem (4-KiB pages):  496300800  661734400  992601600  (1893.24 GiB, 2524.32 GiB, 3786.47 GiB)
-    ipv4.udp_mem (4-KiB pages):  496300800  661734400  992601600  (1893.24 GiB, 2524.32 GiB, 3786.47 GiB)
-    ipv4.tcp_rmem (bytes):  4096  1048574  16777216  (4 KiB, 1023 KiB, 16384 KiB)
-    ipv4.tcp_wmem (bytes):  4096  1048574  16777216  (4 KiB, 1023 KiB, 16384 KiB)
-    ipv4.udp_rmem_min (bytes):  4096  (4 KiB)
-    ipv4.udp_wmem_min (bytes):  4096  (4 KiB)
+    core.rmem_max [bytes] =  131071  (127 KiB)
+    core.wmem_max [bytes] =  131071  (127 KiB)
+    core.rmem_default [bytes] =  124928  (122 KiB)
+    core.wmem_default [bytes] =  124928  (122 KiB)
+    ipv4.icmp_echo_ignore_all [bool] =  0
+    ipv4.ip_forward [bool] =  0
+    ipv4.tcp_max_orphans [sockets] =  65536  (4096 MiB @ max 64 KiB per orphan)
+    ipv4.tcp_mem [4-KiB pages] =  6179904  8239872  12359808  (23.57 GiB, 31.43 GiB, 47.15 GiB)
+    ipv4.udp_mem [4-KiB pages] =  6179904  8239872  12359808  (23.57 GiB, 31.43 GiB, 47.15 GiB)
+    ipv4.tcp_window_scaling [bool] =  1
+    ipv4.tcp_rmem [bytes] =  4096  87380  4194304  (4 KiB, 85 KiB, 4096 KiB)
+    ipv4.tcp_wmem [bytes] =  4096  16384  4194304  (4 KiB, 16 KiB, 4096 KiB)
+    ipv4.udp_rmem_min [bytes] =  4096  (4 KiB)
+    ipv4.udp_wmem_min [bytes] =  4096  (4 KiB)
   vm.
-    dirty_ratio (percent):  5
-    dirty_background_ratio (percent):  2
-    dirty_bytes:  0
-    dirty_background_bytes:  0
-    dirty_expire_centisecs:  600
-    dirty_writeback_centisecs:  100
-    nr_hugepages (2-MiB pages):  262144  (512.0 GiB total)
-    overcommit_memory:  0
-    overcommit_ratio (percent):  50
-    panic_on_oom:  0
-    swappiness:  15
+    dirty_ratio =  20  (% of total system memory)
+    dirty_bytes =  0  (disabled -- check dirty_ratio)
+    dirty_background_ratio =  10  (% of total system memory)
+    dirty_background_bytes =  0  (disabled -- check dirty_background_ratio)
+    dirty_expire_centisecs =  3000
+    dirty_writeback_centisecs =  500
+    nr_hugepages [2-MiB pages] =  0
+    overcommit_memory [0-2] =  0  (heuristic overcommit)
+    overcommit_ratio =  50
+    oom_kill_allocating_task [bool] =  0  (scan tasklist)
+    panic_on_oom [0-2] =  0  (no panic)
+    swappiness [0-100] =  60
 ```
 
 
@@ -443,33 +464,14 @@ REQUIREMENTS
 THINGS THAT MIGHT SURPRISE YOU
 -------
 
-* There are a bunch of environment variables that you can use to tweak behavior. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
-* xsos does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor`).
+* xsos does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor` and colors can be modified via environment variables).
   * If you like the color but need to use a pager, use the `--less` (`-y`) or `--more` (`-z`) options to auto-pipe output to `less -SR` or `more`.
-  * There are multiple environment variables for managing the colors. You don't need to modify the script itself. See the above link for documentation.
+* There are a bunch of environment variables that you can use to tweak behavior. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
 * xsos can update itself via the internet in 10 seconds if run with `--update` or `-U`.
   * Set environment variable `XSOS_UPDATE_CONFIRM` to "`n`" if you don't want `--update` to prompt for confirmation.
+* There's a bash autocompletion function defition available for xsos. Use it.
 * When printing disk info with `-d/--disks`, xsos automatically detects linux software raid (md) devices and hides their components. The `multipath` command is also consulted to print info about native multipathd devices. All LUNs that are part of a dm-multipath map are also hidden from the disk output.
 * You can use the `--unit` (`-u`) option to change how `/proc/meminfo` and `/proc/net/dev` are parsed -- displaying units in anything from bytes up to tebibytes. Note that this option does *not* affect display of the `VSZ` & `RSS` fields in the ps output. (For that, manually set the `XSOS_PS_UNIT` variable to `k`, `m`, or `g`.)
-* When printing info on pci net devices (`-l/--lspci`), `xsos` simplifies the net output in an intelligent way. Example:
-
-```
-[rsaw@server]$ lspci | grep Eth
-03:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-05:00.0 Ethernet controller: Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-0b:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-0b:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-0e:00.0 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-0e:00.1 Ethernet controller: Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-
-[rsaw@server]$ xsos -l
-LSPCI
-  Net/Storage:
-    2 single-port (2) Broadcom Corporation NetXtreme II BCM5708 Gigabit Ethernet (rev 12)
-    2 dual-port (4) Intel Corporation 82571EB Gigabit Ethernet Controller (rev 06)
-  Graphics:
-    Advanced Micro Devices [AMD] nee ATI ES1000 (rev 02)
-```
 
 
 AUTHORS
