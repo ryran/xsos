@@ -6,6 +6,7 @@ xsos & rsar - Summarize system info from sosreports
 **Jump to ...**
 
 * [I'M LOOKING FOR RSAR](/ryran/xsos/blob/master/RSAR_README.md)
+* [CHANGELOG](/ryran/xsos/blob/master/CHANGELOG.md)
 * [INSTALLATION](/ryran/xsos#installation)
 * [EXAMPLES IN ACTION](/ryran/xsos#examples-in-action)
 * [REQUIREMENTS](/ryran/xsos#requirements)
