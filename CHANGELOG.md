@@ -9,7 +9,7 @@ Changelog for xsos & rsar
   
 **2013/01/13 [xsos v0.1.3: massive rewrite (& improvement) of selinux detection code](https://github.com/ryran/xsos/commit/f31adecbc46ea74656c2591b3439be3292abb3b4)**
 
-* Improved SELinux detection code, both for sosreports and for localhost. See the now-closed [issue 31](https://github.com/ryran/xsos/issues/31#issuecomment-12200458) for a full explanation
+* Closed [issue 31 RFE: Improve SELinux detection in sosreports by looking at dmesg](https://github.com/ryran/xsos/issues/31#issuecomment-12200458). See that for full details.
 
 
 **2013/01/13 [rsar v0.0.5: added -S & -H; added bash autocompletion file](https://github.com/ryran/xsos/commit/8cde66eb1920f7b02bc7bf12a3672c8dbee630c0)**
@@ -20,12 +20,12 @@ Changelog for xsos & rsar
 **2013/01/13 [xsos added bash-completion file yaaaaay](https://github.com/ryran/xsos/commit/8bb6da0fd2018f5667e4d35321d27fdcc8eff198)**
 
 * Updated xsos readme. Finally added a couple screenshots. Cleaned up a couple things.
-* Added [xsos-bash-completion.bash](https://github.com/ryran/xsos/blob/master/xsos-bash-completion.bash) file, closes [issue 36 - RFE: Add bash completion file for xsos](https://github.com/ryran/xsos/issues/36). Simply save the file to: `/etc/bash_completion.d/` ... If running xsos from RHEL6, you probably need to install the bash-completion package from EPEL. :)
+* Closed [issue 36 RFE: Add bash completion file for xsos](https://github.com/ryran/xsos/issues/36). Added [xsos-bash-completion.bash](https://github.com/ryran/xsos/blob/master/xsos-bash-completion.bash) file. Simply save the file to: `/etc/bash_completion.d/` ... If running xsos from RHEL6, you probably need to install the bash-completion package from EPEL. :)
 
 
 **2013/01/10 [xsos v0.1.2: meminfo asciiart graphing; random addtl tweaks](https://github.com/ryran/xsos/commit/19d86482afa109d0e797ee5765523eff1315367f) + a few more commits, up to v0.1.2b**
 
-* Added asci-art graphing to meminfo, along with some pretty colors, closing [issue 39 - RFE: Add asci-art/graph for meminfo-display](https://github.com/ryran/xsos/issues/39).
+* Closed [issue 39 - RFE: Add asci-art/graph for meminfo-display](https://github.com/ryran/xsos/issues/39), adding asci-art graphing to meminfo, along with some pretty colors.
 * Re-factored meminfo code quite a bit and cleaned up output display. See above closed issue for new look.
 * Changed the default color of the `XSOS_COLOR_IMPORTANT` variable to simple *bold* (from cyan).
 * Made pscheck display total number of processes
