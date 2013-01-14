@@ -1,5 +1,6 @@
-xsos/rsar Changelog
+Changelog for xsos & rsar
 ===================================================
+(most recent on top)
 
 **2013/01/13 [xsos v0.1.4: re-wrote grub-detection code; grub2 works now](https://github.com/ryran/xsos/commit/ce9544b53116a2d54c2973de1d009cb82ea6e73f)**
 
@@ -49,7 +50,7 @@ xsos/rsar Changelog
 * In retrospect, this isn't very massive, compared to v0.1.1beta.
 
 
-**[2013/01/01 rsar v0.0.3: works with symlinked sar files; improved speed](https://github.com/ryran/xsos/commit/0231a862a20679ea69c52f36e18d8313b5a02e6a)**
+**2013/01/01 [rsar v0.0.3: works with symlinked sar files; improved speed](https://github.com/ryran/xsos/commit/0231a862a20679ea69c52f36e18d8313b5a02e6a)**
 
 * Just like it says -- rewrote some code to make reading symlinked files possible.
   * As a side effect, the new code is faster. yay.
