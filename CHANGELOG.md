@@ -2,6 +2,11 @@ Changelog for xsos & rsar
 ===================================================
 (most recent on top)
 
+**2013/01/14 [rsar v0.0.6: big file-handling improvements; see changelog](https://github.com/ryran/xsos/commit/0f575f0da497ed438188a55b12fbd40ad53e2f2e)**
+
+* Closed [issue 41 - rsar File-handling is crappy (slow, can't always open compressed files, errors out if any 1 of multiple files are bad or missing)](https://github.com/ryran/xsos/issues/41). See that for full details of what was changed.
+
+
 **2013/01/13 [xsos v0.1.4: re-wrote grub-detection code; grub2 works now](https://github.com/ryran/xsos/commit/ce9544b53116a2d54c2973de1d009cb82ea6e73f)**
 
 * Closed [issue 30 - RFE: Have OS detect stuff on grub2 systems](https://github.com/ryran/xsos/issues/30). See that for the full details of how grub-detection changed.
