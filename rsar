@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.0.5 last mod 2013/01/13
+# rsar v0.0.6 last mod 2013/01/14
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -38,12 +38,14 @@ Usage: ${bold}$pzero SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]${reset}
 HELP_BASIC() {
   HELP_USAGE
   printf "
-Note: GNU getopt is used for arg-parsing -- order of arguments is arbitrary
+Note: GNU getopt is used for arg-parsing (order of arguments is arbitrary)
   
-${bold}SARFILE${reset} -- need at least 1 plaintext sar data file (optionally compressed)
-  Spaces in SARFILE name or path will break things
+${bold}SARFILE${reset} -- need at least 1 plaintext sar data file (optionally-compressed)
+  Spaces in SARFILE name or path will break things (complain if you care)
+  Supported file extensions for compressed sar files:
+    z, gz, gzip, b, b2, bz, bz2, bzip, bzip2, x, xz, lzma
 
-${bold}TIME${reset} is a regex for what time period to display
+${bold}TIME${reset} is a regular expression for what time period to display
   eg: '^1[2-5]' or ':[23]0:' or '^(0[6-9]|1[23])'
 
 ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
@@ -51,7 +53,7 @@ ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie a
   Plus, for networking:
     ${bold}-n${reset} is synonmous with 'sar -n DEV'
     ${bold}-E${reset} is synonmous with 'sar -n EDEV'
-  See the sar man page for details
+  See the sar man page for explanations of all these options
   
 ${bold}SEARCHSTR${reset} may be used only once and is a regex for what section(s) to select
   eg: 'svctm', 'iowait', 'runq', 'proc|cswch'
@@ -104,7 +106,7 @@ fi
   
 # GNU getopt short options:
 saropts='bBcdHqrRSuvwWy'
-extraopts='nN:ED:P:zt:x:'
+extraopts='nEN:D:P:zt:x:'
 shortopts=$saropts$extraopts
 
 # Check for bad switches
@@ -113,35 +115,52 @@ getopt -Q --name=$pzero -o $shortopts -- "$@" || { HELP_USAGE; exit 64; }
 # Setup file-input array
 declare -A Input
 
+
 # Check that we have what appears to be a good sar file 
 SARFILECHECK() {
-  local file filetype unzip
-  file=$(file -zbL -e encoding -e cdf -e elf -e tar $1 2>/dev/null)
-  err="$pzero: Unable to read file: '$1'\n"
+  # Does file exist?
+  [[ -f $1 ]] || { echo "$pzero: Cannot access '$1': No such file or directory" >&2; return 66; }
   
-  if ! [[ -r $1 && ${file:0:5} == ASCII ]]; then
-    printf "${err}Need a plain-text sar data file to continue\n" >&2
-    exit 66
-  fi
+  # Set local vars
+  local err file unzip
+  err="$pzero: Unable to read '$1'"
+  shopt -qs nocasematch  # Enable case-insensitive comparison
+  file=$(file -bL -e encoding -e cdf -e compress -e elf -e tar -e soft $1 2>/dev/null)
   
-  if [[ $file =~ compressed.data ]]; then
-    filetype=${file:12:2}
-    case ${filetype,,} in
-      gz) unzip=zcat  ;;
-      bz) unzip=bzcat ;;
-      xz) unzip=xzcat ;;
-      *)  printf "${err}Unable to decompress compressed file; file appears to be:\n$file" >&2; exit 65
-    esac
-    Input[$1]=$unzip
-  else
+  # Is file readable?
+  if [[ ! -r $1 ]]; then
+    echo "${err}: Permission denied" >&2
+    return 77
+  
+  # Is file plain-text?
+  elif [[ ${file:0:5} == ASCII ]]; then
+    # Set cat as the handler for the file
     Input[$1]=cat
+  
+  # So file is binary data, but is it compressed?
+  else
+    # Check file extension for standard extension indicating compression
+    case ${1##*.} in
+      z|gz|gzip)          unzip=zcat
+        ;;
+      bz|bz2|bzip|bzip2)  unzip=bzcat
+        ;;
+      lzma|x|xz)          unzip=xzcat
+        ;;
+      # No extension we can deal with; game over man
+      *)  echo -e "${err}: Not a plain-text (optionally-compressed) sar file" >&2
+          return 65
+    esac
+    # Set the appropriate unzip cmd as the handler for file
+    Input[$1]=$unzip
   fi
+  shopt -qu nocasematch  # Disable case-insensitive comparison
 }
 
 
 # Parse command-line arguments
 PARSE() {
-  local file
+  local file errs
   until [[ $1 = -- ]]; do
     case $1 in
       # Standard sar selection options
@@ -171,12 +190,19 @@ PARSE() {
       -z)   AverageSrch=  ; shift   ;;
     esac
   done
-  shift #(to get rid of the '--')
-  [[ -z $1 ]] && { echo "$pzero: Need a plain-text sar data file to continue" >&2; HELP_USAGE; exit 1; }
+  shift  # (to get rid of the '--')
+  # Quit with err & usage if no file given
+  [[ -z $1 ]] && { echo "$pzero: Need at least 1 plain-text sar file (optionally-compressed) to continue" >&2; HELP_USAGE; exit 1; }
+  # Check each file; if bad, print err; if good, add to our input array
   for file in $@; do
-    SARFILECHECK $file
+    SARFILECHECK $file || errs=1
   done
+  # If files were given, but none of them were good, exit now
+  [[ -z ${Input[@]} ]] && { HELP_USAGE; exit 1; }
+  # If we had some file errs, but can continue, add extra space to stderr
+  [[ -n $errs ]] && echo >&2
 }
+
 
 # 'Average:'-line selection: show by default
 [[ -z $AverageSrch ]] && AverageSrch='|Average'
@@ -236,6 +262,7 @@ search() {
     echo
   done
 }
+
 
 # If a direct regex search was provided ...
 if [[ -n $DirectSrch ]]; then
