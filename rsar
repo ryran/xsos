@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.0.6 last mod 2013/01/14
+# rsar v0.0.7 last mod 2013/01/15
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -31,7 +31,7 @@ HELP_USAGE() {
 Usage: ${bold}$pzero SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]${reset}
    or: ${bold}$pzero -?|-h|--help${reset}
    
-       ${bold}SAROPTIONS${reset} is any mix of: ${bold}-bBcdHqrRSuvwWynE${reset}
+       ${bold}SAROPTIONS${reset} is any mix of: ${bold}-bBcdHqrRSuvwWyInE${reset}
 "
 }
 
@@ -49,8 +49,9 @@ ${bold}TIME${reset} is a regular expression for what time period to display
   eg: '^1[2-5]' or ':[23]0:' or '^(0[6-9]|1[23])'
 
 ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
-  ${bold}-b -B -c -d -H -q -r -R -S -u -v -w -W -y${reset}
-  Plus, for networking:
+  ${bold}-b -B -c -d -H -I -q -r -R -S -u -v -w -W -y${reset}
+  Plus:
+    ${bold}-I${reset} is synonmous with 'sar -I SUM'
     ${bold}-n${reset} is synonmous with 'sar -n DEV'
     ${bold}-E${reset} is synonmous with 'sar -n EDEV'
   See the sar man page for explanations of all these options
@@ -92,9 +93,9 @@ case $1 in
 ;;
   --help|help)      HELP_BASIC
 ;;
-  -V|--vers|--version) echo "Version info: ${version:2}"; exit
+  --vers|--version) echo "Version info: ${version:2}"; exit
 ;;
-  -U|--update)      HELP_USAGE; exit
+  --update)      HELP_USAGE; exit
 esac
 
 # If BASH is not v4+, fail
@@ -106,7 +107,7 @@ fi
   
 # GNU getopt short options:
 saropts='bBcdHqrRSuvwWy'
-extraopts='nEN:D:P:zt:x:'
+extraopts='InEN:D:P:zt:x:'
 shortopts=$saropts$extraopts
 
 # Check for bad switches
@@ -179,6 +180,7 @@ PARSE() {
       -W)   Selection="$Selection swapping" ; shift ;;
       -y)   Selection="$Selection tty"      ; shift ;;
       # Additional selection options
+      -I)   Selection="$Selection intrupts" ; shift ;;
       -n)   Selection="$Selection nettraff" ; shift ;;
       -E)   Selection="$Selection neterrs"  ; shift ;;
       # Other options 
@@ -288,6 +290,7 @@ for module in $Selection; do case $module in
   cswitch)  search cswch        ;;
   swapping) search pswpin       ;;
   tty)      search TTY          ;;
+  intrupts) search INTR         ;;
   nettraff) search rxpck        ;;
   neterrs)  search rxerr        ;;
 esac; done

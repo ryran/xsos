@@ -2,6 +2,12 @@ Changelog for xsos & rsar
 ===================================================
 In descending chronological order with most recent commits on top. See **[commit history page](/ryran/xsos/commits/master)** to browse code.
 
+- - -
+
+**2013/01/15 rsar v0.0.7: added -I (intr)**
+
+* Closed [issue 44 - rsar RFE: add -I option (for interrupts)](https://github.com/ryran/xsos/issues/44).
+
 
 **2013/01/14 rsar v0.0.6: big file-handling improvements; see changelog**
 
@@ -20,7 +26,8 @@ In descending chronological order with most recent commits on top. See **[commit
 
 **2013/01/13 rsar v0.0.5: added -S & -H; added bash autocompletion file**
 
-* Simple enough -- added `-S` for swap and `-H` for hugepages, along with an `rsar` bash autocompletion file
+* Closed [issue 45 - rsar RFE: add -S and -H for swap and hugepages](https://github.com/ryran/xsos/issues/45). 
+* Also added an `rsar` bash autocompletion file like with xsos below.
 
 
 **2013/01/13 xsos added bash-completion file yaaaaay**

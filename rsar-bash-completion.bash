@@ -1,7 +1,7 @@
 # This file is part of rsar, providing intelligent rsar tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2013/01/13, matching up with rsar v0.0.5
+# Revision date:  2013/01/15, matching up with rsar v0.0.7
 # Latest version: <http://github.com/ryran/xsos>
 # 
 # Copyright 2013 Ryan Sawhill <rsaw@redhat.com>
@@ -31,10 +31,9 @@ _rsar()  {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   
   # Short and long options
-  shrtopts="-h -V -U
-            -t -x
+  shrtopts="-t -x
             -b -B -c -d -H -q -r -R -S -u -v -w -W -y
-            -n -E
+            -I -n -E
             -z -D -N -P"
             
   longopts="--help --version --update"
@@ -43,13 +42,13 @@ _rsar()  {
   case "$prev" in
   
       # Disable autocompletion for solo opts and opts that we can't guess args for
-      -h|--help|-V|--version|-U|--update|-t|-D|-N|-P)
+      --help|--version|--update|-t|-D|-N|-P)
           return 0
           ;;
           
       # Some healthy suggestions for -x regex
       -x)
-          COMPREPLY=( $(compgen -W "proc cswch %nice %sys %iowait intr pswpin tps bread frmpg bufpg campg TTY rxpck txpck rxerr txerr coll retrans scall badcall hit miss pgpgin fault kbmemfree %memused %swpused kbswpfree dentunusd inode runq-sz plist-sz ldavg DEV avgrq-sz await svctm totsck tcpsck udpsck kbhugfree %hugused" -- "$curr") )
+          COMPREPLY=( $(compgen -W "proc cswch %nice %sys %iowait INTR intr pswpin tps bread frmpg bufpg campg TTY rxpck txpck rxerr txerr coll retrans scall badcall hit miss pgpgin fault kbmemfree %memused %swpused kbswpfree dentunusd inode runq-sz plist-sz ldavg DEV avgrq-sz await svctm totsck tcpsck udpsck kbhugfree %hugused" -- "$curr") )
           return 0
     
   esac
