@@ -1,7 +1,6 @@
 Changelog for xsos & rsar
 ===================================================
-In descending chronological order with most recent commits on top
-Browse through commits on **[the commits page](/ryran/xsos/commits/master)**
+In descending chronological order with most recent commits on top. See **[commit history page](/ryran/xsos/commits/master)** to browse code.
 
 
 **2013/01/14 rsar v0.0.6: big file-handling improvements; see changelog**
