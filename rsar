@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.1.0rc1 last mod 2013/01/16
+# rsar v0.1.0rc2 last mod 2013/01/16
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -153,6 +153,7 @@ SARFILECHECK() {
 
 
 __CHECK_ARGS_I() {
+  shopt -qs nocasematch  # Enable case-insensitive comparison
   case "$1" in
     SUM)
         ;;
@@ -162,10 +163,12 @@ __CHECK_ARGS_I() {
         echo "Currently-valid args are: SUM" >&2
         exit 64
   esac
+  shopt -qu nocasematch  # Disable case-insensitive comparison
 }
 
 
 __CHECK_ARGS_n() {
+  shopt -qs nocasematch  # Enable case-insensitive comparison
   local k
   for k in $(sed 's/,/ /g' <<<"$1"); do
     case $k in
@@ -178,10 +181,12 @@ __CHECK_ARGS_n() {
           exit 64
     esac
   done
+  shopt -qu nocasematch  # Disable case-insensitive comparison
 }
 
 
 __CHECK_ARGS_P() {
+  shopt -qs nocasematch  # Enable case-insensitive comparison
   local p
   for p in $(sed 's/,/ /g' <<<"$1"); do
     [[ $p == ALL || $p =~ ^[0-9]+$ ]] || {
@@ -190,10 +195,12 @@ __CHECK_ARGS_P() {
         exit 64
     }
   done
+  shopt -qu nocasematch  # Disable case-insensitive comparison
 }
 
     
 __SPLIT_ARGS() {
+  shopt -qs nocasematch  # Enable case-insensitive comparison
   if [[ $1 == cpu ]]; then
     # If handling cpu args strip leading/trailing commas & replace commas with regex pipe 
     sed -re "s/(^,*|,*$)//g" -e "s/,/|/g" <<<"${2^^}"
@@ -201,6 +208,7 @@ __SPLIT_ARGS() {
     # Otherwise, strip leading/trailing commas & replace commas with spaces
     sed -re "s/(^,*|,*$)//g" -e "s/^/$1/" -e "s/,/ $1/g" <<<"${2^^}"
   fi
+  shopt -qu nocasematch  # Disable case-insensitive comparison
 }
 
 
@@ -208,7 +216,6 @@ __SPLIT_ARGS() {
 PARSE() {
   # Local vars
   local file errs
-  shopt -qs nocasematch  # Enable case-insensitive comparison
   
   # Run through all of our arguments
   until [[ $1 = -- ]]; do
@@ -246,7 +253,6 @@ PARSE() {
     esac
   done
   shift  # (to get rid of the '--')
-  shopt -qu nocasematch  # Disable case-insensitive comparison
   
   # Quit with err & usage if no file given
   [[ -z $1 ]] && { echo "$pzero: Need at least 1 plain-text sar file (optionally-compressed) to continue" >&2; HELP_USAGE; exit 1; }
