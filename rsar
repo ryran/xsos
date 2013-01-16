@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.0.7 last mod 2013/01/15
+# rsar v0.1.0rc1 last mod 2013/01/16
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -28,42 +28,40 @@ red='\033[1;31m'
 
 HELP_USAGE() {
   printf "
-Usage: ${bold}$pzero SARFILE... [-t TIME] [-x SEARCHSTR] [SAROPTIONS]${reset}
-   or: ${bold}$pzero -?|-h|--help${reset}
-   
-       ${bold}SAROPTIONS${reset} is any mix of: ${bold}-bBcdHqrRSuvwWyInE${reset}
+Usage: ${bold}$pzero SARFILE${reset}... [${bold}-t TIME${reset}] [${bold}-x PATTERN${reset}] [${bold}SAROPTIONS${reset}] [${bold}-z${reset}] [${bold}-D DISK${reset}] [${bold}-N NIC${reset}]
+ SAROPTIONS is any mix of: [${bold}-bBcdHInPqrRSuvwWy${reset}]  ('${bold}sar -h${reset}' for details)
+ GNU getopt used for arg-parsing (argument order arbitrary)
 "
 }
 
 HELP_BASIC() {
   HELP_USAGE
   printf "
-Note: GNU getopt is used for arg-parsing (order of arguments is arbitrary)
-  
 ${bold}SARFILE${reset} -- need at least 1 plaintext sar data file (optionally-compressed)
   Spaces in SARFILE name or path will break things (complain if you care)
   Supported file extensions for compressed sar files:
     z, gz, gzip, b, b2, bz, bz2, bzip, bzip2, x, xz, lzma
 
 ${bold}TIME${reset} is a regular expression for what time period to display
-  eg: '^1[2-5]' or ':[23]0:' or '^(0[6-9]|1[23])'
+  eg: '^1[2-5]' or ':[23]0:' or '^(0.:40|2.:40)'
 
 ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
-  ${bold}-b -B -c -d -H -I -q -r -R -S -u -v -w -W -y${reset}
-  Plus:
-    ${bold}-I${reset} is synonmous with 'sar -I SUM'
-    ${bold}-n${reset} is synonmous with 'sar -n DEV'
-    ${bold}-E${reset} is synonmous with 'sar -n EDEV'
-  See the sar man page for explanations of all these options
+  ${bold}-b -B -c -d -H -I -P -n -q -r -R -S -u -v -w -W -y${reset}
+  Note that args passed to ${bold}-I${reset} & ${bold}-n${reset} & ${bold}-P${reset} are cumulative and case-insensitive
+    Ex: ${bold}-n Dev,eDEV${reset} works, as does ${bold}-n Dev -n eDEV -n icmp${reset}
+        ${bold}-P all${reset} works, as does ${bold}-P 0,4,7${reset}, as does ${bold}-P0 -P 4 -P7 -P 9,12${reset}
+  See ${bold}sar -h${reset} & ${bold}sar --help${reset} for more explanation of these options
   
-${bold}SEARCHSTR${reset} may be used only once and is a regex for what section(s) to select
+${bold}PATTERN${reset} may be used only once and is a regex for what section(s) to select
   eg: 'svctm', 'iowait', 'runq', 'proc|cswch'
+  It is recommended to stick to the above SAROPTIONS to avoid collisions
 
-${bold}SAROPTIONS${reset} and ${bold}-x SEARCHSTR${reset} may be used together
+${bold}SAROPTIONS${reset} and ${bold}-x PATTERN${reset} may be used together
 If neither are provided, $pzero shows CPU utilization (like sar does)
 
 Simple examples:
-  $pzero sar03 -q -t^2
+  $pzero sar03 -qut ^2
+  $pzero -t^09:30 -n edev,sock -I sum sar19.bz2
   $pzero -x iowait -t^15:30 /tmp/sar26.gz /tmp/sar27.xz
   
 ${bold}STOP READING NOW if you're confused; that ^^ is all you need to know${reset}
@@ -77,11 +75,6 @@ Additional optional selectors:
   
   ${bold}-N NETDEV${reset}  Where NETDEV is a regex for which interfaces to select
     e.g.: 'eth0' or 'eth[12]' or 'bond[1-3]'
-  
-  ${bold}-P CPU${reset}  Where CPU is handled the same way as 'sar -P', namely:
-    '-P 1'   shows only info for CPU1
-    '-P 0,3' shows CPU0 & CPU3
-    '-P ALL' shows all CPUs, plus the combined 'ALL' lines
 
 "
   exit
@@ -106,8 +99,8 @@ fi
   
   
 # GNU getopt short options:
-saropts='bBcdHqrRSuvwWy'
-extraopts='InEN:D:P:zt:x:'
+saropts='bBcdHI:n:P:qrRSuvwWy'
+extraopts='N:D:zt:x:'
 shortopts=$saropts$extraopts
 
 # Check for bad switches
@@ -159,11 +152,67 @@ SARFILECHECK() {
 }
 
 
+__CHECK_ARGS_I() {
+  case "$1" in
+    SUM)
+        ;;
+    *)
+        echo "$pzero: Invalid argument to option: '-I'" >&2
+        echo "Hint: Use BASH tab-completion after typing '-I'" >&2
+        echo "Currently-valid args are: SUM" >&2
+        exit 64
+  esac
+}
+
+
+__CHECK_ARGS_n() {
+  local k
+  for k in $(sed 's/,/ /g' <<<"$1"); do
+    case $k in
+      DEV|EDEV|NFS|NFSD|SOCK|IP|EIP|ICMP|EICMP|TCP|ETCP|UDP|SOCK6|IP6|EIP6|ICMP6|EICMP6|UDP6)
+          ;;
+      *)
+          echo "$pzero: Invalid argument to option: '-n'" >&2
+          echo "Use BASH tab-completion after '-n' to see most common choices" >&2
+          echo -e "See ${bold}sar -h${reset} for full list" >&2
+          exit 64
+    esac
+  done
+}
+
+
+__CHECK_ARGS_P() {
+  local p
+  for p in $(sed 's/,/ /g' <<<"$1"); do
+    [[ $p == ALL || $p =~ ^[0-9]+$ ]] || {
+        echo "$pzero: Invalid argument to option: '-P'" >&2
+        echo -e "See ${bold}sar --help${reset} for usage" >&2
+        exit 64
+    }
+  done
+}
+
+    
+__SPLIT_ARGS() {
+  if [[ $1 == cpu ]]; then
+    # If handling cpu args strip leading/trailing commas & replace commas with regex pipe 
+    sed -re "s/(^,*|,*$)//g" -e "s/,/|/g" <<<"${2^^}"
+  else
+    # Otherwise, strip leading/trailing commas & replace commas with spaces
+    sed -re "s/(^,*|,*$)//g" -e "s/^/$1/" -e "s/,/ $1/g" <<<"${2^^}"
+  fi
+}
+
+
 # Parse command-line arguments
 PARSE() {
+  # Local vars
   local file errs
+  shopt -qs nocasematch  # Enable case-insensitive comparison
+  
+  # Run through all of our arguments
   until [[ $1 = -- ]]; do
-    case $1 in
+    case "$1" in
       # Standard sar selection options
       -b)   Selection="$Selection iotransf" ; shift ;;
       -B)   Selection="$Selection paging"   ; shift ;;
@@ -179,28 +228,37 @@ PARSE() {
       -w)   Selection="$Selection cswitch"  ; shift ;;
       -W)   Selection="$Selection swapping" ; shift ;;
       -y)   Selection="$Selection tty"      ; shift ;;
-      # Additional selection options
-      -I)   Selection="$Selection intrupts" ; shift ;;
-      -n)   Selection="$Selection nettraff" ; shift ;;
-      -E)   Selection="$Selection neterrs"  ; shift ;;
+      # Interrupt selection options
+      -I)   __CHECK_ARGS_I "$2" &&
+            Selection="$Selection $(__SPLIT_ARGS int $2)" ; shift 2 ;;
+      # Net selection options
+      -n)   __CHECK_ARGS_n "$2"
+            Selection="$Selection $(__SPLIT_ARGS net $2)" ; shift 2 ;;
+      # Processor selection options
+      -P)   __CHECK_ARGS_P "$2"
+            Cpus="$Cpus|$(__SPLIT_ARGS cpu $2)" ; shift 2 ;;
       # Other options 
       -t)   Time=$2       ; shift 2 ;;
       -x)   DirectSrch=$2 ; shift 2 ;;
       -D)   BlockDevs=$2  ; shift 2 ;;
       -N)   NetDevs=$2    ; shift 2 ;;
-      -P)   Cpus=$2       ; shift 2 ;;
-      -z)   AverageSrch=  ; shift   ;;
+      -z)   AverageSrch=  ; shift
     esac
   done
   shift  # (to get rid of the '--')
+  shopt -qu nocasematch  # Disable case-insensitive comparison
+  
   # Quit with err & usage if no file given
   [[ -z $1 ]] && { echo "$pzero: Need at least 1 plain-text sar file (optionally-compressed) to continue" >&2; HELP_USAGE; exit 1; }
+  
   # Check each file; if bad, print err; if good, add to our input array
   for file in $@; do
     SARFILECHECK $file || errs=1
   done
+  
   # If files were given, but none of them were good, exit now
   [[ -z ${Input[@]} ]] && { HELP_USAGE; exit 1; }
+  
   # If we had some file errs, but can continue, add extra space to stderr
   [[ -n $errs ]] && echo >&2
 }
@@ -221,10 +279,13 @@ PARSE $(getopt -u --name=$pzero -o $shortopts -- "$@")
 # Network interface selection: show all by default
 [[ -z $NetDevs ]] && NetDevs='.'
 
-# CPU selection: show only combined ('all' in field 2) by default
-[[ -z $Cpus ]] && Cpus='all' ||
-  Cpus=$(sed 's/,/|/g' <<<"$Cpus")  # Otherwise, replace commas with regex pipe
-[[ $Cpus == ALL ]] && Cpus='.'      # If passed '-P ALL', want to see everything
+# CPU selection: by default show only combined cpu util ('all' in field 2)
+if [[ -z $Cpus ]]; then
+  Cpus='all'
+elif [[ Cpus =~ ALL ]]; then
+  # If user passed '-P ALL' then let's match everything
+  Cpus='.'
+fi
 
 
 # Our universal search function
@@ -232,17 +293,6 @@ search() {
   local header field2 file
   header=$1
   field2='.'
-  
-  # Deal with a couple ambiguous searches
-  if [[ $header == steal ]]; then
-    header='%steal'
-    echo "Assuming search for '%steal' from CPU utilization stats" >&2
-    echo "If looking for paging stats, use -B or search e.g. 'pgsteal', 'fault', etc" >&2
-  elif [[ $header == tps ]]; then
-    header='bread'
-    echo "Assuming search for 'tps' from I/O & transfer rate stats" >&2
-    echo "If looking for disk stats, use -d or search e.g. 'DEV', 'await', 'svctm', etc" >&2
-  fi
   
   # If we're dealing with CPU utilization, need some special handling
   if [[ $header =~ CPU|usr|user|nice|sys|iowait|(^|%)steal|irq|soft|guest|idle ]]; then
@@ -266,32 +316,49 @@ search() {
 }
 
 
-# If a direct regex search was provided ...
 if [[ -n $DirectSrch ]]; then
+  # If a direct regex search was provided, do it
   search "$DirectSrch"
   
 elif [[ -z $Selection ]]; then
+  # Otherwise, default to cpu utilization like sar
   Selection=cpuutil
 fi
 
 # If some sar options were used, time to get to work
 for module in $Selection; do case $module in
-  iotransf) search bread        ;;
-  paging)   search fault        ;;
-  process)  search proc         ;;
-  blockdev) search await        ;;
-  hugepage) search hugfree      ;;
-  queue)    search runq         ;;
-  memutil)  search memfree      ;;
-  mempages) search frmpg        ;;
-  memswap)  search swpfree      ;;
-  cpuutil)  search iowait       ;;
-  kerntbls) search dentunusd    ;;
-  cswitch)  search cswch        ;;
-  swapping) search pswpin       ;;
-  tty)      search TTY          ;;
-  intrupts) search INTR         ;;
-  nettraff) search rxpck        ;;
-  neterrs)  search rxerr        ;;
+  iotransf)   search bread        ;;
+  paging)     search pgpgin       ;;
+  process)    search proc         ;;
+  blockdev)   search await        ;;
+  hugepage)   search hugfree      ;;
+  queue)      search runq         ;;
+  memutil)    search memfree      ;;
+  mempages)   search frmpg        ;;
+  memswap)    search swpfree      ;;
+  cpuutil)    search iowait       ;;
+  kerntbls)   search dentunusd    ;;
+  cswitch)    search cswch        ;;
+  swapping)   search pswpin       ;;
+  tty)        search rcvin        ;;
+  intSUM)     search "INTR.*sum"      ;;
+  netDEV)     search "IFACE.*rxpck"   ;;
+  netEDEV)    search "IFACE.*rxerr"   ;;
+  netNFS)     search " call.*retrans" ;;
+  netNFSD)    search "scall"          ;;
+  netSOCK)    search "totsck"         ;;
+  netIP)      search "totsck"         ;;
+  netEIP)     search "totsck"         ;;
+  netICMP)    search "oadrmkr"        ;;
+  netEICMP)   search "oerr"           ;;
+  netTCP)     search "oseg"           ;;
+  netETCP)    search "atmptf"         ;;
+  netUDP)     search "idgmerr"        ;;
+  netSOCK6)   search "tcp6sck"        ;;  
+  netIP6)     search "irec6"          ;;
+  netEIP6)    search "ihdrer6"        ;;
+  netICMP6)   search "imsg6"          ;;
+  netEICMP6)  search "ierr6"          ;;
+  netUDP6)    search "idgm6"          ;;
 esac; done
-
+  

@@ -4,6 +4,10 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/01/16 rsar v0.1.0rc1: made -n opt compatible with sar -n**
+
+* Closed [issue 46 - rsar RFE / BUG: -n opt only shows dev; what about sock, nfs, nfsd, etc?](https://github.com/ryran/xsos/issues/46).
+
 **2013/01/15 rsar v0.0.7: added -I (intr)**
 
 * Closed [issue 44 - rsar RFE: add -I option (for interrupts)](https://github.com/ryran/xsos/issues/44).
