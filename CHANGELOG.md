@@ -4,6 +4,12 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/01/20 xsos v0.1.5: big multipath improvements to disk code**
+
+* Closed [issue 48 - --disks option not properly-handling mutlipath output on rhel6.3?](https://github.com/ryran/xsos/issues/48). See that for discussion. In short, I made a bunch of changes to the disk/multipath-handling code.
+* Changed the default color for tertiary headers to bold-blue instead of just blue.
+
+
 **2013/01/16 rsar v0.1.0rc1: made -n opt compatible with sar -n**
 
 * Closed [issue 46 - rsar RFE / BUG: -n opt only shows dev; what about sock, nfs, nfsd, etc?](https://github.com/ryran/xsos/issues/46).
