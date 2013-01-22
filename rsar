@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.1.0rc2 last mod 2013/01/16
+# rsar v0.1.0rc3 last mod 2013/01/22
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -28,7 +28,7 @@ red='\033[1;31m'
 
 HELP_USAGE() {
   printf "
-Usage: ${bold}$pzero SARFILE${reset}... [${bold}-t TIME${reset}] [${bold}-x PATTERN${reset}] [${bold}SAROPTIONS${reset}] [${bold}-z${reset}] [${bold}-D DISK${reset}] [${bold}-N NIC${reset}]
+Usage: ${bold}$pzero SARFILE${reset}... [${bold}-t TIME${reset}] [${bold}--12hr${reset}] [${bold}-x PATTERN${reset}] [${bold}SAROPTIONS${reset}] [${bold}-z${reset}] [${bold}-D DISK${reset}] [${bold}-N NIC${reset}]
  SAROPTIONS is any mix of: [${bold}-bBcdHInPqrRSuvwWy${reset}]  ('${bold}sar -h${reset}' for details)
  GNU getopt used for arg-parsing (argument order arbitrary)
 "
@@ -44,6 +44,11 @@ ${bold}SARFILE${reset} -- need at least 1 plaintext sar data file (optionally-co
 
 ${bold}TIME${reset} is a regular expression for what time period to display
   eg: '^1[2-5]' or ':[23]0:' or '^(0.:40|2.:40)'
+
+${bold}--12hr${reset} allows $pzero to handle input data with times in 12-hour time format,
+instead of the default 24-hour (NOTE: this option should be used whenever
+the times in input sar data end with AM/PM notation, regardless of whether
+a specific time range is being extracted with ${bold}-t${reset})
 
 ${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
   ${bold}-b -B -c -d -H -I -P -n -q -r -R -S -u -v -w -W -y${reset}
@@ -98,13 +103,14 @@ if [[ $BASH_VERSINFO -lt 4 ]]; then
 fi
   
   
-# GNU getopt short options:
+# GNU getopt option definitions:
 saropts='bBcdHI:n:P:qrRSuvwWy'
 extraopts='N:D:zt:x:'
 shortopts=$saropts$extraopts
+longopts='12hr'
 
 # Check for bad switches
-getopt -Q --name=$pzero -o $shortopts -- "$@" || { HELP_USAGE; exit 64; }
+getopt -Q --name=$pzero -o $shortopts -l $longopts -- "$@" || { HELP_USAGE; exit 64; }
 
 # Setup file-input array
 declare -A Input
@@ -245,11 +251,12 @@ PARSE() {
       -P)   __CHECK_ARGS_P "$2"
             Cpus="$Cpus|$(__SPLIT_ARGS cpu $2)" ; shift 2 ;;
       # Other options 
-      -t)   Time=$2       ; shift 2 ;;
-      -x)   DirectSrch=$2 ; shift 2 ;;
-      -D)   BlockDevs=$2  ; shift 2 ;;
-      -N)   NetDevs=$2    ; shift 2 ;;
-      -z)   AverageSrch=  ; shift
+      -t)       Time=$2         ; shift 2 ;;
+      -x)       DirectSrch=$2   ; shift 2 ;;
+      -D)       BlockDevs=$2    ; shift 2 ;;
+      -N)       NetDevs=$2      ; shift 2 ;;
+      -z)       AverageSrch=    ; shift ;;
+      --12hr)   TimeFmt=12hr    ; shift ;;
     esac
   done
   shift  # (to get rid of the '--')
@@ -271,10 +278,14 @@ PARSE() {
 
 
 # 'Average:'-line selection: show by default
+# Note that this really SHOULD be here, before we call the parser
 [[ -z $AverageSrch ]] && AverageSrch='|Average'
 
 # Call the parser
-PARSE $(getopt -u --name=$pzero -o $shortopts -- "$@")
+PARSE $(getopt -u --name=$pzero -o $shortopts -l $longopts -- "$@")
+
+# Time format selection: expect 24-hour time by default
+[[ -z $TimeFmt ]] && TimeFmt='24hr'
 
 # Time-period selection: show all by default
 [[ -z $Time ]] && Time='.'
@@ -296,27 +307,38 @@ fi
 
 # Our universal search function
 search() {
-  local header field2 file
+  local header drilldown file
   header=$1
-  field2='.'
-  
+  drilldown='.'
+
   # If we're dealing with CPU utilization, need some special handling
   if [[ $header =~ CPU|usr|user|nice|sys|iowait|(^|%)steal|irq|soft|guest|idle ]]; then
-    field2="^($Cpus)$"
+    drilldown="^($Cpus)$"
 
   # Same for network statistics
   elif [[ $header =~ IFACE|rx|tx|byt|drop|rxbyt|txbyt|rxpck|txpck|rxkB|txkB|rxcmp|txcmp|rxmcst|rxerr|txerr|coll|rxdrop|txdrop|txcarr|rxfram|rxfifo|txfifo ]]; then
-    field2=$NetDevs
+    drilldown=$NetDevs
   
   # Same for disk activity
   elif [[ $header =~ DEV|rd_sec|wr_sec|avgrq-sz|avgqu-sz|await|svctm|util ]]; then
-    field2=$BlockDevs
+    drilldown=$BlockDevs
   fi
   
   for file in ${!Input[@]}; do
     [[ ${#Input[@]} -gt 1 ]] &&
       printf "${bold}------------------------ $file ------------------------${reset}\n"
-    ${Input[$file]} $file | awk "BEGIN{RS=\"\n\n\"} /$header/" | awk "/$header/ || (\$1 ~ /$Time$AverageSrch/ && \$2 ~ /$field2/)"
+    if [[ $TimeFmt == 24hr ]]; then
+      # If we're expecting input to be in 24hr time, then fields:
+      # $1 is time, $2 is name of cpu|netdev|blockdev
+      ${Input[$file]} $file | awk "BEGIN{RS=\"\n\n\"} /$header/" |
+        awk "/$header/ || (\$1 ~ /$Time$AverageSrch/ && \$2 ~ /$drilldown/)"
+    else
+      # If we're expecting input to be in 12hr time, then fields:
+      # $1 and $2 are time (e.g. 12:50:01 AM), $3 is name of cpu|netdev|blockdev
+      # But not for the "Average:" lines -- which are the same as with 24hr time
+      ${Input[$file]} $file | awk "BEGIN{RS=\"\n\n\"} /$header/" | 
+        awk "/$header/ || (\$1\$2 ~ /$Time/ && \$3 ~ /$drilldown/) || (\$1 ~ /${AverageSrch//|/}/ && \$2 ~ /$drilldown/)"
+    fi
     echo
   done
 }

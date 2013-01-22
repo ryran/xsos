@@ -6,6 +6,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 **2013/01/20 xsos v0.1.5: big multipath improvements to disk code**
 
+* Closed [issue 49 - rsar bug: rsar chokes on sar data with AM/PM](https://github.com/ryran/xsos/issues/49) by adding a `--12hr` option to rsar.
+
+
+**2013/01/20 xsos v0.1.5: big multipath improvements to disk code**
+
 * Closed [issue 48 - --disks option not properly-handling mutlipath output on rhel6.3?](https://github.com/ryran/xsos/issues/48). See that for discussion. In short, I made a bunch of changes to the disk/multipath-handling code.
 * Changed the default color for tertiary headers to bold-blue instead of just blue.
 
