@@ -4,7 +4,7 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
-**2013/01/20 xsos v0.1.5: big multipath improvements to disk code**
+**2013/01/22 rsar v0.1.0rc3: added --12hr option to handle input with AM/PM**
 
 * Closed [issue 49 - rsar bug: rsar chokes on sar data with AM/PM](https://github.com/ryran/xsos/issues/49) by adding a `--12hr` option to rsar.
 
