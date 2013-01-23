@@ -28,7 +28,96 @@ USAGE
 -----
 
 
-`rsar` has a brief help page. Use it. Feel free to make it better.
+`rsar` has an extensive help page. Use it. Feel free to make it better.
+Here's what it looks like in v0.1.0rc4:
+
+```
+Usage: rsar SARFILE... [--12hr] [-t TIME] [SAROPTS] [-P CPU] [-D DISK] [-N NIC]
+ SAROPTS is any mix of: [-AbBcdHInqrRSuvwWy]
+ Note that getopt is used for arg-parsing (argument order arbitrary)
+
+rsar requires at least 1 plaintext sar data file (optionally-compressed)
+  Spaces in SARFILE name or path will break things (complain if you care)
+  Supported file extensions for compressed sar files:
+    z, gz, gzip, b, b2, bz, bz2, bzip, bzip2, x, xz, lzma
+    
+Opts Specific to rsar:
+  --12hr         Switch input format from default 24-hr to 12-hr AM/PM
+  -t <TIME>      Where TIME is a regex for time period to display
+                   Ex: '^1[2-5]' or ':[23]0:' or '^(0.:40|2.:40)' or '^12.*AM'
+  -x <PATTERN>   Where PATTERN is used to select a section
+                   Ex: 'svctm', 'iowait', 'runq', 'proc|cswch'
+                   Recommended to stick with below sar opts to avoid collisions
+  -z             Disable showing 'Average:' lines
+                   Hint: To show _only_ 'Average:' lines, use -t Av
+
+Standard sar Selection Opts:
+  -A { 5 | 6 | 7 }
+          Like sar -A: alias for all selection opts (excl. -d & -n)
+            The required number corresponds with a major RHEL version
+  -b      I/O and transfer rate statistics
+  -B      Paging statistics
+  -c      Process creation statistics
+  -d      Block device statistics
+  -H      Hugepages utilization statistics
+  -I { SUM }
+          Interrupts statistics
+  -n { <KEYWORD> [,...] | ALL }
+          Network statistics
+            KEYWORD may be any of the following (case-insensitive):
+            DEV    Network interfaces
+            EDEV   Network interfaces (errors)
+            NFS    NFS client
+            NFSD   NFS server
+            SOCK   Sockets      (v4)
+            IP     IP traffic   (v4)
+            EIP    IP traffic   (v4) (errors)
+            ICMP   ICMP traffic (v4)
+            EICMP  ICMP traffic (v4) (errors)
+            TCP    TCP traffic  (v4)
+            ETCP   TCP traffic  (v4) (errors)
+            UDP    UDP traffic  (v4)
+            SOCK6  Sockets      (v6)
+            IP6    IP traffic   (v6)
+            EIP6   IP traffic   (v6) (errors)
+            ICMP6  ICMP traffic (v6)
+            EICMP6 ICMP traffic (v6) (errors)
+            UDP6   UDP traffic  (v6)
+  -q      Queue length and load average statistics
+  -r      Memory utilization statistics
+  -R      Memory statistics
+  -S      Swap space utilization statistics
+  -u      CPU utilization statistics
+  -v      Kernel table statistics
+  -w      System switching statistics
+  -W      Swapping statistics
+  -y      TTY device statistics
+  
+Drill-down Opts:
+  -P { <CPU> [,...] | ALL }
+              Where CPU can be comma-separated list of CPU-numbers (like sar)
+                Else, if 'ALL' is used, then everything will be shown
+                Unlike with sar, CPU can also be a regex
+                Ex: '1,4,6' or '1|4|6' or '0,[1-3]0'
+  -D <DISK>   Where DISK is a regex for which block devices to select
+                Ex: 'dev8-16' or '7.$' or 'sda2|rootlv'
+  -N <NIC>    Where NIC is a regex for which network interfaces to select
+                Ex: 'eth0' or 'eth[12]' or 'bond[1-3]|em1'
+
+SAROPTS is any mix of regular sar data-selection options, as described above
+  Note that args passed to -I & -n & -P are cumulative and case-insensitive
+    Ex: -n Dev,eDEV works, as does -n Dev -n eDEV -n icmp as does -nALL
+        -P all works, as does -P 0,4,7, as does -P0 -P 4 -P '[78]|22' -P 3.
+        
+Examples:
+  rsar sar03 -qut ^2
+  rsar sar03 -P all -t Average
+  rsar -t^09:30 -n edev,sock -N eth3 -I sum sar19.bz2
+  rsar -x iowait -P [0-3] -t^15:30 /tmp/sar26.gz /tmp/sar27.xz -RB
+  
+Version info: rsar v0.1.0rc4 last mod 2013/01/23
+See <github.com/ryran/xsos> to report bugs or suggestions
+```
 
 
 
@@ -143,7 +232,7 @@ Average:        -0.80      0.01      0.70
 **Interface-specific selection (`-N`) of network stats from multiple compressed files:**
 
 ```
-[rsaw:sa]$ rsar -nN eth4 sar24.gz -t^19:[12] sar26.bz2 
+[rsaw:sa]$ rsar -n DEV -N eth4 sar24.gz -t^19:[12] sar26.bz2 
 ------------------------ sar24.gz ------------------------
 00:00:01        IFACE   rxpck/s   txpck/s   rxbyt/s   txbyt/s   rxcmp/s   txcmp/s  rxmcst/s
 19:10:01         eth4      2.42      2.56    203.47    225.20      0.00      0.00      0.00
@@ -180,9 +269,9 @@ Average:      dev8-16      0.07      0.01     14.89    218.58      0.00      5.1
 
 
 
-**And just like with network interfaces, there's an option to specify specific block devices. Here I did that (`-D`) along with the `-z` option to hide the "Average" lines, plus threw in network errs (`E`).**
+**And just like with network interfaces, there's an option to specify specific block devices. Here I did that (`-D`) along with the `-z` option to hide the "Average" lines, plus threw in network errs (`-n edev`).**
 ```
-[rsaw:sa]$ rsar -x await sar19 -t^04:[0-4] -D 16 -zEN eth0
+[rsaw:sa]$ rsar -x await sar19 -t^04:[0-4] -D 16 -zn edev -N eth0
 00:00:01          DEV       tps  rd_sec/s  wr_sec/s  avgrq-sz  avgqu-sz     await     svctm     %util
 04:00:01      dev8-16      0.00      0.00      0.00      0.00      0.00      0.00      0.00      0.00
 04:10:01      dev8-16      0.14      0.00      2.07     15.33      0.00      2.83      0.88      0.01
