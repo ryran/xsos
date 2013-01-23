@@ -4,6 +4,19 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/01/23 rsar v0.1.0rc4: massive changes and fixes; see help page**
+
+* Added `-A` option, corresponding with the same sar option. See help page for full details, but it short: it requires specifying the rhel version in order to pick the right options
+* Modified `-n` to accept `ALL` as a keyword
+* Modified `-P` to allow both the traditional comma-delimited CPU numbers, as well as regex
+* Closed: [issue 50 - rsar: -P ALL doesn't work](https://github.com/ryran/xsos/issues/50) (`-P ALL` not appropriately selecting everything)
+* Fixed: `-z` not working with 12hr time
+* Closed: [issue 51 - rsar: -n IP and -n EIP show the same thing as -n SOCK](https://github.com/ryran/xsos/issues/51)
+* Closed: [issue 52 - rsar RFE: rsar's help page is confusing and doesn't explain the sar options](https://github.com/ryran/xsos/issues/52) (massive rewrite of usage/help page)
+* As always, the bash-completion script for rsar was updated
+* I'm tired.
+
+
 **2013/01/22 rsar v0.1.0rc3: added --12hr option to handle input with AM/PM**
 
 * Closed [issue 49 - rsar bug: rsar chokes on sar data with AM/PM](https://github.com/ryran/xsos/issues/49) by adding a `--12hr` option to rsar.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.1.0rc3 last mod 2013/01/22
+# rsar v0.1.0rc4 last mod 2013/01/23
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -26,74 +26,122 @@ reset='\033[0;0m'
 bold='\033[1;1m'
 red='\033[1;31m'
 
-HELP_USAGE() {
-  printf "
-Usage: ${bold}$pzero SARFILE${reset}... [${bold}-t TIME${reset}] [${bold}--12hr${reset}] [${bold}-x PATTERN${reset}] [${bold}SAROPTIONS${reset}] [${bold}-z${reset}] [${bold}-D DISK${reset}] [${bold}-N NIC${reset}]
- SAROPTIONS is any mix of: [${bold}-bBcdHInPqrRSuvwWy${reset}]  ('${bold}sar -h${reset}' for details)
- GNU getopt used for arg-parsing (argument order arbitrary)
-"
-}
+# GNU getopt option definitions:
+saropts='A:bBcdHI:n:P:qrRSuvwWy'
+extraopts='N:D:zt:x:'
+shortopts=$saropts$extraopts
+longopts='12hr'
 
-HELP_BASIC() {
-  HELP_USAGE
-  printf "
-${bold}SARFILE${reset} -- need at least 1 plaintext sar data file (optionally-compressed)
-  Spaces in SARFILE name or path will break things (complain if you care)
-  Supported file extensions for compressed sar files:
-    z, gz, gzip, b, b2, bz, bz2, bzip, bzip2, x, xz, lzma
 
-${bold}TIME${reset} is a regular expression for what time period to display
-  eg: '^1[2-5]' or ':[23]0:' or '^(0.:40|2.:40)'
-
-${bold}--12hr${reset} allows $pzero to handle input data with times in 12-hour time format,
-instead of the default 24-hour (NOTE: this option should be used whenever
-the times in input sar data end with AM/PM notation, regardless of whether
-a specific time range is being extracted with ${bold}-t${reset})
-
-${bold}SAROPTIONS${reset} is any mix of regular sar data-selection options, ie any of:
-  ${bold}-b -B -c -d -H -I -P -n -q -r -R -S -u -v -w -W -y${reset}
-  Note that args passed to ${bold}-I${reset} & ${bold}-n${reset} & ${bold}-P${reset} are cumulative and case-insensitive
-    Ex: ${bold}-n Dev,eDEV${reset} works, as does ${bold}-n Dev -n eDEV -n icmp${reset}
-        ${bold}-P all${reset} works, as does ${bold}-P 0,4,7${reset}, as does ${bold}-P0 -P 4 -P7 -P 9,12${reset}
-  See ${bold}sar -h${reset} & ${bold}sar --help${reset} for more explanation of these options
-  
-${bold}PATTERN${reset} may be used only once and is a regex for what section(s) to select
-  eg: 'svctm', 'iowait', 'runq', 'proc|cswch'
-  It is recommended to stick to the above SAROPTIONS to avoid collisions
-
-${bold}SAROPTIONS${reset} and ${bold}-x PATTERN${reset} may be used together
-If neither are provided, $pzero shows CPU utilization (like sar does)
-
-Simple examples:
-  $pzero sar03 -qut ^2
-  $pzero -t^09:30 -n edev,sock -I sum sar19.bz2
-  $pzero -x iowait -t^15:30 /tmp/sar26.gz /tmp/sar27.xz
-  
-${bold}STOP READING NOW if you're confused; that ^^ is all you need to know${reset}
-
-Additional optional selectors:
-
-  ${bold}-z${reset}  Disables auto-selection of the lines beginning with 'Average:'
-  
-  ${bold}-D BLOCKDEV${reset}  Where BLOCKDEV is a regex for which block devices to select
-    e.g.: 'dev8-16' or '7.$' or 'sda2|rootlv'
-  
-  ${bold}-N NETDEV${reset}  Where NETDEV is a regex for which interfaces to select
-    e.g.: 'eth0' or 'eth[12]' or 'bond[1-3]'
-
-"
+VERSINFO() {
+  echo "Version info: ${version:2}
+See <github.com/ryran/xsos> to report bugs or suggestions"
   exit
 }
 
+HELP_USAGE() {
+  printf "Usage: ${bold}$pzero SARFILE${reset}... [${bold}--12hr${reset}] [${bold}-t TIME${reset}] [${bold}SAROPTS${reset}] [${bold}-P CPU${reset}] [${bold}-D DISK${reset}] [${bold}-N NIC${reset}]
+ SAROPTS is any mix of: [${bold}-AbBcdHInqrRSuvwWy${reset}]
+ Note that getopt is used for arg-parsing (argument order arbitrary)
+"
+}
+
+HELP_EXTENDED() {
+  HELP_USAGE
+  printf "
+rsar requires at least 1 plaintext sar data file (optionally-compressed)
+  Spaces in SARFILE name or path will break things (complain if you care)
+  Supported file extensions for compressed sar files:
+    z, gz, gzip, b, b2, bz, bz2, bzip, bzip2, x, xz, lzma
+    
+Opts Specific to rsar:
+  ${bold}--12hr${reset}         Switch input format from default 24-hr to 12-hr AM/PM
+  ${bold}-t${reset} <TIME>      Where TIME is a regex for time period to display
+                   Ex: '^1[2-5]' or ':[23]0:' or '^(0.:40|2.:40)' or '^12.*AM'
+  ${bold}-x${reset} <PATTERN>   Where PATTERN is used to select a section
+                   Ex: 'svctm', 'iowait', 'runq', 'proc|cswch'
+                   Recommended to stick with below sar opts to avoid collisions
+  ${bold}-z${reset}             Disable showing 'Average:' lines
+                   Hint: To show _only_ 'Average:' lines, use ${bold}-t Av${reset}
+
+Standard sar Selection Opts:
+  ${bold}-A${reset} { 5 | 6 | 7 }
+          Like ${bold}sar -A${reset}: alias for all selection opts (excl. ${bold}-d${reset} & ${bold}-n${reset})
+            The required number corresponds with a major RHEL version
+  ${bold}-b${reset}      I/O and transfer rate statistics
+  ${bold}-B${reset}      Paging statistics
+  ${bold}-c${reset}      Process creation statistics
+  ${bold}-d${reset}      Block device statistics
+  ${bold}-H${reset}      Hugepages utilization statistics
+  ${bold}-I${reset} { SUM }
+          Interrupts statistics
+  ${bold}-n${reset} { <KEYWORD> [,...] | ALL }
+          Network statistics
+            KEYWORD may be any of the following (case-insensitive):
+            ${bold}DEV${reset}    Network interfaces
+            ${bold}EDEV${reset}   Network interfaces (errors)
+            ${bold}NFS${reset}    NFS client
+            ${bold}NFSD${reset}   NFS server
+            ${bold}SOCK${reset}   Sockets      (v4)
+            ${bold}IP${reset}     IP traffic   (v4)
+            ${bold}EIP${reset}    IP traffic   (v4) (errors)
+            ${bold}ICMP${reset}   ICMP traffic (v4)
+            ${bold}EICMP${reset}  ICMP traffic (v4) (errors)
+            ${bold}TCP${reset}    TCP traffic  (v4)
+            ${bold}ETCP${reset}   TCP traffic  (v4) (errors)
+            ${bold}UDP${reset}    UDP traffic  (v4)
+            ${bold}SOCK6${reset}  Sockets      (v6)
+            ${bold}IP6${reset}    IP traffic   (v6)
+            ${bold}EIP6${reset}   IP traffic   (v6) (errors)
+            ${bold}ICMP6${reset}  ICMP traffic (v6)
+            ${bold}EICMP6${reset} ICMP traffic (v6) (errors)
+            ${bold}UDP6${reset}   UDP traffic  (v6)
+  ${bold}-q${reset}      Queue length and load average statistics
+  ${bold}-r${reset}      Memory utilization statistics
+  ${bold}-R${reset}      Memory statistics
+  ${bold}-S${reset}      Swap space utilization statistics
+  ${bold}-u${reset}      CPU utilization statistics
+  ${bold}-v${reset}      Kernel table statistics
+  ${bold}-w${reset}      System switching statistics
+  ${bold}-W${reset}      Swapping statistics
+  ${bold}-y${reset}      TTY device statistics
+  
+Drill-down Opts:
+  ${bold}-P${reset} { <CPU> [,...] | ALL }
+              Where CPU can be comma-separated list of CPU-numbers (like sar)
+                Else, if 'ALL' is used, then everything will be shown
+                Unlike with sar, CPU can also be a regex
+                Ex: '1,4,6' or '1|4|6' or '0,[1-3]0'
+  ${bold}-D${reset} <DISK>   Where DISK is a regex for which block devices to select
+                Ex: 'dev8-16' or '7.$' or 'sda2|rootlv'
+  ${bold}-N${reset} <NIC>    Where NIC is a regex for which network interfaces to select
+                Ex: 'eth0' or 'eth[12]' or 'bond[1-3]|em1'
+
+${bold}SAROPTS${reset} is any mix of regular sar data-selection options, as described above
+  Note that args passed to ${bold}-I${reset} & ${bold}-n${reset} & ${bold}-P${reset} are cumulative and case-insensitive
+    Ex: ${bold}-n Dev,eDEV${reset} works, as does ${bold}-n Dev -n eDEV -n icmp${reset} as does ${bold}-nALL${reset}
+        ${bold}-P all${reset} works, as does ${bold}-P 0,4,7${reset}, as does ${bold}-P0 -P 4 -P '[78]|22' -P 3.${reset}
+        
+Examples:
+  $pzero sar03 -qut ^2
+  $pzero sar03 -P all -t Average
+  $pzero -t^09:30 -n edev,sock -N eth3 -I sum sar19.bz2
+  $pzero -x iowait -P [0-3] -t^15:30 /tmp/sar26.gz /tmp/sar27.xz -RB
+  
+"
+  VERSINFO
+}
+
+
 # Help? Version? Update?
 case $1 in
-  -\?|-h)           HELP_BASIC
+  -\?|-h)           HELP_EXTENDED
 ;;
-  --help|help)      HELP_BASIC
+  --help|help)      HELP_EXTENDED
 ;;
-  --vers|--version) echo "Version info: ${version:2}"; exit
+  --vers|--version) VERSINFO
 ;;
-  --update)      HELP_USAGE; exit
+  --update)         HELP_USAGE; exit
 esac
 
 # If BASH is not v4+, fail
@@ -101,16 +149,10 @@ if [[ $BASH_VERSINFO -lt 4 ]]; then
   printf "$pzero: Requires BASH v4.0 or higher (RHEL6/Fedora11 and above)\n\n" >&2
   exit 32
 fi
-  
-  
-# GNU getopt option definitions:
-saropts='bBcdHI:n:P:qrRSuvwWy'
-extraopts='N:D:zt:x:'
-shortopts=$saropts$extraopts
-longopts='12hr'
+
 
 # Check for bad switches
-getopt -Q --name=$pzero -o $shortopts -l $longopts -- "$@" || { HELP_USAGE; exit 64; }
+getopt -Q --name=$pzero -o $shortopts -l $longopts -- "$@" || { echo >&2; HELP_USAGE; exit 64; }
 
 # Setup file-input array
 declare -A Input
@@ -158,6 +200,20 @@ SARFILECHECK() {
 }
 
 
+__CHECK_ARGS_A() {
+  shopt -qs nocasematch  # Enable case-insensitive comparison
+  case "$1" in
+    5|6|7)
+        ;;
+    *)
+        echo "$pzero: Invalid argument to option: '-A'" >&2
+        echo "Hint: Use BASH tab-completion after typing '-A'" >&2
+        echo "Currently-valid args are: 5, 6, or 7" >&2
+        exit 64
+  esac
+  shopt -qu nocasematch  # Disable case-insensitive comparison
+}
+
 __CHECK_ARGS_I() {
   shopt -qs nocasematch  # Enable case-insensitive comparison
   case "$1" in
@@ -178,28 +234,14 @@ __CHECK_ARGS_n() {
   local k
   for k in $(sed 's/,/ /g' <<<"$1"); do
     case $k in
-      DEV|EDEV|NFS|NFSD|SOCK|IP|EIP|ICMP|EICMP|TCP|ETCP|UDP|SOCK6|IP6|EIP6|ICMP6|EICMP6|UDP6)
+      ALL|DEV|EDEV|NFS|NFSD|SOCK|IP|EIP|ICMP|EICMP|TCP|ETCP|UDP|SOCK6|IP6|EIP6|ICMP6|EICMP6|UDP6)
           ;;
       *)
           echo "$pzero: Invalid argument to option: '-n'" >&2
           echo "Use BASH tab-completion after '-n' to see most common choices" >&2
-          echo -e "See ${bold}sar -h${reset} for full list" >&2
+          echo -e "See ${bold}$pzero -h${reset} for full list" >&2
           exit 64
     esac
-  done
-  shopt -qu nocasematch  # Disable case-insensitive comparison
-}
-
-
-__CHECK_ARGS_P() {
-  shopt -qs nocasematch  # Enable case-insensitive comparison
-  local p
-  for p in $(sed 's/,/ /g' <<<"$1"); do
-    [[ $p == ALL || $p =~ ^[0-9]+$ ]] || {
-        echo "$pzero: Invalid argument to option: '-P'" >&2
-        echo -e "See ${bold}sar --help${reset} for usage" >&2
-        exit 64
-    }
   done
   shopt -qu nocasematch  # Disable case-insensitive comparison
 }
@@ -208,8 +250,12 @@ __CHECK_ARGS_P() {
 __SPLIT_ARGS() {
   shopt -qs nocasematch  # Enable case-insensitive comparison
   if [[ $1 == cpu ]]; then
-    # If handling cpu args strip leading/trailing commas & replace commas with regex pipe 
-    sed -re "s/(^,*|,*$)//g" -e "s/,/|/g" <<<"${2^^}"
+    # If handling cpu args in standard sar format (i.e., comma-separated),
+    # strip leading/trailing commas & replace commas with regex pipe 
+    grep -q , <<<"${2^^}" &&
+      sed -re "s/(^,*|,*$)//g" -e "s/,/|/g" <<<"${2^^}" ||
+      # Otherwise, if no commas, treat literally (i.e., as regex)
+      echo "${2^^}"
   else
     # Otherwise, strip leading/trailing commas & replace commas with spaces
     sed -re "s/(^,*|,*$)//g" -e "s/^/$1/" -e "s/,/ $1/g" <<<"${2^^}"
@@ -241,28 +287,30 @@ PARSE() {
       -w)   Selection="$Selection cswitch"  ; shift ;;
       -W)   Selection="$Selection swapping" ; shift ;;
       -y)   Selection="$Selection tty"      ; shift ;;
+      # Alias for all options
+      -A)   __CHECK_ARGS_A "$2" ; SelectAllOptsVers=$2    ; shift 2 ;;
       # Interrupt selection options
       -I)   __CHECK_ARGS_I "$2" &&
             Selection="$Selection $(__SPLIT_ARGS int $2)" ; shift 2 ;;
       # Net selection options
+      # Have to save these to a different var and check later because of possibility of using ALL
       -n)   __CHECK_ARGS_n "$2"
-            Selection="$Selection $(__SPLIT_ARGS net $2)" ; shift 2 ;;
+            NetSelect="$NetSelect $(__SPLIT_ARGS net $2)" ; shift 2 ;;
       # Processor selection options
-      -P)   __CHECK_ARGS_P "$2"
-            Cpus="$Cpus|$(__SPLIT_ARGS cpu $2)" ; shift 2 ;;
+      -P)   Cpus="$Cpus|$(__SPLIT_ARGS cpu $2)"           ; shift 2 ;;
       # Other options 
       -t)       Time=$2         ; shift 2 ;;
       -x)       DirectSrch=$2   ; shift 2 ;;
       -D)       BlockDevs=$2    ; shift 2 ;;
       -N)       NetDevs=$2      ; shift 2 ;;
-      -z)       AverageSrch=    ; shift ;;
+      -z)       ShowAverage=no  ; shift ;;
       --12hr)   TimeFmt=12hr    ; shift ;;
     esac
   done
   shift  # (to get rid of the '--')
   
   # Quit with err & usage if no file given
-  [[ -z $1 ]] && { echo "$pzero: Need at least 1 plain-text sar file (optionally-compressed) to continue" >&2; HELP_USAGE; exit 1; }
+  [[ -z $1 ]] && { echo -e "$pzero: Need at least 1 plain-text sar file (optionally-compressed) to continue\n" >&2; HELP_USAGE; exit 1; }
   
   # Check each file; if bad, print err; if good, add to our input array
   for file in $@; do
@@ -270,19 +318,19 @@ PARSE() {
   done
   
   # If files were given, but none of them were good, exit now
-  [[ -z ${Input[@]} ]] && { HELP_USAGE; exit 1; }
+  [[ -z ${Input[@]} ]] && { echo >&2; HELP_USAGE; exit 1; }
   
   # If we had some file errs, but can continue, add extra space to stderr
   [[ -n $errs ]] && echo >&2
 }
 
 
-# 'Average:'-line selection: show by default
-# Note that this really SHOULD be here, before we call the parser
-[[ -z $AverageSrch ]] && AverageSrch='|Average'
-
 # Call the parser
 PARSE $(getopt -u --name=$pzero -o $shortopts -l $longopts -- "$@")
+
+
+# 'Average:'-line selection: show by default
+[[ -z $ShowAverage ]] && AverageSrch='Average' || AverageSrch='DontShowAverage'
 
 # Time format selection: expect 24-hour time by default
 [[ -z $TimeFmt ]] && TimeFmt='24hr'
@@ -299,10 +347,35 @@ PARSE $(getopt -u --name=$pzero -o $shortopts -l $longopts -- "$@")
 # CPU selection: by default show only combined cpu util ('all' in field 2)
 if [[ -z $Cpus ]]; then
   Cpus='all'
-elif [[ Cpus =~ ALL ]]; then
+elif [[ $Cpus =~ ALL ]]; then
   # If user passed '-P ALL' then let's match everything
-  Cpus='.'
+  Cpus='.*'
+else
+  # If some specific CPUs were chosen, we need to remove leading pipe
+  Cpus=${Cpus#|}
 fi
+
+# If `-n ALL` was passed, set them all up
+if [[ -z $NetSelect ]]; then
+  :
+elif [[ $NetSelect =~ ALL ]]; then
+  Selection="$Selection netDEV netEDEV netNFS netNFSD netSOCK netIP netEIP netICMP netEICMP netTCP netETCP netUDP netSOCK6 netIP6 netEIP6 netICMP6 netEICMP6 netUDP6"
+else
+  Selection="$Selection $NetSelect"
+fi
+
+# Handle being passed -A5 or -A6 or -A7 option
+# RHEL 4 & 5 defaults are:  -bBcdqrRuvwWy (along with interrupts & networking)
+rhel5_all="iotransf paging process queue memutil mempages cpuutil kerntbls cswitch swapping tty intSUM"
+# RHEL 6 defaults are:      -bBdqrRSuvwWy
+rhel6_all="iotransf paging queue memutil mempages memswap cpuutil kerntbls cswitch swapping tty intSUM"
+# RHEL 7 defaults probably: -bBdHqrRSuvwWy
+rhel7_all="iotransf paging hugepage queue memutil mempages memswap cpuutil kerntbls cswitch swapping tty intSUM"
+case $SelectAllOptsVers in
+  4|5)  Selection="$Selection $rhel5_all" ;;
+  6)    Selection="$Selection $rhel6_all" ;;
+  7)    Selection="$Selection $rhel7_all" ;;
+esac
 
 
 # Our universal search function
@@ -314,7 +387,7 @@ search() {
   # If we're dealing with CPU utilization, need some special handling
   if [[ $header =~ CPU|usr|user|nice|sys|iowait|(^|%)steal|irq|soft|guest|idle ]]; then
     drilldown="^($Cpus)$"
-
+  
   # Same for network statistics
   elif [[ $header =~ IFACE|rx|tx|byt|drop|rxbyt|txbyt|rxpck|txpck|rxkB|txkB|rxcmp|txcmp|rxmcst|rxerr|txerr|coll|rxdrop|txdrop|txcarr|rxfram|rxfifo|txfifo ]]; then
     drilldown=$NetDevs
@@ -324,20 +397,25 @@ search() {
     drilldown=$BlockDevs
   fi
   
+  # Loop through each file in our input array
   for file in ${!Input[@]}; do
+    # If more than one file, print a header for each
     [[ ${#Input[@]} -gt 1 ]] &&
       printf "${bold}------------------------ $file ------------------------${reset}\n"
     if [[ $TimeFmt == 24hr ]]; then
-      # If we're expecting input to be in 24hr time, then fields:
-      # $1 is time, $2 is name of cpu|netdev|blockdev
-      ${Input[$file]} $file | awk "BEGIN{RS=\"\n\n\"} /$header/" |
-        awk "/$header/ || (\$1 ~ /$Time$AverageSrch/ && \$2 ~ /$drilldown/)"
+      # If we're expecting input to be in 24hr time, then fields are:
+      # $1 is time or 'Average:', $2 is name of cpu|netdev|blockdev
+      ${Input[$file]} $file |                 # Read file with handler (cat, zcat, bzcat, xzcat)
+        awk -vRS="\n\n"  "/$header/" |         # Pull up only the particular section we're looking for
+          awk "/$header/  ||  (\$1 ~ /$Time|$AverageSrch/  &&  \$2 ~ /$drilldown/)"
     else
-      # If we're expecting input to be in 12hr time, then fields:
+      # If we're expecting input to be in 12hr time, then fields are:
       # $1 and $2 are time (e.g. 12:50:01 AM), $3 is name of cpu|netdev|blockdev
-      # But not for the "Average:" lines -- which are the same as with 24hr time
-      ${Input[$file]} $file | awk "BEGIN{RS=\"\n\n\"} /$header/" | 
-        awk "/$header/ || (\$1\$2 ~ /$Time/ && \$3 ~ /$drilldown/) || (\$1 ~ /${AverageSrch//|/}/ && \$2 ~ /$drilldown/)"
+      # The "Average:" lines are the same as with 24hr time, i.e. $1
+      ${Input[$file]} $file |
+        awk -vRS="\n\n"  "/$header/" | 
+          awk "/$header/  ||  (\$1\$2 ~ /$Time/  &&  \$3 ~ /$drilldown/)
+               \$1 ~ /$AverageSrch/  &&  \$2 ~ /$drilldown/"
     fi
     echo
   done
@@ -375,8 +453,8 @@ for module in $Selection; do case $module in
   netNFS)     search " call.*retrans" ;;
   netNFSD)    search "scall"          ;;
   netSOCK)    search "totsck"         ;;
-  netIP)      search "totsck"         ;;
-  netEIP)     search "totsck"         ;;
+  netIP)      search "fragcrt"        ;;
+  netEIP)     search "ihdrerr"        ;;
   netICMP)    search "oadrmkr"        ;;
   netEICMP)   search "oerr"           ;;
   netTCP)     search "oseg"           ;;

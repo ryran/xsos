@@ -1,7 +1,7 @@
 # This file is part of rsar, providing intelligent rsar tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2013/01/22, matching up with rsar v0.1.0rc3
+# Revision date:  2013/01/23, matching up with rsar v0.1.0rc4
 # Latest version: <http://github.com/ryran/xsos>
 # 
 # Copyright 2013 Ryan Sawhill <rsaw@redhat.com>
@@ -31,9 +31,8 @@ _rsar()  {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   
   # Short and long options
-  shrtopts="-t -x
-            -b -B -c -d -H -I -n -P -q -r -R -S -u -v -w -W -y
-            -z -D -N"
+  shrtopts="-t -x -z -D -N
+            -A -b -B -c -d -H -I -n -P -q -r -R -S -u -v -w -W -y"
             
   longopts="--help --version --update --12hr"
   
@@ -41,9 +40,17 @@ _rsar()  {
   case "$prev" in
   
       # Disable autocompletion for solo opts and opts that we can't guess args for
-      --help|--version|--update|-t|-D)
-          return 0
+      --help|--version|--update|-D)
+          return
           ;;
+      -t)
+          COMPREPLY=( $(compgen -W "Average" -- "$curr") )
+          return
+          ;;
+      -A)
+          COMPREPLY=( $(compgen -W "5 6 7" -- "$curr") )
+          return
+          ;;      
       -N)
           #COMPREPLY=( $(compgen -W "eth bond" -- "$curr") )
           return 0
@@ -57,7 +64,7 @@ _rsar()  {
           return 0
           ;;
       -n)
-          COMPREPLY=( $(compgen -W "dev edev nfs nfsd sock" -- "$curr") )
+          COMPREPLY=( $(compgen -W "all dev edev nfs nfsd sock" -- "$curr") )
           return 0
           ;;
       # Some healthy suggestions for -x regex
