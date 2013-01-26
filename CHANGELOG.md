@@ -4,6 +4,13 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+
+**2013/01/26 xsos v0.1.6: a couple bugfixes**
+
+* Closed: [issue 43 - sys time & boot time are formatted differently depending whether reading sosreport or localhost](https://github.com/ryran/xsos/issues/43)
+* Closed: [issue 53 - ps function makes assumptions about process names](https://github.com/ryran/xsos/issues/53). Now percentage signs in `ps` input are properly escaped. I also changed the delimiter character used in multiple places from "@" & "~" to "❚" -- makes code easier to read and avoids problems.
+
+
 **2013/01/23 rsar v0.1.0rc4: massive changes and fixes; see help page**
 
 * Added `-A` option, corresponding with the same sar option. See help page for full details, but it short: it requires specifying the rhel version in order to pick the right options

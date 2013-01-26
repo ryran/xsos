@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.5 last mod 2013/01/20
+# xsos v0.1.6 last mod 2013/01/26
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -184,45 +184,45 @@ HELP_OPTS_CONTENT() {
   echo "
 Content options:"
   echo "
- -a, --all@show everything
- -b, --bios@show info from dmidecode
- -o, --os@show hostname, distro, SELinux, kernel info, uptime, etc
- -c, --cpu@show info from /proc/cpuinfo
- -m, --mem@show info from /proc/meminfo
- -d, --disks@show info from /proc/partitions + dm-multipath
- -l, --lspci@show info from lspci
- -e, --ethtool@show info from ethtool
- -i, --ip@show info from ip addr (BASH v4+ required)
- -n, --net@show info from /proc/net/dev
- -s, --sysctl@show important kernel sysctls
- -p, --ps@inspect running processes via ps" | column -ts@
+ -a, --all❚show everything
+ -b, --bios❚show info from dmidecode
+ -o, --os❚show hostname, distro, SELinux, kernel info, uptime, etc
+ -c, --cpu❚show info from /proc/cpuinfo
+ -m, --mem❚show info from /proc/meminfo
+ -d, --disks❚show info from /proc/partitions + dm-multipath
+ -l, --lspci❚show info from lspci
+ -e, --ethtool❚show info from ethtool
+ -i, --ip❚show info from ip addr (BASH v4+ required)
+ -n, --net❚show info from /proc/net/dev
+ -s, --sysctl❚show important kernel sysctls
+ -p, --ps❚inspect running processes via ps" | column -ts❚
 }
 
 HELP_OPTS_DISPLAY() {
   echo "
 Display options:"
   echo "
- -u, --unit=P@change byte display for /proc/meminfo & /proc/net/dev,
-             @where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
- -v, --verbose=NUM@specify ps verbosity level (0-4, default: 1)
- -w, --width=NUM@change fold-width (w autodetects, 0 disables, default: 94)
- -x, --nocolor@disable output colorization
- -y, --less@send output to \`less -SR\`
- -z, --more@send output to \`more\`" | column -ts@
+ -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
+             ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
+ -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
+ -w, --width=NUM❚change fold-width (w autodetects, 0 disables, default: 94)
+ -x, --nocolor❚disable output colorization
+ -y, --less❚send output to \`less -SR\`
+ -z, --more❚send output to \`more\`" | column -ts❚
 }
 
 HELP_OPTS_SPECIAL() {
   echo "
 Special options (BASH v4+ required):"
   echo "
- --B=FILE@read from FILE containing \`dmidecode\` dump
- --C=FILE@read from FILE containing /proc/cpuinfo dump
- --M=FILE@read from FILE containing /proc/meminfo dump
- --D=FILE@read from FILE containing /proc/partitions dump
- --L=FILE@read from FILE containing \`lspci\` dump
- --I=FILE@read from FILE containing \`ip addr\` dump
- --N=FILE@read from FILE containing /proc/net/dev dump
- --P=FILE@read from FILE containing \`ps aux\` dump" | column -ts@
+ --B=FILE❚read from FILE containing \`dmidecode\` dump
+ --C=FILE❚read from FILE containing /proc/cpuinfo dump
+ --M=FILE❚read from FILE containing /proc/meminfo dump
+ --D=FILE❚read from FILE containing /proc/partitions dump
+ --L=FILE❚read from FILE containing \`lspci\` dump
+ --I=FILE❚read from FILE containing \`ip addr\` dump
+ --N=FILE❚read from FILE containing /proc/net/dev dump
+ --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
 }
 
 HELP_SHORT() {
@@ -608,7 +608,7 @@ _CHECK_DISTRO() {
   OS_INDENT="            "
   # Parse redhat-release if we have it
   if [[ ! -r $1/etc/redhat-release ]]; then
-    distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[red]}(missing)${c[0]}"
+    distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
     
   else
     # If release is RHEL 4,5,6 in standard expected format ...
@@ -875,7 +875,11 @@ OSINFO() {
   if [[ $1 == / ]]; then
     uname=$(uname -a | awk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
     systime=$(date)
-    boottime=$(echo $(date --date=@$btime 2>/dev/null && echo " ($btime)"))
+    [[ $(wc -w <<<"$systime") == 6 ]] &&
+      systime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
+    boottime=$(date --date=@$btime 2>/dev/null)
+    [[ $(wc -w <<<"$boottime") == 6 ]] &&
+      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (%s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
     uptime_input=$(uptime)
     runlevel=$(runlevel)
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
@@ -908,6 +912,9 @@ OSINFO() {
     fi
     uname=$(awk '!/\/.*bin/ && NF!=0 {printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}' "$1/uname" 2>/dev/null) ||
       uname="${c[Warn1]}unknown${c[0]}"
+    # Check kernel for uek
+    grep -qsi uek <<<"$kernel" && kernel=$(grep --color=always -i uek <<<"$kernel")
+    grep -qsi uek <<<"$grub_kernel" && grub_kernel=$(grep --color=always -i uek <<<"$grub_kernel")
     
     systime=$(awk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null) 
     [[ $(wc -w <<<"$systime") == 6 ]] &&
@@ -1575,9 +1582,9 @@ IPADDR() {
   
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   {
-    # Header info ("~" is used later by `column` to columnize the output)
-    echo "  Interface~Slave Of~IPv4 Address~State~MAC Address"
-    echo "  =========~========~==================~=====~================="
+    # Header info ("❚" is used later by `column` to columnize the output)
+    echo "  Interface❚Slave Of❚IPv4 Address❚State❚MAC Address"
+    echo "  =========❚========❚==================❚=====❚================="
     
     # For each interface ($i) found in ip addr output
     for i in $ipdevs; do
@@ -1601,16 +1608,16 @@ IPADDR() {
         # So we need to set up a counter and do a loop
         n=0; while read ipv4addr; do
           if [[ $n -eq 0 ]]; then
-            echo "  $i~${slaveof[$i]}~$ipv4addr~${state[$i]}~${mac[$i]}"
+            echo "  $i❚${slaveof[$i]}❚$ipv4addr❚${state[$i]}❚${mac[$i]}"
           else
-            echo "   ~ ~$ipv4addr~ ~ "
+            echo "   ❚ ❚$ipv4addr❚ ❚ "
           fi
           n=$((n+1))
         done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}")"
       
       # Otherwise, print out all info with ipv4 addr set to "-"
       else
-        echo "  $i~${slaveof[$i]}~-~${state[$i]}~${mac[$i]}"
+        echo "  $i❚${slaveof[$i]}❚-❚${state[$i]}❚${mac[$i]}"
         # ... And Continue on to the next interface, i.e., skip looking for aliases
         continue
       fi
@@ -1623,7 +1630,7 @@ IPADDR() {
           ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}")
           
           # ... Print out a new line with its ipv4 addr
-          echo "  $alias~ ~${ipv4_alias[$alias]}~ ~ "
+          echo "  $alias❚ ❚${ipv4_alias[$alias]}❚ ❚ "
         done
       fi
       
@@ -1631,7 +1638,7 @@ IPADDR() {
   } |
   
     # All output from above needs to be columnized
-    column -ts~ |
+    column -ts❚ |
     
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
@@ -1671,7 +1678,7 @@ ETHTOOL() {
   if [[ -n $ethdevs ]]; then
     echo -e "${c[H1]}ETHTOOL${c[0]}"
     for i in $ethdevs; do
-      echo -e "  $i~$(__ethtool $i |
+      echo -e "  $i❚$(__ethtool $i |
       awk '
         /Link detected:/    { link = $3; sub(/yes/, "up", link); sub(/no/, "DOWN", link) }
         /Speed:/            { spd = $2 }
@@ -1680,7 +1687,7 @@ ETHTOOL() {
         END {
           if (link == "up" && spd != "")
             linkdetails = " "spd" "dup" (autoneg="aneg")"
-          printf "link=%s%s~", link, linkdetails
+          printf "link=%s%s❚", link, linkdetails
         }
       '
       )$(__ethtool_i $i |
@@ -1692,7 +1699,7 @@ ETHTOOL() {
         END { printf "drv %s%s%s\n", driver, drv_vers, fw_vers }
       '
     )"
-    done | column -ts~ |
+    done | column -ts❚ |
       awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" '/DOWN/{print D $0 H0}  /up/{print U $0 H0}'
     [[ -n $changedir ]] && popd &>/dev/null
   fi
@@ -1787,16 +1794,16 @@ PROC_NET() {
       }
       
       END {
-        print "  Interface~Rx"U"ytes~RxPackets~RxErrs~RxDrop~Tx"U"ytes~TxPackets~TxErrs~TxDrop"
-        print "  =========~=========~=========~======~======~=========~=========~======~======"
+        print "  Interface❚Rx"U"ytes❚RxPackets❚RxErrs❚RxDrop❚Tx"U"ytes❚TxPackets❚TxErrs❚TxDrop"
+        print "  =========❚=========❚=========❚======❚======❚=========❚=========❚======❚======"
         n = asorti(Interface, IF)
         for (i = 1; i <= n; i++)
-        # printf "  %s~%.0f~%.0f%s~%d %s~%d %s~%.0f~%.0f%s~%d (%.0f%%)~%d (%.0f%%)\n",
-          printf "  %s~%s~%s%s~%s %s~%s %s~%s~%s%s~%s %s~%s %s\n",
+        # printf "  %s❚%.0f❚%.0f%s❚%d %s❚%d %s❚%.0f❚%.0f%s❚%d (%.0f%%)❚%d (%.0f%%)\n",
+          printf "  %s❚%s❚%s%s❚%s %s❚%s %s❚%s❚%s%s❚%s %s❚%s %s\n",
             IF[i], RxBytes[IF[i]], RxPackets[IF[i]], Packets_Unit, RxErrs[IF[i]], RxErrsPercent[IF[i]], RxDrop[IF[i]], RxDropPercent[IF[i]], 
                    TxBytes[IF[i]], TxPackets[IF[i]], Packets_Unit, TxErrs[IF[i]], TxErrsPercent[IF[i]], TxDrop[IF[i]], TxDropPercent[IF[i]]
       }
-    ' | column -ts~ |
+    ' | column -ts❚ |
       awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
         {
           if (NR <= 2) print H2 $0 H0
@@ -1960,11 +1967,11 @@ PSCHECK() {
   
   # Get input from proper place dependent on what was passed
   if [[ -z $1 ]]; then
-    ps_input=$(ps aux)
+    ps_input=$(ps aux | sed '1!s/%/%%/g')
   elif [[ -f $1 ]]; then
-    ps_input=$(<"$1")
+    ps_input=$(sed '1!s/%/%%/g' "$1")
   else
-    ps_input=$(<"$1/ps")
+    ps_input=$(sed '1!s/%/%%/g' "$1/ps")
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
@@ -2026,22 +2033,22 @@ PSCHECK() {
     }
     {
       # Print first 4 fields
-      for (i=1; i<5; i++) printf $i"~"
+      for (i=1; i<5; i++) printf $i"❚"
       
       # Print field 5 & 6 (VSZ & RSS)
       for (i=5; i<7; i++) {
-        if      (NR == 1)  printf "%s-%s~", $i, U
-        else if (u == "G") printf "%.1f~", $i/divisor
-        else               printf "%.0f~", $i/divisor
+        if      (NR == 1)  printf "%s-%s❚", $i, U
+        else if (u == "G") printf "%.1f❚", $i/divisor
+        else               printf "%.0f❚", $i/divisor
       }
       
       # Print fields 7-10
-      for (i=7; i<11; i++) printf $i"~"
+      for (i=7; i<11; i++) printf $i"❚"
       
       # For the last field (command) we need to chop things up
       for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "
       printf "\n"
-    }' <<<"$ps_input" | cut -c-$process_line_length | column -ts~ | sed "s,^,$XSOS_INDENT_H2,")
+    }' <<<"$ps_input" | cut -c-$process_line_length | column -ts❚ | sed "s,^,$XSOS_INDENT_H2,")
     
   # Deal with header
   ps_header=$(head -n1 <<<"$ps_input")
@@ -2059,7 +2066,7 @@ PSCHECK() {
     # Process ps input to generate summary user-list of top-users
     top_users=$(
       awk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
-        BEGIN { print "USER~%CPU~%MEM~RSS" }
+        BEGIN { print "USER❚%CPU❚%MEM❚RSS" }
         { pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6 }
         END {
           # Figure out what number to divide by to end up with GiB
@@ -2069,9 +2076,9 @@ PSCHECK() {
           for (user in pCPU)
             # Only show if greater than 0% CPU and 0.1% MEM
             if (pCPU[user]>0 || pMEM[user]>0.1)
-              printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/divisor
+              printf "%s❚%.1f%%❚%.1f%%❚%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/divisor
         }
-      ' <<<"$ps_input" | column -ts~ | sed "s,^,$XSOS_INDENT_H2,")
+      ' <<<"$ps_input" | column -ts❚ | sed "s,^,$XSOS_INDENT_H2,")
     # Grab header from the top
     top_users_header=$(head -n1 <<<"$top_users")
   
@@ -2079,7 +2086,7 @@ PSCHECK() {
     # Process ps input to generate summary user-list of top-users
     top_users=$(
       awk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
-        BEGIN { print "USER~%CPU~%MEM~RSS" }
+        BEGIN { print "USER❚%CPU❚%MEM❚RSS" }
         { pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6 }
         END {
           # Figure out what number to divide by to end up with GiB
@@ -2087,9 +2094,9 @@ PSCHECK() {
           else if (u == "M") divisor = 1024
           else if (u == "G") divisor = 1
           for (user in pCPU)
-            printf "%s~%.1f%%~%.1f%%~%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/divisor
+            printf "%s❚%.1f%%❚%.1f%%❚%.2f GiB\n", user, pCPU[user], pMEM[user], sRSS[user]/divisor
         }
-      ' <<<"$ps_input" | column -ts~ | sed "s,^,$XSOS_INDENT_H2,")
+      ' <<<"$ps_input" | column -ts❚ | sed "s,^,$XSOS_INDENT_H2,")
     # Grab header from the top
     top_users_header=$(head -n1 <<<"$top_users")
   fi
