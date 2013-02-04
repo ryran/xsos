@@ -1,5 +1,5 @@
 #!/bin/bash
-# rsar v0.1.0rc4 last mod 2013/01/23
+# rsar v0.1.0rc5 last mod 2013/02/04
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -30,7 +30,7 @@ red='\033[1;31m'
 saropts='A:bBcdHI:n:P:qrRSuvwWy'
 extraopts='N:D:zt:x:'
 shortopts=$saropts$extraopts
-longopts='12hr'
+longopts='12hr,hn'
 
 
 VERSINFO() {
@@ -40,7 +40,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  printf "Usage: ${bold}$pzero SARFILE${reset}... [${bold}--12hr${reset}] [${bold}-t TIME${reset}] [${bold}SAROPTS${reset}] [${bold}-P CPU${reset}] [${bold}-D DISK${reset}] [${bold}-N NIC${reset}]
+  printf "Usage: ${bold}$pzero SARFILE${reset}... [${bold}--12hr${reset}] [${bold}--hn${reset}] [${bold}-t TIME${reset}] [${bold}SAROPTS${reset}] [${bold}-P CPU${reset}] [${bold}-D DISK${reset}] [${bold}-N NIC${reset}]
  SAROPTS is any mix of: [${bold}-AbBcdHInqrRSuvwWy${reset}]
  Note that getopt is used for arg-parsing (argument order arbitrary)
 "
@@ -56,6 +56,7 @@ rsar requires at least 1 plaintext sar data file (optionally-compressed)
     
 Opts Specific to rsar:
   ${bold}--12hr${reset}         Switch input format from default 24-hr to 12-hr AM/PM
+  ${bold}--hn${reset}           Show header lines (incl. hostname) from each sar file
   ${bold}-t${reset} <TIME>      Where TIME is a regex for time period to display
                    Ex: '^1[2-5]' or ':[23]0:' or '^(0.:40|2.:40)' or '^12.*AM'
   ${bold}-x${reset} <PATTERN>   Where PATTERN is used to select a section
@@ -305,6 +306,7 @@ PARSE() {
       -N)       NetDevs=$2      ; shift 2 ;;
       -z)       ShowAverage=no  ; shift ;;
       --12hr)   TimeFmt=12hr    ; shift ;;
+      --hn)     ShowHostname=yes; shift ;;
     esac
   done
   shift  # (to get rid of the '--')
@@ -328,6 +330,9 @@ PARSE() {
 # Call the parser
 PARSE $(getopt -u --name=$pzero -o $shortopts -l $longopts -- "$@")
 
+
+# Whether to show header lines (incl. hostname & kernel vers)
+[[ -z $ShowHostname ]] && ShowHostname='no'
 
 # 'Average:'-line selection: show by default
 [[ -z $ShowAverage ]] && AverageSrch='Average' || AverageSrch='DontShowAverage'
@@ -402,6 +407,7 @@ search() {
     # If more than one file, print a header for each
     [[ ${#Input[@]} -gt 1 ]] &&
       printf "${bold}------------------------ $file ------------------------${reset}\n"
+    [[ $ShowHostname == yes ]] && ${Input[$file]} $file | head -n2
     if [[ $TimeFmt == 24hr ]]; then
       # If we're expecting input to be in 24hr time, then fields are:
       # $1 is time or 'Average:', $2 is name of cpu|netdev|blockdev
