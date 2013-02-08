@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.6 last mod 2013/01/26
+# xsos v0.1.7 last mod 2013/02/08
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -162,6 +162,10 @@ fi
 #   Sets name of application to handle output
     [[ -z $XSOS_OUTPUT_HANDLER ]] && XSOS_OUTPUT_HANDLER="cat"
 #
+# XSOS_OS_RHT_CENTRIC (bool: y/n)
+#   Configures whether OSINFO() focuses on Red Hat support issues
+    [[ -z $XSOS_OS_RHT_CENTRIC ]] && XSOS_OS_RHT_CENTRIC="n"
+#
 # ==============================================================================
 
 
@@ -202,6 +206,7 @@ HELP_OPTS_DISPLAY() {
   echo "
 Display options:"
   echo "
+ --rhsupport❚tweak os output to focus on RHEL-centric support issues
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
@@ -375,7 +380,7 @@ esac
 
 # GNU getopt short and long options:
 sopts='u:v:w:xyzabocmdleinsp'
-lopts='unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
+lopts='rhsupport,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -432,6 +437,7 @@ PARSE() {
       -x|--nocolor) shift; XSOS_COLORS=n     ;;
       -y|--less)    shift; XSOS_OUTPUT_HANDLER='less -SR' ;;
       -z|--more)    shift; XSOS_OUTPUT_HANDLER='more'     ;;
+      --rhsupport)  shift; XSOS_OS_RHT_CENTRIC=y          ;;
       -a|--all)     shift; opts=y; all=y     ;;
       -b|--bios)    shift; opts=y; bios=y    ;;
       -o|--os)      shift; opts=y; os=y      ;;
@@ -456,7 +462,8 @@ PARSE() {
     esac
   done
   shift #(to get rid of the '--')
-  sosroot=$1
+  # Set sosroot appropriately
+  [[ -n $1 ]] && sosroot=$1 || sosroot=/
 }
 
 # Call the parser
@@ -984,6 +991,8 @@ OSINFO() {
   # End the kernel section
   echo -e "    ${c[DGREY]}- - - - - - - - - - - - - - - - - - -${c[0]}"
   
+  ##echo -e "  ${c[H2]}Supportability:${c[0]}"
+  
   [[ -n $systime ]] &&
   echo -e "  ${c[H2]}Sys time:${c[0]}  $systime"
   
@@ -1425,14 +1434,12 @@ STORAGE() {
     
     # Also, create a blacklist containing all paths to LUNS used for multipath
     # This will be used to hide certain devices in the plain "whole disk" output
-        scsi_blacklist=$(awk '' <<<"$mpath_input")
-        
     scsi_blacklist=$(awk '
       # The beginning of this regex is quite odd .. we are matching lines starting with:
       #   \_  OR  |-  OR  `-
       
-      /(\\_|\|-|`-) [0-9]+:[0-9]+:[0-9]+:[0-9]+ ([[:graph:]]+) [0-9]+:/ {
-        printf gensub(/.*:[0-9]+ ([[:graph:]]+) [0-9].*/, "\\1|", 1)
+      /(\\_|\|-|`-) [0-9]+:[0-9]+:[0-9]+:[0-9]+ +[[:graph:]]+ +[0-9]+:/ {
+        printf gensub(/.*:[0-9]+ +([[:graph:]]+) +[0-9].*/, "\\1|", 1)
       }
     ' <<<"$mpath_input")
   fi
@@ -1448,7 +1455,7 @@ STORAGE() {
   [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
   echo -e "  ${c[H2]}Whole Disks from /proc/partitions:${c[0]}"
   egrep -v "${scsi_blacklist%?}" "$partitions_input" |
-    awk -vblacklisted=$bl -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+    awk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
       # For starters, we search /proc/partitions for certain types of devices
       # (These partition types are from devices.txt in the linux kernel documentation)
       
@@ -1470,7 +1477,7 @@ STORAGE() {
         
         # Print a notice if devices were hidden due to blacklist
         if (blacklisted == "y")
-          printf "    %s(Some multipath/mdraid components hidden)%s\n", H_IMP, H0
+          printf "    %s(%d multipath/mdraid components hidden)%s\n", H_IMP, blacklist_devcount, H0
         
         # Some pretty header-fun
         printf   "    %s- - - - - - - - - - - - - - - - - - - - -%s\n", color_grey, H0
@@ -1913,7 +1920,10 @@ SYSCTL() {
   __P kernel.msgmni "[msg queues] "
   __Pa kernel.panic "[secs] "  '{if ($1>0) printf "%s%s  (secs til autoreboot after panic)", $1, H0; else printf "0%s  (no autoreboot on panic)", H0}'
   __P kernel.panic_on_oops "[bool] "
+  __P kernel.nmi_watchdog "[bool] "
+  __P kernel.panic_on_io_nmi "[bool] "
   __P kernel.panic_on_unrecovered_nmi "[bool] "
+  __P kernel.unknown_nmi_panic "[bool] "
   __P kernel.pid_max
   __P kernel.threads-max
   __Pa kernel.sem "[array] "  "-vS=$XSOS_INDENT_H3"  '{printf "%s  %s  %s  %s%s\n", $1,$2,$3,$4,H0; printf "%sSEMMSL (max semaphores per array) =  %d\n%sSEMMNS (max sems system-wide)     =  %d\n%sSEMOPM (max ops per semop call)   =  %d\n%sSEMMNI (max number of sem arrays) =  %d\n", S,$1, S,$2, S,$3, S,$4}'

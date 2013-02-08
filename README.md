@@ -5,14 +5,14 @@ xsos & rsar - Summarize system info from sosreports
 
 **Jump to ...**
 
-* [I'M LOOKING FOR RSAR](/ryran/xsos/blob/master/RSAR_README.md)
-* [CHANGELOG](/ryran/xsos/blob/master/CHANGELOG.md)
-* [INSTALLATION](/ryran/xsos#installation)
-* [EXAMPLES IN ACTION](/ryran/xsos#examples-in-action)
-* [REQUIREMENTS](/ryran/xsos#requirements)
-* [THINGS THAT MIGHT SURPRISE YOU](/ryran/xsos#things-that-might-surprise-you)
-* [AUTHORS](/ryran/xsos#authors)
-* [LICENSE](/ryran/xsos#license)
+* [I'M LOOKING FOR RSAR](/RSAR_README.md)
+* [CHANGELOG](/CHANGELOG.md)
+* [INSTALLATION](#installation)
+* [EXAMPLES IN ACTION](#examples-in-action)
+* [REQUIREMENTS](#requirements)
+* [THINGS THAT MIGHT SURPRISE YOU](#things-that-might-surprise-you)
+* [AUTHORS](#authors)
+* [LICENSE](#license)
 
 The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost on which xsos is being run or a system for which you have an unpacked sosreport.
 
@@ -20,7 +20,7 @@ There is tons of useful amazing instructive data available to normal users (not 
 
 `xsos` will attempt to make it easy, parsing and calculating and formatting data from dozens of files (and commands) to give you a detailed overview about a system, or -- if requested -- `xsos` will only parse one file (e.g. with `--mem` or `--cpu`) or output from one command (e.g. with `--ip` or `--ps`).
 
-New features are being added all the time -- see [the tracker](/ryran/xsos/issues) to have a look at some of the things that are already in line to be worked on.
+New features are being added all the time -- see [the tracker](https://github.com/ryran/xsos/issues) to have a look at some of the things that are already in line to be worked on.
 
 **[Why another tool? Why not add stuff to `sxconsole`?](https://github.com/ryran/xsos/issues/9)**
 
