@@ -1,7 +1,7 @@
 # This file is part of rsar, providing intelligent rsar tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2013/01/23, matching up with rsar v0.1.0rc4
+# Revision date:  2013/02/16, matching up with rsar v0.1.0rc6
 # Latest version: <http://github.com/ryran/xsos>
 # 
 # Copyright 2013 Ryan Sawhill <rsaw@redhat.com>
@@ -34,7 +34,7 @@ _rsar()  {
   shrtopts="-t -x -z -D -N
             -A -b -B -c -d -H -I -n -P -q -r -R -S -u -v -w -W -y"
             
-  longopts="--help --version --update --12hr"
+  longopts="--help --version --12hr --hn --noxh"
   
   # Check previous arg to see if we need to do anything special
   case "$prev" in

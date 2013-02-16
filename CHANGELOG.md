@@ -4,6 +4,12 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/02/16 rsar v0.1.0rc6: added --noxh option (trapier++)**
+
+- Closed *(probably)* the first issue ever created by someone other than rsaw/ryran/moi -- [issue 59 - rsar RFE: condense duplicate headers](https://github.com/ryran/xsos/issues/59) -- by adding a new `--noxh` option. See the issue for full details.
+- Updated [rsar-bash-completion.bash](https://github.com/ryran/xsos/blob/master/rsar-bash-completion.bash) file to handle the two new rsar options.
+
+
 **2013/02/08 xsos v0.1.7: added nmi sysctls & fixed multipath LUNzz bug**
 
 - Closed [issue 54 - RFE: add nmi sysctls](https://github.com/ryran/xsos/issues/54)

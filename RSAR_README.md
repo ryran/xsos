@@ -3,7 +3,7 @@ rsar - Extract data from plain-text sar files
 
 When dealing with sysstat sar data in a sosreport, it's almost always easier to parse through the plain-text sar data files than it is to get the binary sa files onto a system where you can use `sar` to parse through them for exactly what you're looking for.
 
-The goal behind `rsar` is to make this process a little bit easier. rsar is like the `sar` command, but for plain-text sar files instead of sa files. It supports a limited set of the same data-selection options `sar` uses.
+The goal behind `rsar` is to make this process a little bit easier. rsar is like the `sar` command, but for plain-text sar files instead of sa files. It supports almost all of the same data-selection options `sar` uses.
 
 
 INSTALLATION
@@ -28,13 +28,14 @@ USAGE
 -----
 
 
-`rsar` has an extensive help page. Use it. Feel free to make it better.
-Here's what it looks like in v0.1.0rc4:
+**`rsar` has an extensive help page. Use it. Feel free to make it better.
+Here's what it looks like in v0.1.0rc6:**
 
 ```
-Usage: rsar SARFILE... [--12hr] [-t TIME] [SAROPTS] [-P CPU] [-D DISK] [-N NIC]
+Usage: rsar SARFILE... [--12hr] [--hn] [--noxh] [-t TIME] [SAROPTS] [DRILLDOWN]
  SAROPTS is any mix of: [-AbBcdHInqrRSuvwWy]
- Note that getopt is used for arg-parsing (argument order arbitrary)
+ DRILLDOWN is any mix of: [-P CPU] [-D DISK] [-N NIC]
+ Note that getopt is used for arg-parsing (so argument order is arbitrary)
 
 rsar requires at least 1 plaintext sar data file (optionally-compressed)
   Spaces in SARFILE name or path will break things (complain if you care)
@@ -43,6 +44,8 @@ rsar requires at least 1 plaintext sar data file (optionally-compressed)
     
 Opts Specific to rsar:
   --12hr         Switch input format from default 24-hr to 12-hr AM/PM
+  --hn           Show hostname/kernel version lines from each sar file
+  --noxh         Hide extra column header lines (usually indicative of reboots)
   -t <TIME>      Where TIME is a regex for time period to display
                    Ex: '^1[2-5]' or ':[23]0:' or '^(0.:40|2.:40)' or '^12.*AM'
   -x <PATTERN>   Where PATTERN is used to select a section
@@ -93,7 +96,11 @@ Standard sar Selection Opts:
   -W      Swapping statistics
   -y      TTY device statistics
   
-Drill-down Opts:
+  Note that args passed to -I & -n & -P are cumulative and case-insensitive
+    Ex: -n Dev,eDEV works, as does -n Dev -n eDEV -n icmp as does -nALL
+        -P all works, as does -P 0,4,7, as does -P0 -P 4 -P 3. -P '[78]|22'
+
+Drill-Down Opts:
   -P { <CPU> [,...] | ALL }
               Where CPU can be comma-separated list of CPU-numbers (like sar)
                 Else, if 'ALL' is used, then everything will be shown
@@ -104,18 +111,13 @@ Drill-down Opts:
   -N <NIC>    Where NIC is a regex for which network interfaces to select
                 Ex: 'eth0' or 'eth[12]' or 'bond[1-3]|em1'
 
-SAROPTS is any mix of regular sar data-selection options, as described above
-  Note that args passed to -I & -n & -P are cumulative and case-insensitive
-    Ex: -n Dev,eDEV works, as does -n Dev -n eDEV -n icmp as does -nALL
-        -P all works, as does -P 0,4,7, as does -P0 -P 4 -P '[78]|22' -P 3.
-        
 Examples:
   rsar sar03 -qut ^2
   rsar sar03 -P all -t Average
   rsar -t^09:30 -n edev,sock -N eth3 -I sum sar19.bz2
   rsar -x iowait -P [0-3] -t^15:30 /tmp/sar26.gz /tmp/sar27.xz -RB
   
-Version info: rsar v0.1.0rc4 last mod 2013/01/23
+Version info: rsar v0.1.0rc6 last mod 2013/02/16
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
