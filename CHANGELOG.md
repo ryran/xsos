@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/02/23 xsos v0.1.8: simple fix for huge bug added in v0.1.7**
+
+- Closed [issue 60 - in xsos v0.1.7, multiple modules don't work on localhost](https://github.com/ryran/xsos/issues/60)
+
+
 **2013/02/16 rsar v0.1.0rc6: added --noxh option (trapier++)**
 
 - Closed *(probably)* the first issue ever created by someone other than rsaw/ryran/moi -- [issue 59 - rsar RFE: condense duplicate headers](https://github.com/ryran/xsos/issues/59) -- by adding a new `--noxh` option. See the issue for full details.

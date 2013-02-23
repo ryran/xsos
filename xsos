@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.7 last mod 2013/02/08
+# xsos v0.1.8 last mod 2013/02/23
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -462,8 +462,8 @@ PARSE() {
     esac
   done
   shift #(to get rid of the '--')
-  # Set sosroot appropriately
-  [[ -n $1 ]] && sosroot=$1 || sosroot=/
+  # Set sosroot
+  sosroot=$1
 }
 
 # Call the parser
