@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.8 last mod 2013/02/23
+# xsos v0.1.9 last mod 2013/04/21
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -776,12 +776,8 @@ _CHECK_SELINUX() {
   # If we don't have sestatus input, things are more complicated...
   else
   
-    # If dmesg from sosreport says disabled, print it out
-    if [[ $selinux_dmesg == disabled ]]; then
-      printf "dmesg says disabled"; __cond_print_cfgmode
-    
     # If we have selinux/enforcing kernel args, use those for current status
-    elif [[ -n $selinux || -n $enforcing ]]; then
+    if [[ -n $selinux || -n $enforcing ]]; then
       case $selinux in
         0)  printf "disabled"   ;;
         1)  printf "enforcing"  ;;
@@ -791,6 +787,10 @@ _CHECK_SELINUX() {
         1)  printf "enforcing"  ;;
       esac
       __cond_print_cfgmode
+      
+    # If dmesg from sosreport says disabled, print it out
+    elif [[ $selinux_dmesg == disabled ]]; then
+      printf "dmesg says disabled"; __cond_print_cfgmode
       
     # If we only have stuff from /etc/selinux/config
     elif [[ -n $seconfig_cfgmode ]]; then
@@ -854,7 +854,7 @@ _CHECK_GRUB() {
 
 OSINFO() {
   # Local vars:
-  local distro_release kernel_build kernel_buildhost bad_grubcfg default_missing grub_kernel grub_cmdline num_cpu btime hostname kernel serverURL sURLtmp uname systime boottime uptime_input runlevel initdefault
+  local distro_release kernel_build kernel_buildhost bad_grubcfg default_missing grub_kernel grub_cmdline num_cpu btime hostname kernel serverURL sURLtmp uname systime boottime uptime_input runlevel initdefault timezone
   
   # These functions populate variables for later use
   _CHECK_DISTRO "$1"
@@ -886,7 +886,7 @@ OSINFO() {
       systime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
     boottime=$(date --date=@$btime 2>/dev/null)
     [[ $(wc -w <<<"$boottime") == 6 ]] &&
-      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (%s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
     uptime_input=$(uptime)
     runlevel=$(runlevel)
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
@@ -927,9 +927,13 @@ OSINFO() {
     [[ $(wc -w <<<"$systime") == 6 ]] &&
       systime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
     
-    boottime=$(echo -n $(TZ=$(awk '!/\/.*bin/ && NF!=0 {print $5}' "$1/date" 2>/dev/null) date --date=@$btime 2>/dev/null))
+    timezone=$(awk -F= '/^ZONE=/{print $2}' "$1/etc/sysconfig/clock" 2>/dev/null | tr -d \")
+    [[ -n $timezone && -f /usr/share/zoneinfo/$timezone ]] &&
+      boottime=$(echo -n $(TZ=$timezone date --date=@$btime 2>/dev/null)) ||
+        boottime=$(echo -n $(TZ= date --date=@$btime 2>/dev/null))
+    
     [[ $(wc -w <<<"$boottime") == 6 ]] &&
-      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (%s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
     
     uptime_input=$(awk '!/\/.*bin/ && NF!=0' "$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
@@ -1158,16 +1162,29 @@ MEMINFO() {
       places = 10 ^ places
       return int(num * places + .5) / places
     }
-    
-    function memgraph(var, PrettyName, color) {
-      printf "    %s%s ", color, PrettyName
-      for (i=0; i <    round(var/2, 0); i++) printf "◆"
+          
+    function memgraph_special(PercentA, PercentB, Color, PrettyName) {
+      PercentTotal = PercentA + PercentB
+      printf "    %s%s ", Color, PrettyName
+      for (i=0; i <    round(PercentA/2, 0); i++) printf "◆"
+      for (i=0; i <    round(PercentB/2, 0); i++) printf "◇"
       printf H0
-      for (i=0; i < 50-round(var/2, 0); i++) printf "◇"
-      if      (round(var,1) > 99.9) j=" "
-      else if (round(var,1) > 9)    j="  "
+      for (i=0; i < 50-round(PercentTotal/2, 0); i++) printf "◇"
+      if      (round(PercentTotal,1) > 99.9) j=" "
+      else if (round(PercentTotal,1) > 9)    j="  "
+      else                                   j="   "
+      printf "%s%s%.1f%%%s\n", j, Color, PercentTotal, H0
+    }
+    
+    function memgraph(Percent, Color, PrettyName) {
+      printf "    %s%s ", Color, PrettyName
+      for (i=0; i <    round(Percent/2, 0); i++) printf "◆"
+      printf H0
+      for (i=0; i < 50-round(Percent/2, 0); i++) printf "◇"
+      if      (round(Percent,1) > 99.9) j=" "
+      else if (round(Percent,1) > 9)    j="  "
       else                          j="   "
-      printf "%s%s%.1f%%%s\n", j, color, var, H0
+      printf "%s%s%.1f%%%s\n", j, Color, Percent, H0
     }
         
     # Grab variables from meminfo
@@ -1307,11 +1324,14 @@ MEMINFO() {
       # ASCII-ART fun
       
       printf "  %sStats graphed as percent of MemTotal:%s\n", H2, H0
-      memgraph(Mem_Percent,     "MemUsed   ", color_MemUsed)
-      memgraph(HP_PercentRam,   "HugePages ", color_HugePages)
-      memgraph(Buffers_Percent, "Buffers   ", color_Buffers)
-      memgraph(Cached_Percent,  "Cached    ", color_Cached)
-      memgraph(Dirty_Percent,   "Dirty     ", color_Dirty)
+      # The following line is disabled because it would kinda suck for people that run with NOCOLOR
+      # Or people that run with color and then copy the output to text -- uncomment it to see what I mean
+      #memgraph_special(MemNoBC_Percent, Buffers_Percent+Cached_Percent, color_MemUsed, "MemUsed   ")
+      memgraph(Mem_Percent,     color_MemUsed,   "MemUsed   ")
+      memgraph(Buffers_Percent, color_Buffers,   "Buffers   ")
+      memgraph(Cached_Percent,  color_Cached,    "Cached    ")
+      memgraph(HP_PercentRam,   color_HugePages, "HugePages ")
+      memgraph(Dirty_Percent,   color_Dirty,     "Dirty     ")
 
       
       # If unit is T, print percentages with no decimal & byteunits with 2-3 decimal-points of precision
@@ -1368,7 +1388,7 @@ MEMINFO() {
       printf    "  %sRAM:%s\n", H2, H0
       printf    "    %s%s%s total ram%s\n", H_IMP, MemTotal, Unit, H0
       printf    "    %s%s (%s%%) used\n", MemUsed, Unit, Mem_Percent
-      printf    "    %s%s (%s%%) used excluding Buffers/Cached\n", MemUsedNoBC, Unit, MemNoBC_Percent
+      printf    "    %s%s%s (%s%%) used excluding Buffers/Cached%s\n", H_IMP, MemUsedNoBC, Unit, MemNoBC_Percent, H0
       if (Dirty_Percent > 10)
         printf  "    %s%s%s (%s%%) dirty%s\n", color_warn, Dirty, Unit, Dirty_Percent, H0
       else
@@ -1924,6 +1944,8 @@ SYSCTL() {
   __P kernel.panic_on_io_nmi "[bool] "
   __P kernel.panic_on_unrecovered_nmi "[bool] "
   __P kernel.unknown_nmi_panic "[bool] "
+  __P kernel.softlockup_panic "[bool] "
+  __P kernel.softlockup_thresh "[secs] "
   __P kernel.pid_max
   __P kernel.threads-max
   __Pa kernel.sem "[array] "  "-vS=$XSOS_INDENT_H3"  '{printf "%s  %s  %s  %s%s\n", $1,$2,$3,$4,H0; printf "%sSEMMSL (max semaphores per array) =  %d\n%sSEMMNS (max sems system-wide)     =  %d\n%sSEMOPM (max ops per semop call)   =  %d\n%sSEMMNI (max number of sem arrays) =  %d\n", S,$1, S,$2, S,$3, S,$4}'

@@ -4,6 +4,14 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/04/21 xsos v0.1.9: fix for sos boot time display; added softlockup sysctls**
+
+- Closed [issue 62 - Boot time (in --os output) wrong (showing as UTC) with EDT time zone (along with tons of others)](https://github.com/ryran/xsos/issues/62)
+- Added sysctls: kernel.softlockup_panic and kernel.softlockup_thresh
+- memgraph code-refactoring
+- When checking SELinux status in sosreports: dmesg is now checked AFTER kernel cmdline instead of BEFORE
+
+
 **2013/02/23 xsos v0.1.8: simple fix for huge bug added in v0.1.7**
 
 - Closed [issue 60 - in xsos v0.1.7, multiple modules don't work on localhost](https://github.com/ryran/xsos/issues/60)
