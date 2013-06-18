@@ -1,7 +1,7 @@
 xsos & rsar - Summarize system info from sosreports
 ===================================================
 
-![xsos parsing general os info and /proc/meminfo](http://b19.org/linux/xsos-om.png)
+![xsos parsing general os info and /proc/meminfo](http://b19.org/linux/xsos-osmem.png)
 
 **Jump to ...**
 
