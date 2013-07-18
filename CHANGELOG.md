@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/07/18 xsos v0.1.11: further improvement to new ethtool error detection**
+
+- More tweaks to implementation of [issue 65 - RFE: Detect packet drops and/or network error counters](https://github.com/ryran/xsos/issues/65)
+
+
 **2013/07/18 xsos v0.1.10: net & ethtool enhancements; fix for lsb-release**
 
 - Closed [issue 64 - make xsos --os ignore /etc/lsb-release](https://github.com/ryran/xsos/issues/64)
