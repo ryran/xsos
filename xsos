@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.9 last mod 2013/04/21
+# xsos v0.1.10 last mod 2013/07/18
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -652,7 +652,7 @@ _CHECK_DISTRO() {
   fi
 
   # Check for any /etc/*-release or /etc/*_version files and add their content to the distro_release variable
-  files=$(ls "$1"/etc/*{-release,_version} 2>/dev/null | egrep -sv '/etc/(os|redhat|system)-release')
+  files=$(ls "$1"/etc/*{-release,_version} 2>/dev/null | egrep -sv '/etc/(os|redhat|system|lsb)-release')
   if [[ -n $files ]]; then
     for file in $files; do
       if [[ -r $file ]]; then
@@ -1682,30 +1682,33 @@ IPADDR() {
 
 ETHTOOL() {
   # Local vars:
-  local changedir ethdevs i
+  local changedir ethdevs i errsfound count
   
   # If localhost, grab interfaces from /sys
   if [[ -z $1 ]]; then
     ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0')
-    # Setup local functions for ethtool & ethtool -i
+    # Setup local functions for ethtool & ethtool -i & ethtool -S
     __ethtool()   { ethtool $1; }
     __ethtool_i() { ethtool -i $1; }
+    __ethtool_S() { ethtool -S $1 2>&1; }
     
   # If sosreport, determine interfaces from ethtool_<iface> files
   else
     changedir=1
     pushd "$1"/sos_commands/networking &>/dev/null
     ethdevs=$(ls ethtool_[[:alpha:]]* | cut -d_ -f2)
-    # Setup local functions for ethtool & ethtool -i
+    # Setup local functions for ethtool & ethtool -i & ethtool -S
     __ethtool()   { cat ethtool_$1; }
     __ethtool_i() { [[ -r ethtool_-i_$1 ]] && cat ethtool_-i_$1; }
+    __ethtool_S() { [[ -r ethtool_-S_$1 ]] && cat ethtool_-S_$1; }
   fi
   
   # If have ethdevs to work on ...
   if [[ -n $ethdevs ]]; then
     echo -e "${c[H1]}ETHTOOL${c[0]}"
+    echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Status:${c[0]}"
     for i in $ethdevs; do
-      echo -e "  $i❚$(__ethtool $i |
+      echo -e "${XSOS_INDENT_H2}$i❚$(__ethtool $i |
       awk '
         /Link detected:/    { link = $3; sub(/yes/, "up", link); sub(/no/, "DOWN", link) }
         /Speed:/            { spd = $2 }
@@ -1728,6 +1731,19 @@ ETHTOOL() {
     )"
     done | column -ts❚ |
       awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" '/DOWN/{print D $0 H0}  /up/{print U $0 H0}'
+      
+    echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Errors:${c[0]}"
+    echo -en "${c[Warn1]}"
+    for i in $ethdevs; do
+      errsfound=
+      if errsfound=$(__ethtool_S $i | egrep '(drop|disc|err|fifo|buf).*: [^0]'); then
+        sed "s/^[[:space:]]*/${XSOS_INDENT_H2}$i  /" <<<"$errsfound"
+        count+=1
+      fi
+    done
+    [[ -z $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}[None]"
+    echo -en "${c[0]}"
+    
     [[ -n $changedir ]] && popd &>/dev/null
   fi
   echo -en $XSOS_HEADING_SEPARATOR
@@ -1760,6 +1776,7 @@ PROC_NET() {
         TxPackets[$1] = $11
         TxErrs[$1]    = $12
         TxDrop[$1]    = $13
+        TxCols[$1]    = $15
         
         # Set percent variables only if gt 0
         
@@ -1767,6 +1784,7 @@ PROC_NET() {
         if  ($5 > 0) RxDropPercent[$1] = "(" round($5  * 100 / $3,  0) "%)"
         if ($12 > 0) TxErrsPercent[$1] = "(" round($12 * 100 / $11, 0) "%)"
         if ($13 > 0) TxDropPercent[$1] = "(" round($13 * 100 / $11, 0) "%)"
+        if ($15 > 0) TxColsPercent[$1] = "(" round($15 * 100 / $11, 0) "%)"
         
         # Figure out what number to divide by to end up with KiB, MiB, GiB, or TiB
         
@@ -1821,14 +1839,14 @@ PROC_NET() {
       }
       
       END {
-        print "  Interface❚Rx"U"ytes❚RxPackets❚RxErrs❚RxDrop❚Tx"U"ytes❚TxPackets❚TxErrs❚TxDrop"
-        print "  =========❚=========❚=========❚======❚======❚=========❚=========❚======❚======"
+        print "  Interface❚Rx"U"ytes❚RxPackets❚RxErrs❚RxDrop❚Tx"U"ytes❚TxPackets❚TxErrs❚TxDrop❚TxColls"
+        print "  =========❚=========❚=========❚======❚======❚=========❚=========❚======❚======❚======="
         n = asorti(Interface, IF)
         for (i = 1; i <= n; i++)
         # printf "  %s❚%.0f❚%.0f%s❚%d %s❚%d %s❚%.0f❚%.0f%s❚%d (%.0f%%)❚%d (%.0f%%)\n",
-          printf "  %s❚%s❚%s%s❚%s %s❚%s %s❚%s❚%s%s❚%s %s❚%s %s\n",
+          printf "  %s❚%s❚%s%s❚%s %s❚%s %s❚%s❚%s%s❚%s %s❚%s %s❚%s %s\n",
             IF[i], RxBytes[IF[i]], RxPackets[IF[i]], Packets_Unit, RxErrs[IF[i]], RxErrsPercent[IF[i]], RxDrop[IF[i]], RxDropPercent[IF[i]], 
-                   TxBytes[IF[i]], TxPackets[IF[i]], Packets_Unit, TxErrs[IF[i]], TxErrsPercent[IF[i]], TxDrop[IF[i]], TxDropPercent[IF[i]]
+                   TxBytes[IF[i]], TxPackets[IF[i]], Packets_Unit, TxErrs[IF[i]], TxErrsPercent[IF[i]], TxDrop[IF[i]], TxDropPercent[IF[i]], TxCols[IF[i]], TxColsPercent[IF[i]]
       }
     ' | column -ts❚ |
       awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '

@@ -4,6 +4,13 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/07/18 xsos v0.1.10: net & ethtool enhancements; fix for lsb-release**
+
+- Closed [issue 64 - make xsos --os ignore /etc/lsb-release](https://github.com/ryran/xsos/issues/64)
+- Closed [issue 66 - RFE: show (TX) collisions from /proc/net/dev in --net](https://github.com/ryran/xsos/issues/66)
+- Added initial implementation for [issue 65 - RFE: Detect packet drops and/or network error counters](https://github.com/ryran/xsos/issues/65), adding to what `--ethtool` shows
+
+
 **2013/04/21 xsos v0.1.9: fix for sos boot time display; added softlockup sysctls**
 
 - Closed [issue 62 - Boot time (in --os output) wrong (showing as UTC) with EDT time zone (along with tons of others)](https://github.com/ryran/xsos/issues/62)
