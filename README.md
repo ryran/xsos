@@ -1,18 +1,38 @@
 xsos & rsar - Summarize system info from sosreports
 ===================================================
 
-![xsos parsing general os info and /proc/meminfo](http://b19.org/linux/xsos-osmem.png)
-
 **Jump to ...**
 
 * [I'M LOOKING FOR RSAR](/RSAR_README.md)
 * [CHANGELOG](/CHANGELOG.md)
+* [SCREEN SHOTS](#screen-shots)
+* [INTRO](#intro)
 * [INSTALLATION](#installation)
 * [EXAMPLES IN ACTION](#examples-in-action)
 * [REQUIREMENTS](#requirements)
 * [THINGS THAT MIGHT SURPRISE YOU](#things-that-might-surprise-you)
 * [AUTHORS](#authors)
 * [LICENSE](#license)
+
+
+SCREEN SHOTS
+-------
+
+**`xsos -om` OR `xsos --os --mem` would show something like the following:**
+
+![xsos parsing general os info and /proc/meminfo](http://b19.org/linux/xsos-osmem.png)
+
+**`xsos -cln` OR `xsos --cpu --lspci --net` could show this:**
+
+![xsos parsing /proc/cpuinfo, lspci, /proc/net/dev](http://b19.org/linux/xsos-cln.png)
+
+**`xsos -e` OR `xsos --ethtool` output looks like this:**
+
+![xsos parsing ethtool output](http://b19.org/linux/xsos-e.png)
+
+
+INTRO
+-------
 
 The goal of `xsos` is to make it easy to instantaneously gather information about a system together in an easy-to-read-summary, whether that system is the localhost on which xsos is being run or a system for which you have an unpacked sosreport.
 
@@ -23,8 +43,6 @@ There is tons of useful amazing instructive data available to normal users (not 
 New features are being added all the time -- see [the tracker](https://github.com/ryran/xsos/issues) to have a look at some of the things that are already in line to be worked on.
 
 **[Why another tool? Why not add stuff to `sxconsole`?](https://github.com/ryran/xsos/issues/9)**
-
-![xsos parsing /proc/cpuinfo, lspci, /proc/net/dev](http://b19.org/linux/xsos-cln.png)
 
 
 INSTALLATION
@@ -177,34 +195,36 @@ LSPCI
     Intel Corporation 2nd Generation Core Processor Family Integrated Graphics Controller (rev 09)
 
 ETHTOOL
-  em1         link=DOWN                        drv e1000e v2.0.0-k / fw 0.13-3
-  tun0        link=up 10Mb/s full (autoneg=N)  drv tun v1.6
-  virbr0      link=up                          drv bridge v2.3 / fw N/A
-  virbr0-nic  link=DOWN                        drv tun v1.6
-  vnet0       link=up 10Mb/s full (autoneg=N)  drv tun v1.6
-  wlan0       link=up                          drv iwlwifi v3.6.10-2.fc17.x86_64 / fw 9.221.4.1
+  Interface Status:
+    em1         link=up 1000Mb/s full (autoneg=Y)  drv e1000e v2.2.14-k / fw 0.13-3
+    tun0        link=up 10Mb/s full (autoneg=N)    drv tun v1.6
+    virbr0      link=DOWN                          drv bridge v2.3 / fw N/A
+    virbr0-nic  link=DOWN                          drv tun v1.6
+    wlan0       link=up                            drv iwlwifi v3.9.6-200.fc18.x86_64 / fw 9.221.4.1
+  Interface Errors:
+    em1  dropped_smbus: 267
+
 
 IP
   Interface   Slave Of  IPv4 Address        State  MAC Address
   =========   ========  ==================  =====  =================
   lo          -         127.0.0.1/8         up     -
-  em1         -         -                   up     f0:de:f1:ba:cf:c4
+  em1         -         192.168.0.20/24     up     f0:de:f1:ba:cf:c4
   wlan0       -         10.7.7.111/24       up     24:77:03:41:41:18
                         192.168.17.17/32            
   virbr0      -         192.168.122.1/24    up     52:54:00:97:e3:ee
   virbr0-nic  -         -                   DOWN   52:54:00:97:e3:ee
   tun0        -         10.10.49.81/32      up     -
-  vnet0       -         -                   up     fe:54:00:f9:3d:ec
 
 NETDEV
-  Interface   RxMiBytes  RxPackets  RxErrs  RxDrop  TxMiBytes  TxPackets  TxErrs  TxDrop
-  =========   =========  =========  ======  ======  =========  =========  ======  ======
-  em1         1729       1974 k     0       0       1729       705 k      0       0 
-  tun0        9          12 k       0       0       9          9 k        0       0 
-  virbr0      0          0 k        0       0       0          0 k        0       0 
-  virbr0-nic  0          0 k        0       0       0          0 k        0       0 
-  vnet0       0          0 k        0       0       0          0 k        0       0 
-  wlan0       194        194 k      0       0       194        140 k      0       0 
+  Interface   RxMiBytes  RxPackets  RxErrs  RxDrop  TxMiBytes  TxPackets  TxErrs  TxDrop  TxColls
+  =========   =========  =========  ======  ======  =========  =========  ======  ======  =======
+  em1         6715       6940 k     0       0       6715       1972 k     0       0       0 
+  tun0        0          0 k        0       0       0          0 k        0       0       0 
+  virbr0      8          41 k       0       0       8          37 k       0       0       0 
+  virbr0-nic  0          0 k        0       0       0          0 k        0       0       0 
+  wlan0       1902       1761 k     0       0       1902       1139 k     0       0       0 
+
 
 PS CHECK
   Total number of processes: 
