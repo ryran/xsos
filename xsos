@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.1.11 last mod 2013/07/18
+# xsos v0.1.12 last mod 2013/07/19
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
 #
@@ -1738,6 +1738,8 @@ ETHTOOL() {
       errsfound=
       if errsfound=$(__ethtool_S $i | egrep '(drop|disc|err|fifo|buf).*: [^0]'); then
         ethindent=$(tr '[[:graph:]]'   ' ' <<<"${XSOS_INDENT_H2}$i")
+        [[ -n $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}- - - - - - - - - - - - - - - - - - -"
+        echo -en "${c[Warn1]}"
         sed -e "1s/^[[:space:]]*/${XSOS_INDENT_H2}$i  /" -e "1!s/^[[:space:]]*/$ethindent  /" <<<"$errsfound"
         count+=1
       fi
