@@ -1,7 +1,8 @@
 #!/bin/bash
-# rsar v0.1.0rc6 last mod 2013/02/16
+# rsar v0.1.1 last mod 2013/08/21
 # Latest version at <http://github.com/ryran/xsos>
-# Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
+# RPM packages available at <http://people.redhat.com/rsawhill/rpms>
+# Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -21,10 +22,27 @@ pzero=rsar
 # Get version from line #2
 version=$(sed '2q;d' $0)
 
+# ==============================================================================
+# ENVIRONMENT VARIABLES -- Modify these by setting them in your shell
+# environment, e.g. ~/.bash_profile or /etc/profile.d/rsar.sh
+#
+# COLORS
+#
+#   RSAR_COLORS (bool: y/n)
+#     Controls whether color (bolding) is enabled or disabled by default
+#     Cannot be controlled by cmdline arg 
+      [[ -z $RSAR_COLORS ]] && RSAR_COLORS=y
+#      
+# ==============================================================================
+
 # Colors
-reset='\033[0;0m'
-bold='\033[1;1m'
-red='\033[1;31m'
+if [[ $RSAR_COLORS == y ]]; then
+  reset='\033[0;0m'
+  bold='\033[1;1m'
+  red='\033[1;31m'
+else
+  unset reset bold red
+fi
 
 # GNU getopt option definitions:
 saropts='A:bBcdHI:n:P:qrRSuvwWy'
@@ -129,6 +147,10 @@ Examples:
   $pzero sar03 -P all -t Average
   $pzero -t^09:30 -n edev,sock -N eth3 -I sum sar19.bz2
   $pzero -x iowait -P [0-3] -t^15:30 /tmp/sar26.gz /tmp/sar27.xz -RB
+
+Color:
+  Disable color and bold formatting by setting the environment variable
+  RSAR_COLORS to 'no'
   
 "
   VERSINFO

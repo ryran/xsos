@@ -1,10 +1,10 @@
 # This file is part of rsar, providing intelligent rsar tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2013/02/16, matching up with rsar v0.1.0rc6
+# Revision date:  2013/08/21, matching up with rsar v0.1.1
 # Latest version: <http://github.com/ryran/xsos>
 # 
-# Copyright 2013 Ryan Sawhill <rsaw@redhat.com>
+# Copyright 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
 # 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
