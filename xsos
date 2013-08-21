@@ -1,7 +1,8 @@
 #!/bin/bash
-# xsos v0.1.12 last mod 2013/07/19
+# xsos v0.2.0 last mod 2013/07/30
 # Latest version at <http://github.com/ryran/xsos>
-# Copyright 2012, 2013 Ryan Sawhill <rsaw@redhat.com>
+# RPM packages available at <http://people.redhat.com/rsawhill/rpms>
+# Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -205,8 +206,8 @@ Content options:"
 HELP_OPTS_DISPLAY() {
   echo "
 Display options:"
+# --rhsupport❚tweak os output to focus on RHEL-centric support issues
   echo "
- --rhsupport❚tweak os output to focus on RHEL-centric support issues
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
@@ -2112,7 +2113,7 @@ PSCHECK() {
   Zombies=$(awk -vc_grey="${c[DGREY]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
   [[ -n $Dsleepers ]] && Dsleepers="\n$Dsleepers"
   [[ -n $Zombies ]] && Zombies="\n$Zombies"
-  [[ -z $Dsleepers && -z $Zombies ]] && Dsleepers="\n$XSOS_INDENT_H2${c[dgrey]}(None)${c[0]}"
+  [[ -z $Dsleepers && -z $Zombies ]] && Dsleepers="\n$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}"
   
   # Calculte top cpu-using & mem-using users
   if [[ $XSOS_PS_LEVEL < 3 ]]; then  # If verbosity level 0-2, restrict number of users shown

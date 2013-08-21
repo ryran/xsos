@@ -1,10 +1,10 @@
 # This file is part of xsos, providing intelligent xsos tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2013/01/13, matching up with xsos v0.1.2
+# Revision date:  2013/08/21 matching up with xsos v0.2.0
 # Latest version: <http://github.com/ryran/xsos>
 # 
-# Copyright 2013 Ryan Sawhill <rsaw@redhat.com>
+# Copyright 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
 # 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -92,5 +92,6 @@ _xsos()  {
 }
 
 # Add the names of any xsos aliases (or alternate file-names) to the end of the following line
-complete -F _xsos xsos
+# (And remove "x" if you have an "x" command that *isn't* an alias for xsos)
+complete -F _xsos xsos x
 
