@@ -4,6 +4,18 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/08/21 rsar v0.1.1 implemeted RSAR_COLORS env to disable coloring**
+
+- Fixed my name in the header and added info about soon-to-come rpm website
+- Checks for `RSAR_COLORS` environment variable; if set and set to anything other than `y`, coloring (incl. bold) will be disabled
+
+
+**2013/08/21 xsos v0.2.0: time for a version bump. also temp.disabled rhsupport option**
+
+- Fixed my name in the header and added info about soon-to-come rpm website
+- Commented out `--rhsupport` option for now, until I can write the logic for it
+
+
 **2013/07/23 xsos v0.1.12: further improvement (again) to ethtool errors**
 
 - Probably-final tweaks prior to closing of [issue 65 - RFE: Detect packet drops and/or network error counters](https://github.com/ryran/xsos/issues/65)
