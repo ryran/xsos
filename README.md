@@ -54,15 +54,15 @@ Two choices:
 
 1. Get the very latest (potentially bleeding-edge) version directly by downloading the main xsos file from [bit.ly/xsos-direct](http://bit.ly/xsos-direct) (which points to [raw.github.com/ryran/xsos/master/xsos](https://raw.github.com/ryran/xsos/master/xsos)). Updating will need to be done manually (either by re-downloading or by using xsos' `--update` option).
 
-2. RECOMMENDED: Configure access to the Fedora/RHEL6+ yum repository @ [people.redhat.com/rsawhill/rpms](http://people.redhat.com/rsawhill/rpms/) and install the [potentially not-as-bleeding-edge] xsos rpm from there. Updating can happen automatically along with the rest of your system. Note for the cautious/paranoid: all the RPMs uploaded there are signed with my (ryran AKA rsaw) GPG key which is also there (also avail at [b19.org](http://b19.org).
+2. RECOMMENDED: Configure access to the Fedora/RHEL6+ yum repository @ [people.redhat.com/rsawhill/rpms](http://people.redhat.com/rsawhill/rpms/) and install the [potentially not-as-bleeding-edge] xsos rpm from there. Updating can happen automatically along with the rest of your system. Note for the cautious/paranoid: all the RPMs uploaded there are signed with my (ryran AKA rsaw) GPG key which is also there (also avail at [b19.org](http://b19.org)).
 
 **Manual Install:**
 
 Run the following as root:
 
 ```
-# wget -O /usr/local/bin/xsos bit.ly/xsos-direct
-# chmod +x /usr/local/bin/xsos'
+wget -O /usr/local/bin/xsos bit.ly/xsos-direct
+chmod +x /usr/local/bin/xsos
 ```
 
 **Yum Repo + RPM:**
@@ -70,8 +70,8 @@ Run the following as root:
 Run the following as root:
 
 ```
-# yum install http://people.redhat.com/rsawhill/rpms/latest-rsawaroha-release.rpm
-# yum install xsos
+yum install http://people.redhat.com/rsawhill/rpms/latest-rsawaroha-release.rpm
+yum install xsos
 ```
 
 Once xsos is installed by one of the above methods, run `xsos -h` as a normal user to see the help page and get started.

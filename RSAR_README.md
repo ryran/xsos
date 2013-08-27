@@ -20,8 +20,8 @@ Two choices:
 Run the following as root:
 
 ```
-# wget -O /usr/local/bin/rsar bit.ly/rsar-direct
-# chmod +x /usr/local/bin/rsar'
+wget -O /usr/local/bin/rsar bit.ly/rsar-direct
+chmod +x /usr/local/bin/rsar
 ```
 
 **Yum Repo + RPM:**
@@ -29,8 +29,8 @@ Run the following as root:
 Run the following as root:
 
 ```
-# yum install http://people.redhat.com/rsawhill/rpms/latest-rsawaroha-release.rpm
-# yum install rsar
+yum install http://people.redhat.com/rsawhill/rpms/latest-rsawaroha-release.rpm
+yum install rsar
 ```
 
 Once rsar is installed by one of the above methods, run `rsar -h` as a normal user to see the help page and get started.
