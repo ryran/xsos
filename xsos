@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.0 last mod 2013/07/30
+# xsos v0.2.1 last mod 2013/08/27
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -128,7 +128,7 @@ fi
 #
 # XSOS_ALL_VIEW (str of variables, semicolon-separated)
 #   Controls what content modules to run when -a/--all switch is used
-    [[ -z $XSOS_ALL_VIEW ]] && XSOS_ALL_VIEW='bios=y; os=y; cpu=y; mem=y; disks=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y; ps=y'
+    [[ -z $XSOS_ALL_VIEW ]] && XSOS_ALL_VIEW='bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y; ps=y'
 #
 #
 # XSOS_DEFAULT_VIEW (str of variables, semicolon-separated)
@@ -141,6 +141,13 @@ fi
     [[ -z $XSOS_PS_LEVEL ]] && XSOS_PS_LEVEL=1
 #
 #
+# XSOS_MULTIPATH_QUERY (string: arbitrary regex)
+#   Only a tenuous case can be made for statically setting this
+#   It's used by the MULTIPATH() function to restrict display to a particular mpath device
+#   Traditionally controled by -q/--wwid option
+    [[ -z $XSOS_MULTIPATH_QUERY ]] && XSOS_MULTIPATH_QUERY=
+#
+#   
 # XSOS_MEM_UNIT (str: b, k, m, g, t)
 #   Sets unit used by MEMINFO() function for printing
 #   Can also be controlled by cmdline opt -u/--unit
@@ -177,8 +184,8 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: $pzero [DISPLAY OPTIONS] [-abocmdleinsp] [SOSREPORT ROOT]
-  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--L|--I|--N|--P FILE}...
+  echo "Usage: $pzero [DISPLAY OPTIONS] [-abocmdtleinsp] [SOSREPORT ROOT]
+  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--I|--N|--P FILE}...
   or:  $pzero [-?|-h|--help]
   or:  $pzero [-U|--update]
 
@@ -194,7 +201,8 @@ Content options:"
  -o, --os❚show hostname, distro, SELinux, kernel info, uptime, etc
  -c, --cpu❚show info from /proc/cpuinfo
  -m, --mem❚show info from /proc/meminfo
- -d, --disks❚show info from /proc/partitions + dm-multipath
+ -d, --disks❚show info from /proc/partitions + dm-multipath synopsis
+ -t, --mpath❚show info from dm-multipath
  -l, --lspci❚show info from lspci
  -e, --ethtool❚show info from ethtool
  -i, --ip❚show info from ip addr (BASH v4+ required)
@@ -208,6 +216,8 @@ HELP_OPTS_DISPLAY() {
 Display options:"
 # --rhsupport❚tweak os output to focus on RHEL-centric support issues
   echo "
+ -q, --wwid=ID❚restrict dm-multipath output to a particular mpath device,
+             ❚where ID is a wwid, friendly name, or LUN identifier to search for 
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
@@ -225,6 +235,7 @@ Special options (BASH v4+ required):"
  --C=FILE❚read from FILE containing /proc/cpuinfo dump
  --M=FILE❚read from FILE containing /proc/meminfo dump
  --D=FILE❚read from FILE containing /proc/partitions dump
+ --T=FILE❚read from FILE containing \`multipath -v4 -ll\` dump
  --L=FILE❚read from FILE containing \`lspci\` dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
  --N=FILE❚read from FILE containing /proc/net/dev dump
@@ -380,8 +391,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='u:v:w:xyzabocmdleinsp'
-lopts='rhsupport,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,L:,I:,N:,P:'
+sopts='q:u:v:w:xyzabocmdtleinsp'
+lopts='rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -416,16 +427,24 @@ _OPT_CHECK() {
       [[ $s == $chosen_opt ]] && return
     done
     echo "$pzero: option '$option' expects one of: { $valid_opts } "
+  
+  elif [[ $check_type == anystring ]]; then
+    [[ -n $2 ]] && return
+    echo "$pzero: option '$option' expects a non-null string value"
   fi
+  
   exit 64
 }
 
 
 # Parse command-line arguments
 PARSE() {
-  unset opts all bios os cpu mem disks lspci ethtool ip net sysctl ps
+  unset opts all bios os cpu mem disks mpath lspci ethtool ip net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
+      -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
+                      XSOS_MULTIPATH_QUERY=$2; shift 2
+                    ;;
       -u|--unit)    _OPT_CHECK "unit" "$2" string "b k m g t"
                       XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2
                     ;;
@@ -445,6 +464,7 @@ PARSE() {
       -c|--cpu)     shift; opts=y; cpu=y     ;;
       -m|--mem)     shift; opts=y; mem=y     ;;
       -d|--disks)   shift; opts=y; disks=y   ;;
+      -t|--mpath)   shift; opts=y; mpath=y   ;;
       -l|--lspci)   shift; opts=y; lspci=y   ;;
       -e|--ethtool) shift; opts=y; ethtool=y ;;
       -i|--ip)      shift; opts=y; ip=y      ;;
@@ -456,6 +476,7 @@ PARSE() {
       --C)  sfile[C]=$2; shift 2 ;;
       --M)  sfile[M]=$2; shift 2 ;;
       --D)  sfile[D]=$2; shift 2 ;;
+      --T)  sfile[T]=$2; shift 2 ;;
       --L)  sfile[L]=$2; shift 2 ;;
       --I)  sfile[I]=$2; shift 2 ;;
       --N)  sfile[N]=$2; shift 2 ;;
@@ -1430,7 +1451,7 @@ STORAGE() {
   echo -e "${c[H1]}STORAGE${c[0]}"
   
   # Get mpath input if necessary
-  if [[ $2 == --mpath ]]; then
+  if [[ $2 != --no-mpath ]]; then
     if [[ $1 == / && $UID -eq 0 ]]; then
       # Get multipath input from command, because $1 is system
       mpath_input=$(multipath -v4 -ll 2>/dev/null)
@@ -1511,6 +1532,51 @@ STORAGE() {
           printf "    %s \t%.0f\n", disk_sorted[i], disk[disk_sorted[i]]
       }
     '
+  echo -en $XSOS_HEADING_SEPARATOR
+}
+
+
+MULTIPATH() {
+  # Local vars:
+  local mpath_input search_cmd mpath_output
+  
+  # If localhost, grab output from multipath
+  if [[ -z $1 ]]; then
+    mpath_input=$(multipath -v4 -ll 2>/dev/null)
+
+  # If directory, assume sosreport and look for multipath output
+  elif [[ -d $1 ]]; then
+    mpath_input=$(<"$1/sos_commands/devicemapper/multipath_-v4_-ll")
+
+  # Otherwise grab file
+  elif [[ -f $1 ]]; then
+    mpath_input=$(<$1)
+  fi
+
+  echo -e "${c[H1]}DM-MULTIPATH${c[0]}"
+  
+  # If we have a specific query, we'll use awk for post-processing
+  # Otherwise simply use cat
+  if [[ -n $XSOS_MULTIPATH_QUERY ]]; then
+    search_cmd="awk -vRS=\n\n /$XSOS_MULTIPATH_QUERY/"
+  else
+    search_cmd=cat
+  fi
+  
+  # Need to parse through `multipath -v4 -ll` output from multiple version of rhel
+  mpath_output=$(awk '
+    /^[[:graph:]]+ \([[:alnum:][:punct:]]+\) *dm-/
+    /^[[:graph:]]+ *dm-/
+    /^\[?size=/
+    /(\\_|\|-|`-)/
+  ' <<<"$mpath_input")
+  
+  if [[ -n $mpath_output ]]; then
+    sed '1!s,^[[:alnum:]].*dm-,\n&,' <<<"$mpath_output" | $search_cmd | sed "s/^/$XSOS_INDENT_H1/"
+  else
+    echo -e "${XSOS_INDENT_H1}${c[DGREY]}[No paths detected]"
+  fi
+  
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
@@ -2225,7 +2291,8 @@ if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
   [[ -r ${sfile[C]} ]] && CPUINFO   "${sfile[C]}"
   [[ -r ${sfile[M]} ]] && MEMINFO   "${sfile[M]}"
-  [[ -r ${sfile[D]} ]] && STORAGE   "${sfile[D]}"
+  [[ -r ${sfile[D]} ]] && STORAGE   "${sfile[D]}" --no-mpath
+  [[ -r ${sfile[T]} ]] && MULTIPATH "${sfile[T]}"
   [[ -r ${sfile[L]} ]] && LSPCI     "${sfile[L]}"
   [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
   [[ -r ${sfile[N]} ]] && PROC_NET  "${sfile[N]}"
@@ -2237,7 +2304,9 @@ elif [[ -n $sosroot ]]; then
   SOS_CHECKFILE os      "proc/"                              && OSINFO    "$sosroot"
   SOS_CHECKFILE cpu     "proc/cpuinfo"                       && CPUINFO   "$sosroot"
   SOS_CHECKFILE mem     "proc/meminfo"                       && MEMINFO   "$sosroot"
-  SOS_CHECKFILE disks   "proc/partitions"                    && STORAGE   "$sosroot" --mpath
+  SOS_CHECKFILE disks   "proc/partitions"                    && STORAGE   "$sosroot"
+  SOS_CHECKFILE mpath   "sos_commands/devicemapper/multipath_-v4_-ll" \
+                                                             && MULTIPATH "$sosroot"
   SOS_CHECKFILE lspci   "lspci"                              && LSPCI     "$sosroot"
   SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && ETHTOOL   "$sosroot"
   SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && IPADDR    "$sosroot"
@@ -2251,7 +2320,8 @@ else
   [[ -n $os ]]      && OSINFO /
   [[ -n $cpu ]]     && CPUINFO /
   [[ -n $mem ]]     && MEMINFO /
-  [[ -n $disks ]]   && STORAGE / --mpath
+  [[ -n $disks ]]   && STORAGE /
+  [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
   [[ -n $lspci ]]   && COND_RUN lspci
   [[ -n $ethtool ]] && COND_RUN ethtool --require_root
   [[ -n $ip ]]      && IPADDR

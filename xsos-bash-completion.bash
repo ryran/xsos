@@ -1,7 +1,7 @@
 # This file is part of xsos, providing intelligent xsos tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2013/08/21 matching up with xsos v0.2.0
+# Revision date:  2013/08/27 matching up with xsos v0.2.1
 # Latest version: <http://github.com/ryran/xsos>
 # 
 # Copyright 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -32,14 +32,14 @@ _xsos()  {
   
   # Short and long options
   shrtopts="-h -V -U
-            -a -b -o -c -m -d -l -e -i -n -s -p
-            -u -v -w
+            -a -b -o -c -m -d -t -l -e -i -n -s -p
+            -q -u -v -w
             -x -y -z"
             
   longopts="--help --version --update
-            --all --bios --os --cpu --mem --disks --lspci --ethtool --ip --net --sysctl --ps
-            --B --C --M --D --L --I --N --P
-            --unit --verbose --width
+            --all --bios --os --cpu --mem --disks --mpath --lspci --ethtool --ip --net --sysctl --ps
+            --B --C --M --D --T --L --I --N --P
+            --wwid --unit --verbose --width
             --nocolor --less --more"
   
   # Check previous arg to see if we need to do anything special
@@ -51,7 +51,7 @@ _xsos()  {
           ;;
           
       # These special opts require filenames as arguments
-	    --B|--C|--M|--D|--L|--I|--N|--P)
+	    --B|--C|--M|--D|--T|--L|--I|--N|--P)
 	        compopt -o plusdirs  # Important!
 	        COMPREPLY=( $(compgen -f -- "$curr") )
           return 0

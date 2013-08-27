@@ -4,6 +4,10 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/08/27 xsos v0.2.1 implemeted -t/--mpath option to parse dm-multipath**
+
+- Closed [issue 68 - RFE: Better way to parse dm-multipath output?](https://github.com/ryran/xsos/issues/68) by adding new MULTIPATH module + a drill-down query option of `-q`/`--wwid`. See closed issue for details.
+
 
 **2013/08/26 NOTICE: YUM REPOSITORY AVAILBLE**
 
