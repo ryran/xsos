@@ -50,20 +50,31 @@ INSTALLATION
 
 *"I'm sold! How do I install xsos?"*
 
-Simply download [this one file](http://bit.ly/xsos-direct) and save it to a directory that's in your `$PATH`. Make it executable and you'll be good to go!  
+Two choices:
 
-**Example:**
+1. Get the very latest (potentially bleeding-edge) version directly by downloading the main xsos file from [bit.ly/xsos-direct](http://bit.ly/xsos-direct) (which points to [raw.github.com/ryran/xsos/master/xsos](https://raw.github.com/ryran/xsos/master/xsos)). Updating will need to be done manually (either by re-downloading or by using xsos' `--update` option).
+
+2. RECOMMENDED: Configure access to the Fedora/RHEL6+ yum repository @ [people.redhat.com/rsawhill/rpms](http://people.redhat.com/rsawhill/rpms/) and install the [potentially not-as-bleeding-edge] xsos rpm from there. Updating can happen automatically along with the rest of your system. Note for the cautious/paranoid: all the RPMs uploaded there are signed with my (ryran AKA rsaw) GPG key which is also there (also avail at [b19.org](http://b19.org).
+
+**Manual Install:**
+
+Run the following as root:
 
 ```
-$ su -c 
 # wget -O /usr/local/bin/xsos bit.ly/xsos-direct
-# chmod +x /usr/local/bin/xsos
-# exit
-$ xsos -h
+# chmod +x /usr/local/bin/xsos'
 ```
 
-Additionally, if you want intelligent BASH autocompletion, save [this file](https://raw.github.com/ryran/xsos/master/xsos-bash-completion.bash) to your `/etc/bash_completion.d/` directory. (Make sure to read the very last 2 lines of it.)
+**Yum Repo + RPM:**
 
+Run the following as root:
+
+```
+# yum install http://people.redhat.com/rsawhill/rpms/latest-rsawaroha-release.rpm
+# yum install xsos
+```
+
+Once xsos is installed by one of the above methods, run `xsos -h` as a normal user to see the help page and get started.
 
 
 EXAMPLES IN ACTION
@@ -501,9 +512,9 @@ THINGS THAT MIGHT SURPRISE YOU
 AUTHORS
 -------
 
-As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill](http://b19.org).
+As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill Aroha](http://b19.org).
 
-When I was clueless in how to further my awk career early on, two prolific users over on StackOverflow -- [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) -- each provided an answer with code that was brilliantly instructive. I've since moved far beyond what I was trying to do back then, and thanks definitely goes to both of them for inspiration.
+When I was clueless in how to further my awk career early on, two prolific users over on StackOverflow -- [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) -- each provided answers (to two separate questions) with code that was brilliantly instructive. I've since moved far beyond what I was trying to do back then, but thanks definitely goes to both of them for inspiration.
 
 Please contact me if you have ideas, suggestions, questions, or want to collaborate on this or something similar. For specific bugs and feature-requests, you can [post a new issue on the tracker](/ryran/xsos/issues).
 
@@ -511,7 +522,7 @@ Please contact me if you have ideas, suggestions, questions, or want to collabor
 LICENSE
 -------
 
-Copyright (C) 2012, 2013 [Ryan Sawhill](http://b19.org)
+Copyright (C) 2012, 2013 [Ryan Sawhill Aroha](http://b19.org)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

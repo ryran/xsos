@@ -4,6 +4,12 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+
+**2013/08/26 NOTICE: YUM REPOSITORY AVAILBLE**
+
+- Updated installation instructions in the READMES
+
+
 **2013/08/21 rsar v0.1.1 implemeted RSAR_COLORS env to disable coloring**
 
 - Fixed my name in the header and added info about soon-to-come rpm website

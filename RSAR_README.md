@@ -9,19 +9,32 @@ The goal behind `rsar` is to make this process a little bit easier. rsar is like
 INSTALLATION
 -------
 
-Simply download [this one file](http://bit.ly/rsar-direct) and save it to a directory that's in your `$PATH`. Make it executable and you'll be good to go!  
+Two choices:
 
-**Example:**
+1. Get the very latest (potentially bleeding-edge) version directly by downloading the main rsar file from [bit.ly/rsar-direct](http://bit.ly/rsar-direct) (which points to [raw.github.com/ryran/xsos/master/rsar](https://raw.github.com/ryran/xsos/master/rsar)). Updating will need to be done manually by re-downloading it.
+
+2. RECOMMENDED: Configure access to the Fedora/RHEL6+ yum repository @ [people.redhat.com/rsawhill/rpms](http://people.redhat.com/rsawhill/rpms/) and install the [potentially not-as-bleeding-edge] rsar RPM from there. Updating can happen automatically along with the rest of your system. Note for the cautious/paranoid: all the RPMs uploaded there are signed with my (ryran AKA rsaw) GPG key which is also there (+ avail at [b19.org](http://b19.org)).
+
+**Manual Install:**
+
+Run the following as root:
 
 ```
-$ su -
 # wget -O /usr/local/bin/rsar bit.ly/rsar-direct
-# chmod +x /usr/local/bin/rsar
-# exit
-$ rsar -h
+# chmod +x /usr/local/bin/rsar'
 ```
 
-Additionally, if you want intelligent BASH autocompletion, save [this file](https://raw.github.com/ryran/xsos/master/rsar-bash-completion.bash) to your `/etc/bash_completion.d/` directory. (Make sure to read the very last 2 lines of it if you change the name of `rsar` or call it by an alias .)
+**Yum Repo + RPM:**
+
+Run the following as root:
+
+```
+# yum install http://people.redhat.com/rsawhill/rpms/latest-rsawaroha-release.rpm
+# yum install rsar
+```
+
+Once rsar is installed by one of the above methods, run `rsar -h` as a normal user to see the help page and get started.
+
 
 
 USAGE
