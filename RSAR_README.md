@@ -11,30 +11,20 @@ INSTALLATION
 
 Two choices:
 
-1. Get the very latest (potentially bleeding-edge) version directly by downloading the main rsar file from [bit.ly/rsar-direct](http://bit.ly/rsar-direct) (which points to [raw.github.com/ryran/xsos/master/rsar](https://raw.github.com/ryran/xsos/master/rsar)). Updating will need to be done manually by re-downloading it.
+1. **Manual install:**
+   Get the very latest (potentially bleeding-edge) version directly by downloading the main rsar file from [bit.ly/rsar-direct](http://bit.ly/rsar-direct) (which points to [raw.github.com/ryran/xsos/master/rsar](https://raw.github.com/ryran/xsos/master/rsar)). Updating will need to be done manually by re-downloading it.
+   Explicitly, you could run the following as root:
+   
+    ```
+    wget -O /usr/local/bin/rsar bit.ly/rsar-direct
+    chmod +x /usr/local/bin/rsar
+    ```
 
-2. RECOMMENDED: Configure access to the Fedora/RHEL6+ yum repository @ [people.redhat.com/rsawhill/rpms](http://people.redhat.com/rsawhill/rpms/) and install the [potentially not-as-bleeding-edge] rsar RPM from there. Updating can happen automatically along with the rest of your system. Note for the cautious/paranoid: all the RPMs uploaded there are signed with my (ryran AKA rsaw) GPG key which is also there (+ avail at [b19.org](http://b19.org)).
-
-**Manual Install:**
-
-Run the following as root:
-
-```
-wget -O /usr/local/bin/rsar bit.ly/rsar-direct
-chmod +x /usr/local/bin/rsar
-```
-
-**Yum Repo + RPM:**
-
-Run the following as root:
-
-```
-yum install http://people.redhat.com/rsawhill/rpms/latest-rsawaroha-release.rpm
-yum install rsar
-```
+2. **RPM/Yum repo (recommended):**
+   Configure access to the Fedora/RHEL6+ yum repository @ [people.redhat.com/rsawhill/rpms](http://people.redhat.com/rsawhill/rpms/) and install the [potentially not-as-bleeding-edge] rsar RPM from there. Updating can happen automatically along with the rest of your system.
+   Two-step instructions @ [How to install xsos or rsar via yum?](https://github.com/ryran/xsos/issues/67#issuecomment-23339115)
 
 Once rsar is installed by one of the above methods, run `rsar -h` as a normal user to see the help page and get started.
-
 
 
 USAGE
