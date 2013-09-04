@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.1 last mod 2013/08/27
+# xsos v0.2.2b last mod 2013/09/03
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -91,7 +91,7 @@ fi
       [[ -z $XSOS_COLOR_IFUP ]] && XSOS_COLOR_IFUP=${c[green]}
 #
 #   XSOS_COLOR_IFDOWN -- color for ethtool InterFace "down"
-      [[ -z $XSOS_COLOR_IFDOWN ]] && XSOS_COLOR_IFDOWN=${c[red]}
+      [[ -z $XSOS_COLOR_IFDOWN ]] && XSOS_COLOR_IFDOWN=${c[dgrey]}
 #
 #
 # INDENTATION
@@ -128,7 +128,7 @@ fi
 #
 # XSOS_ALL_VIEW (str of variables, semicolon-separated)
 #   Controls what content modules to run when -a/--all switch is used
-    [[ -z $XSOS_ALL_VIEW ]] && XSOS_ALL_VIEW='bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; ip=y; net=y; sysctl=y; ps=y'
+    [[ -z $XSOS_ALL_VIEW ]] && XSOS_ALL_VIEW='bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; bonding=y; ip=y; netdev=y; sysctl=y; ps=y'
 #
 #
 # XSOS_DEFAULT_VIEW (str of variables, semicolon-separated)
@@ -184,8 +184,8 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: $pzero [DISPLAY OPTIONS] [-abocmdtleinsp] [SOSREPORT ROOT]
-  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--I|--N|--P FILE}...
+  echo "Usage: $pzero [DISPLAY OPTIONS] [-abocmdtleginsp] [SOSREPORT ROOT]
+  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--G|--I|--N|--P FILE}...
   or:  $pzero [-?|-h|--help]
   or:  $pzero [-U|--update]
 
@@ -205,8 +205,10 @@ Content options:"
  -t, --mpath❚show info from dm-multipath
  -l, --lspci❚show info from lspci
  -e, --ethtool❚show info from ethtool
+ -g, --bonding❚show info from /proc/net/bonding
  -i, --ip❚show info from ip addr (BASH v4+ required)
- -n, --net❚show info from /proc/net/dev
+ -n, --netdev❚show info from /proc/net/dev
+     --net❚alias for: --lspci --ethtool --bonding --ip --netdev
  -s, --sysctl❚show important kernel sysctls
  -p, --ps❚inspect running processes via ps" | column -ts❚
 }
@@ -238,6 +240,7 @@ Special options (BASH v4+ required):"
  --T=FILE❚read from FILE containing \`multipath -v4 -ll\` dump
  --L=FILE❚read from FILE containing \`lspci\` dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
+ --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
  --N=FILE❚read from FILE containing /proc/net/dev dump
  --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
 }
@@ -391,8 +394,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='q:u:v:w:xyzabocmdtleinsp'
-lopts='rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,ip,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,N:,P:'
+sopts='q:u:v:w:xyzabocmdtleginsp'
+lopts='rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -439,7 +442,7 @@ _OPT_CHECK() {
 
 # Parse command-line arguments
 PARSE() {
-  unset opts all bios os cpu mem disks mpath lspci ethtool ip net sysctl ps
+  unset opts all bios os cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
       -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
@@ -467,10 +470,12 @@ PARSE() {
       -t|--mpath)   shift; opts=y; mpath=y   ;;
       -l|--lspci)   shift; opts=y; lspci=y   ;;
       -e|--ethtool) shift; opts=y; ethtool=y ;;
+      -g|--bonding) shift; opts=y; bonding=y ;;
       -i|--ip)      shift; opts=y; ip=y      ;;
-      -n|--net)     shift; opts=y; net=y     ;;
+      -n|--netdev)  shift; opts=y; netdev=y  ;;
       -s|--sysctl)  shift; opts=y; sysctl=y  ;;
       -p|--ps)      shift; opts=y; ps=y      ;;
+      --net)        shift; opts=y; lspci=y; ethtool=y; ip=y; bonding=y; netdev=y ;;
       
       --B)  sfile[B]=$2; shift 2 ;;
       --C)  sfile[C]=$2; shift 2 ;;
@@ -478,6 +483,7 @@ PARSE() {
       --D)  sfile[D]=$2; shift 2 ;;
       --T)  sfile[T]=$2; shift 2 ;;
       --L)  sfile[L]=$2; shift 2 ;;
+      --G)  sfile[G]=$2; shift 2 ;;
       --I)  sfile[I]=$2; shift 2 ;;
       --N)  sfile[N]=$2; shift 2 ;;
       --P)  sfile[P]=$2; shift 2 ;;
@@ -1635,6 +1641,115 @@ LSPCI() {
 }
 
 
+BONDING() {
+  # Local vars:
+  local bond_input files f mode active slaves slave s
+  
+  __transform_mode() {
+    # Could be vastly improved by using bashV4 associative array, but KISS for rhel5 peeps
+    
+    if [[ $1 == "load balancing (round-robin)" ]]; then
+      mode="0 (balance-rr)"
+    
+    elif [[ $1 == "fault-tolerance (active-backup)" ]]; then
+      mode="1 (active-backup)"
+    
+    elif [[ $1 == "load balancing (xor)" ]]; then
+      mode="2 (balance-xor)"
+    
+    elif [[ $1 == "fault-tolerance (broadcast)" ]]; then
+      mode="3 (broadcast)"
+    
+    elif [[ $1 == "IEEE 802.3ad Dynamic link aggregation" ]]; then
+      mode="4 (802.3ad)"
+    
+    elif [[ $1 == "transmit load balancing" ]]; then
+      mode="5 (balance-tlb)"
+    
+    elif [[ $1 == "adaptive load balancing" ]]; then
+      mode="6 (balance-alb)"
+    
+    else
+      mode="unrecognized: $1"
+    fi
+  }
+  
+  echo -e "${c[H1]}BONDING${c[0]}"
+    
+  # If localhost, use /proc
+  if [[ -z $1 ]]; then
+    files=(/proc/net/bonding/*)
+  # If passed a file (i.e. xsos --G <file>), use that
+  elif [[ -f $1 ]]; then
+    files=($1)
+  # Otherwise, use files from $sosroot
+  else
+    files=("$1"/proc/net/bonding/*)
+  fi
+  
+  # The bracket here is like using parens to make a subshell -- allows to capture all stdout
+  { 
+    # Header info ("❚" is used later by `column` to columnize the output)
+    echo "  Device❚Mode❚Slaves (* denotes active)"
+    echo "  ========❚=================❚==========================="
+    
+    f=0; for bond_input in ${files[@]}; do
+      
+      echo -n "  ${bond_input##*/}❚"
+      
+      __transform_mode "$(awk -F: '/Bonding Mode/ {printf $2}' $bond_input | sed -e 's/^ //')"
+      echo -n "$mode❚"
+      
+      active=$(awk '/Active Slave/ {printf $4}' $bond_input)
+      
+      slaves=($(awk '/^Slave Interface:/ {print $3}' $bond_input))
+      
+      [[ ${#slaves[@]} -eq 0 ]] && echo " [None]"
+      
+      s=0; until [[ $s -eq ${#slaves[@]} ]]; do
+        if [[ $s -eq 0 ]]; then
+          if [[ $active == ${slaves[s]} ]]; then
+            echo -n "* ${slaves[s]}"
+          else
+            echo -n "  ${slaves[s]}"
+          fi
+        else
+          if [[ $active == ${slaves[s]} ]]; then
+            echo -n " ❚ ❚* ${slaves[s]}"
+          else
+            echo -n " ❚ ❚  ${slaves[s]}"
+          fi
+        fi
+        
+        awk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}/ $bond_input | 
+          awk '/Permanent HW addr/ {printf " (%s)", $4}'
+        s=$((s+1))
+        echo
+      done
+    f=$((f+1))
+    [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚- - - - - - - - - - - - - -"
+    done 
+  } |
+    column -ts❚ |
+    
+      # And then we need to do some color funness!
+      # This colorizes the first 2 lines with the H2 color and the interfaces with H3
+      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
+        {
+          if (NR <= 2) print H2 $0 H0
+          else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
+        }' |
+          awk -vU="${c[Up]}" -vH0="${c[0]}" -vgrey="${c[DGREY]}" '
+            {
+              if (NR <= 2) print
+              else if ($1 == "-") print grey $0 H0
+              else printf gensub(/( \*.*)/,   U"\\1"H0, 1)"\n"
+            }'
+        
+  echo -en $XSOS_HEADING_SEPARATOR
+}
+
+
 IPADDR() {
 # I spent a long time wondering how I would end up implementing ip-addr functionality
 # I couldn't think of a lovely elegant gawk-way and in the end I wrote this in 2 hours
@@ -1736,15 +1851,16 @@ IPADDR() {
     
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
-      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
+      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" -vU="${c[Up]}" -vD="${c[Down]}" '
         {
           if (NR <= 2) print H2 $0 H0
-          else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
+          else {
+            if ($4 == "DOWN") print D $0 H0
+            else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"U, 1)"\n"
+          }
         }'
-
   echo -en $XSOS_HEADING_SEPARATOR
 }
-
 
 
 ETHTOOL() {
@@ -2294,6 +2410,7 @@ if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   [[ -r ${sfile[D]} ]] && STORAGE   "${sfile[D]}" --no-mpath
   [[ -r ${sfile[T]} ]] && MULTIPATH "${sfile[T]}"
   [[ -r ${sfile[L]} ]] && LSPCI     "${sfile[L]}"
+  [[ -r ${sfile[G]} ]] && BONDING   "${sfile[G]}"
   [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
   [[ -r ${sfile[N]} ]] && PROC_NET  "${sfile[N]}"
   [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
@@ -2309,8 +2426,9 @@ elif [[ -n $sosroot ]]; then
                                                              && MULTIPATH "$sosroot"
   SOS_CHECKFILE lspci   "lspci"                              && LSPCI     "$sosroot"
   SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && ETHTOOL   "$sosroot"
+  SOS_CHECKFILE bonding "proc/net/bonding/"                  && BONDING   "$sosroot"
   SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && IPADDR    "$sosroot"
-  SOS_CHECKFILE net     "proc/net/"                          && PROC_NET  "$sosroot"
+  SOS_CHECKFILE netdev  "proc/net/dev"                       && PROC_NET  "$sosroot"
   SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
   SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
   
@@ -2324,8 +2442,9 @@ else
   [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
   [[ -n $lspci ]]   && COND_RUN lspci
   [[ -n $ethtool ]] && COND_RUN ethtool --require_root
+  [[ -n $bonding ]] && BONDING /
   [[ -n $ip ]]      && IPADDR
-  [[ -n $net ]]     && PROC_NET /
+  [[ -n $netdev ]]  && PROC_NET /
   [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
   [[ -n $ps ]]      && PSCHECK
 
