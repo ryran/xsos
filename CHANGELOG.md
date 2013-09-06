@@ -4,6 +4,17 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/09/06 xsos v0.2.2 implemeted --bonding; added rxring to --ethtool**
+
+- Closed [issue 70 - RFE: Make xsos --ethtool show current/max rx ring buffer setting](https://github.com/ryran/xsos/issues/70)
+- Haven't closed [issue 17 - Possible RFE: More detailed bonding information?](https://github.com/ryran/xsos/issues/17) yet, but have implemented it via parsing of `/proc/net/bonding/*` + additional ifcfg-file inspection. This necessitates a new module + new opts: `--bonding` / `-g` / `--G`
+- Renamed `--net` to `--netdev`
+- Repurposed --net as an alias for: --lspci --ethtool --bonding --ip --netdev
+- Added up/down colors to --ip (similar to --ethtool)
+- Changed eth device down default color from red to dark grey (--ethtool/--ip)
+- Re --bios: Made detection of broken dmidecode output more robust
+
+
 **2013/08/27 xsos v0.2.1 implemeted -t/--mpath option to parse dm-multipath**
 
 - Closed [issue 68 - RFE: Better way to parse dm-multipath output?](https://github.com/ryran/xsos/issues/68) by adding new MULTIPATH module + a drill-down query option of `-q`/`--wwid`. See closed issue for details.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.2b last mod 2013/09/03
+# xsos v0.2.2 last mod 2013/09/06
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -239,8 +239,8 @@ Special options (BASH v4+ required):"
  --D=FILE❚read from FILE containing /proc/partitions dump
  --T=FILE❚read from FILE containing \`multipath -v4 -ll\` dump
  --L=FILE❚read from FILE containing \`lspci\` dump
- --I=FILE❚read from FILE containing \`ip addr\` dump
  --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
+ --I=FILE❚read from FILE containing \`ip addr\` dump
  --N=FILE❚read from FILE containing /proc/net/dev dump
  --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
 }
@@ -562,13 +562,14 @@ DMIDECODE() {
     dmidecode_input=$(<"$1/sos_commands/kernel.dmidecode")
   fi
   
-  echo -e "${c[H1]}DMIDECODE${c[0]}"
-  
   # If bad dmidecode input, return
-  if head -n3 <<<"$dmidecode_input" | grep -qs 'No such file or directory'; then
-    echo -en $XSOS_HEADING_SEPARATOR
+  if head -n3 <<<"$dmidecode_input" | egrep -qs 'No such file or directory|No SMBIOS nor DMI entry point found'; then
+    echo -e "${c[Warn2]}Warning:${c[Warn1]} dmidecode input invalid; skipping bios check${c[0]}" >&2
+    echo -en $XSOS_HEADING_SEPARATOR >&2
     return 1
   fi
+  
+  echo -e "${c[H1]}DMIDECODE${c[0]}"
   
   # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
   echo -e "${c[H2]}  BIOS:${c[0]}"
@@ -1643,55 +1644,57 @@ LSPCI() {
 
 BONDING() {
   # Local vars:
-  local bond_input files f mode active slaves slave s
+  local files netscriptsdir bond_input f mode bonding_opts active slaves slave s
+  
+  # If passed a file (i.e. xsos --G <file>), use that
+  if [[ -f $1 ]]; then
+    files=($1)
+  # If localhost or sosreport, use that
+  else
+    files=("$1"/proc/net/bonding/*)
+    if [[ ! -r ${files[0]} ]]; then
+      echo -e "${c[Warn2]}Warning:${c[Warn1]} '/proc/net/bonding/' files unreadable; skipping bonding check${c[0]}" >&2
+      echo -en $XSOS_HEADING_SEPARATOR >&2
+      return
+    fi
+    [[ -d "$1"/etc/sysconfig/network-scripts ]] && netscriptsdir="$1"/etc/sysconfig/network-scripts
+  fi
   
   __transform_mode() {
     # Could be vastly improved by using bashV4 associative array, but KISS for rhel5 peeps
-    
-    if [[ $1 == "load balancing (round-robin)" ]]; then
+    if grep -q "load balancing (round-robin)" <<<"$1"; then
       mode="0 (balance-rr)"
     
-    elif [[ $1 == "fault-tolerance (active-backup)" ]]; then
+    elif grep -q "fault-tolerance (active-backup)" <<<"$1"; then
       mode="1 (active-backup)"
     
-    elif [[ $1 == "load balancing (xor)" ]]; then
+    elif grep -q "load balancing (xor)" <<<"$1"; then
       mode="2 (balance-xor)"
     
-    elif [[ $1 == "fault-tolerance (broadcast)" ]]; then
+    elif grep -q "fault-tolerance (broadcast)" <<<"$1"; then
       mode="3 (broadcast)"
     
-    elif [[ $1 == "IEEE 802.3ad Dynamic link aggregation" ]]; then
+    elif grep -q "IEEE 802.3ad Dynamic link aggregation" <<<"$1"; then
       mode="4 (802.3ad)"
     
-    elif [[ $1 == "transmit load balancing" ]]; then
+    elif grep -q "transmit load balancing" <<<"$1"; then
       mode="5 (balance-tlb)"
     
-    elif [[ $1 == "adaptive load balancing" ]]; then
+    elif grep -q "adaptive load balancing" <<<"$1"; then
       mode="6 (balance-alb)"
     
     else
       mode="unrecognized: $1"
     fi
   }
-  
+    
   echo -e "${c[H1]}BONDING${c[0]}"
     
-  # If localhost, use /proc
-  if [[ -z $1 ]]; then
-    files=(/proc/net/bonding/*)
-  # If passed a file (i.e. xsos --G <file>), use that
-  elif [[ -f $1 ]]; then
-    files=($1)
-  # Otherwise, use files from $sosroot
-  else
-    files=("$1"/proc/net/bonding/*)
-  fi
-  
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   { 
     # Header info ("❚" is used later by `column` to columnize the output)
-    echo "  Device❚Mode❚Slaves (* denotes active)"
-    echo "  ========❚=================❚==========================="
+    echo "  Device❚Mode❚ifcfg-File BONDING_OPTS❚Slaves (* denotes active)"
+    echo "  ========❚=================❚========================❚==========================="
     
     f=0; for bond_input in ${files[@]}; do
       
@@ -1700,11 +1703,15 @@ BONDING() {
       __transform_mode "$(awk -F: '/Bonding Mode/ {printf $2}' $bond_input | sed -e 's/^ //')"
       echo -n "$mode❚"
       
+      bonding_opts=$(awk '/^BONDING_OPTS=/' "$netscriptsdir/ifcfg-${bond_input##*/}" 2>/dev/null | sed s/BONDING_OPTS=// | tr -d \"\')
+      [[ -z $bonding_opts ]] && bonding_opts=-
+      echo -n "$bonding_opts❚"
+      
       active=$(awk '/Active Slave/ {printf $4}' $bond_input)
       
       slaves=($(awk '/^Slave Interface:/ {print $3}' $bond_input))
       
-      [[ ${#slaves[@]} -eq 0 ]] && echo " [None]"
+      [[ ${#slaves[@]} -eq 0 ]] && echo "[None]"
       
       s=0; until [[ $s -eq ${#slaves[@]} ]]; do
         if [[ $s -eq 0 ]]; then
@@ -1715,9 +1722,9 @@ BONDING() {
           fi
         else
           if [[ $active == ${slaves[s]} ]]; then
-            echo -n " ❚ ❚* ${slaves[s]}"
+            echo -n " ❚ ❚ ❚* ${slaves[s]}"
           else
-            echo -n " ❚ ❚  ${slaves[s]}"
+            echo -n " ❚ ❚ ❚  ${slaves[s]}"
           fi
         fi
         
@@ -1727,7 +1734,7 @@ BONDING() {
         echo
       done
     f=$((f+1))
-    [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚- - - - - - - - - - - - - -"
+    [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚ ❚- - - - - - - - - - - - - -"
     done 
   } |
     column -ts❚ |
@@ -1874,6 +1881,7 @@ ETHTOOL() {
     __ethtool()   { ethtool $1; }
     __ethtool_i() { ethtool -i $1; }
     __ethtool_S() { ethtool -S $1 2>&1; }
+    __ethtool_g() { ethtool -g $1 2>&1; }
     
   # If sosreport, determine interfaces from ethtool_<iface> files
   else
@@ -1884,6 +1892,7 @@ ETHTOOL() {
     __ethtool()   { cat ethtool_$1; }
     __ethtool_i() { [[ -r ethtool_-i_$1 ]] && cat ethtool_-i_$1; }
     __ethtool_S() { [[ -r ethtool_-S_$1 ]] && cat ethtool_-S_$1; }
+    __ethtool_g() { [[ -r ethtool_-g_$1 ]] && cat ethtool_-g_$1; }
   fi
   
   # If have ethdevs to work on ...
@@ -1900,18 +1909,34 @@ ETHTOOL() {
         END {
           if (link == "up" && spd != "")
             linkdetails = " "spd" "dup" (autoneg="aneg")"
-          printf "link=%s%s❚", link, linkdetails
+          printf "link=%s%s", link, linkdetails
         }
       '
-      )$(__ethtool_i $i |
+      )❚$(__ethtool_g $i |
+      awk '
+        /Pre-set maximums:/          { getline; if ($1 == "RX:") rx_max=$2 }
+        /Current hardware settings:/ { getline; if ($1 == "RX:") rx_now=$2 }
+        END { 
+          if (rx_now == "" && rx_max == "") {
+            print "rx ring UNKNOWN"
+            exit
+          }
+          else if (rx_now == "")
+            rx_now = "?"
+          else if (rx_max == "")
+            rx_max = "?"
+          printf "rx ring %s/%s\n", rx_now, rx_max
+        }
+      '
+      )❚$(__ethtool_i $i |
       awk '
         BEGIN { driver="UNKNOWN"; drv_vers=""; fw_vers="" }
         /^driver:/           { if ($2 != "") driver=$2 }
         /^version:/          { if ($2 != "") drv_vers=" v"$2 }
         /^firmware-version:/ { if ($2 != "") fw_vers=" / fw "$2 }
-        END { printf "drv %s%s%s\n", driver, drv_vers, fw_vers }
+        END { printf "drv %s%s%s", driver, drv_vers, fw_vers }
       '
-    )"
+      )"
     done | column -ts❚ |
       awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" '/DOWN/{print D $0 H0}  /up/{print U $0 H0}'
       
@@ -2444,7 +2469,7 @@ else
   [[ -n $ethtool ]] && COND_RUN ethtool --require_root
   [[ -n $bonding ]] && BONDING /
   [[ -n $ip ]]      && IPADDR
-  [[ -n $netdev ]]  && PROC_NET /
+  [[ -n $netdev ]]  && PROC_NET
   [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
   [[ -n $ps ]]      && PSCHECK
 
