@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/09/06 xsos v0.2.3 small fix for --ethtool on localhost with bonding devs**
+
+- Fixed [issue 71 - in v0.2.2, --ethtool run on localhost causes warnings like: Cannot get device settings: No such device](https://github.com/ryran/xsos/issues/71)
+
+
 **2013/09/06 xsos v0.2.2 implemeted --bonding; added rxring to --ethtool**
 
 - Closed [issue 70 - RFE: Make xsos --ethtool show current/max rx ring buffer setting](https://github.com/ryran/xsos/issues/70)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.2 last mod 2013/09/06
+# xsos v0.2.3 last mod 2013/09/06
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1876,7 +1876,7 @@ ETHTOOL() {
   
   # If localhost, grab interfaces from /sys
   if [[ -z $1 ]]; then
-    ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0')
+    ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0|bonding_masters')
     # Setup local functions for ethtool & ethtool -i & ethtool -S
     __ethtool()   { ethtool $1; }
     __ethtool_i() { ethtool -i $1; }
