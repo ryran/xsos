@@ -4,10 +4,12 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
-**2013/09/06 xsos v0.2.3 small fix for --ethtool on localhost with bonding devs**
+**2013/09/08 xsos v0.2.4 small fix for --ethtool on localhost + --ip coloring fix**
 
 - Fixed [issue 71 - in v0.2.2, --ethtool run on localhost causes warnings like: Cannot get device settings: No such device](https://github.com/ryran/xsos/issues/71)
-
+- Fixed some issues with `--ip` introduced in v0.2.2, namely:
+    - Fixed green coloring not resetting if `--ip` is the last module run
+    - Fixed mis-detection of some lines
 
 **2013/09/06 xsos v0.2.2 implemeted --bonding; added rxring to --ethtool**
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.3 last mod 2013/09/06
+# xsos v0.2.4 last mod 2013/09/08
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1812,7 +1812,7 @@ IPADDR() {
       slaveof[$i]=$(grep -q SLAVE <<<"${iface_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | awk '{print $2}' || echo "-")
       
       # Get up/down state for $i
-      state[$i]=$(grep -q "$i: .*,UP"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
+      state[$i]=$(grep -q "$i: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
       
       # Get macaddr for $i (don't show if all zeros)
       mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${iface_input[$i]}" || echo "-")
@@ -1858,13 +1858,16 @@ IPADDR() {
     
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
+      # Plus DOWN interfaces with Down color and up interfaces with Up color
       awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" -vU="${c[Up]}" -vD="${c[Down]}" '
         {
-          if (NR <= 2) print H2 $0 H0
+          if (NR <= 2) printf H2 $0
           else {
-            if ($4 == "DOWN") print D $0 H0
-            else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"U, 1)"\n"
+            if ($4 == "DOWN") printf D $0
+            else if ($0 ~ /^  [[:graph:]]/) printf gensub(/(^  [[:graph:]]+ )/,  H3"\\1"U, 1)
+            else printf U $0
           }
+          print H0
         }'
   echo -en $XSOS_HEADING_SEPARATOR
 }
