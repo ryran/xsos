@@ -4,6 +4,12 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+
+**2013/09/08 xsos v0.2.5 --ip: now parses `brctl show` for bridge funness**
+
+- Closed [issue 72 - RFE: xsos --ip should show what interfaces are slaved to bridge devices](https://github.com/ryran/xsos/issues/72)
+
+
 **2013/09/08 xsos v0.2.4 small fix for --ethtool on localhost + --ip coloring fix**
 
 - Fixed [issue 71 - in v0.2.2, --ethtool run on localhost causes warnings like: Cannot get device settings: No such device](https://github.com/ryran/xsos/issues/71)

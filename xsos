@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.4 last mod 2013/09/08
+# xsos v0.2.5 last mod 2013/09/08
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1771,28 +1771,40 @@ IPADDR() {
   fi
   
   # Local vars:
-  local ip_a_input ipdevs i n ipv4addr alias
+  local ip_a_input brctl_show_input ipdevs bridge interface i n ipv4addr alias
   
-  # Declare our 6 associative arrays:
-  local -A iface_input slaveof ipv4 ipv4_alias state mac 
+  # Declare our 7 associative arrays:
+  local -A lookup_bridge iface_input slaveof ipv4 ipv4_alias state mac 
   
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
     ip_a_input=$(ip a)
+    brctl_show_input=$(brctl show)
   # If passed a file (i.e. xsos --I <file>), use that
   elif [[ -f $1 ]]; then
     ip_a_input=$(<"$1")
   # Otherwise, use file from $sosroot
   else
     ip_a_input=$(<"$1/sos_commands/networking/ip_address")
+    brctl_show_input=$(cat "$1/sos_commands/networking/brctl_show" 2>/dev/null)
   fi
-  
-  # Prepare input for awk by separating each interface block
+
+  # Prepare ip addr input for awk by separating each interface block
   ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"$ip_a_input")
   
   # Grab a list of the interface names
   ipdevs=$(awk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"$ip_a_input" | egrep -v 'sit0')
   
+  # Prepare brctl input for awk by separating each bridge block & filling in empty columns
+  brctl_show_input=$(sed -e 1d -e 's,^[[:graph:]],\n&,' <<<"$brctl_show_input" | sed -r 's,^[[:space:]]+[[:graph:]]+,1 2 3&,')
+  
+  # Populate a dict where each slave interface is key & value is the controlling bridge
+  for bridge in $(awk 'BEGIN {RS="\n\n"} {print $1}' <<<"$brctl_show_input"); do
+    for interface in $(awk 'BEGIN {RS="\n\n"} $1=="'$bridge'"' <<<"$brctl_show_input" | awk  '{print $4}'); do
+      lookup_bridge[$interface]=$bridge
+    done
+  done
+    
   # Begin ...
   echo -e "${c[H1]}IP${c[0]}"
   
@@ -1807,9 +1819,17 @@ IPADDR() {
       
       # Pull out input for specific interface and save to interface key in array
       iface_input[$i]=$(awk "BEGIN {RS=\"\n\n\"} /^[0-9]+: $i:/" <<<"$ip_a_input")
-      
-      # Figure out if $i is a slave of some bond device
-      slaveof[$i]=$(grep -q SLAVE <<<"${iface_input[$i]}" && egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | awk '{print $2}' || echo "-")
+
+      # Figure out if $i is a slave of some bond / bridge device
+      slaveof[$i]=$(
+        if grep -q SLAVE <<<"${iface_input[$i]}"; then
+          egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | awk '{print $2}'
+        elif [[ -n $brctl_show_input && -n ${lookup_bridge[$i]} ]]; then
+          echo ${lookup_bridge[$i]}
+        else
+          echo "-"
+        fi
+      )
       
       # Get up/down state for $i
       state[$i]=$(grep -q "$i: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
