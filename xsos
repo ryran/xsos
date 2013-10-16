@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.5 last mod 2013/09/08
+# xsos v0.2.6 last mod 2013/10/16
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2448,53 +2448,71 @@ COND_RUN() {
   fi
 }
 
+# Create temp file for stderr
+stderr_file=$(mktemp)
+trap "rm $stderr_file" EXIT
 
 {
-# If special options and files were provided ....
-if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
-  [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
-  [[ -r ${sfile[C]} ]] && CPUINFO   "${sfile[C]}"
-  [[ -r ${sfile[M]} ]] && MEMINFO   "${sfile[M]}"
-  [[ -r ${sfile[D]} ]] && STORAGE   "${sfile[D]}" --no-mpath
-  [[ -r ${sfile[T]} ]] && MULTIPATH "${sfile[T]}"
-  [[ -r ${sfile[L]} ]] && LSPCI     "${sfile[L]}"
-  [[ -r ${sfile[G]} ]] && BONDING   "${sfile[G]}"
-  [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
-  [[ -r ${sfile[N]} ]] && PROC_NET  "${sfile[N]}"
-  [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
-
-# If SOSREPORT-ROOT provided, use that
-elif [[ -n $sosroot ]]; then
-  SOS_CHECKFILE bios    {,sos_commands/kernel.}dmidecode     && DMIDECODE "$sosroot"
-  SOS_CHECKFILE os      "proc/"                              && OSINFO    "$sosroot"
-  SOS_CHECKFILE cpu     "proc/cpuinfo"                       && CPUINFO   "$sosroot"
-  SOS_CHECKFILE mem     "proc/meminfo"                       && MEMINFO   "$sosroot"
-  SOS_CHECKFILE disks   "proc/partitions"                    && STORAGE   "$sosroot"
-  SOS_CHECKFILE mpath   "sos_commands/devicemapper/multipath_-v4_-ll" \
-                                                             && MULTIPATH "$sosroot"
-  SOS_CHECKFILE lspci   "lspci"                              && LSPCI     "$sosroot"
-  SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && ETHTOOL   "$sosroot"
-  SOS_CHECKFILE bonding "proc/net/bonding/"                  && BONDING   "$sosroot"
-  SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && IPADDR    "$sosroot"
-  SOS_CHECKFILE netdev  "proc/net/dev"                       && PROC_NET  "$sosroot"
-  SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
-  SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
+  # Redirect stderr to temp file
+  exec 7>&2 2>$stderr_file
   
-# If no SOSREPORT-ROOT provided, run checks against local system
-else
-  [[ -n $bios ]]    && COND_RUN dmidecode --require_root
-  [[ -n $os ]]      && OSINFO /
-  [[ -n $cpu ]]     && CPUINFO /
-  [[ -n $mem ]]     && MEMINFO /
-  [[ -n $disks ]]   && STORAGE /
-  [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
-  [[ -n $lspci ]]   && COND_RUN lspci
-  [[ -n $ethtool ]] && COND_RUN ethtool --require_root
-  [[ -n $bonding ]] && BONDING /
-  [[ -n $ip ]]      && IPADDR
-  [[ -n $netdev ]]  && PROC_NET
-  [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
-  [[ -n $ps ]]      && PSCHECK
+  # If special options and files were provided ....
+  if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
+    [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
+    [[ -r ${sfile[C]} ]] && CPUINFO   "${sfile[C]}"
+    [[ -r ${sfile[M]} ]] && MEMINFO   "${sfile[M]}"
+    [[ -r ${sfile[D]} ]] && STORAGE   "${sfile[D]}" --no-mpath
+    [[ -r ${sfile[T]} ]] && MULTIPATH "${sfile[T]}"
+    [[ -r ${sfile[L]} ]] && LSPCI     "${sfile[L]}"
+    [[ -r ${sfile[G]} ]] && BONDING   "${sfile[G]}"
+    [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
+    [[ -r ${sfile[N]} ]] && PROC_NET  "${sfile[N]}"
+    [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
 
-fi
+  # If SOSREPORT-ROOT provided, use that
+  elif [[ -n $sosroot ]]; then
+    SOS_CHECKFILE bios    {,sos_commands/kernel.}dmidecode     && DMIDECODE "$sosroot"
+    SOS_CHECKFILE os      "proc/"                              && OSINFO    "$sosroot"
+    SOS_CHECKFILE cpu     "proc/cpuinfo"                       && CPUINFO   "$sosroot"
+    SOS_CHECKFILE mem     "proc/meminfo"                       && MEMINFO   "$sosroot"
+    SOS_CHECKFILE disks   "proc/partitions"                    && STORAGE   "$sosroot"
+    SOS_CHECKFILE mpath   "sos_commands/devicemapper/multipath_-v4_-ll" \
+                                                               && MULTIPATH "$sosroot"
+    SOS_CHECKFILE lspci   "lspci"                              && LSPCI     "$sosroot"
+    SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && ETHTOOL   "$sosroot"
+    SOS_CHECKFILE bonding "proc/net/bonding/"                  && BONDING   "$sosroot"
+    SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && IPADDR    "$sosroot"
+    SOS_CHECKFILE netdev  "proc/net/dev"                       && PROC_NET  "$sosroot"
+    SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
+    SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
+    
+  # If no SOSREPORT-ROOT provided, run checks against local system
+  else
+    [[ -n $bios ]]    && COND_RUN dmidecode --require_root
+    [[ -n $os ]]      && OSINFO /
+    [[ -n $cpu ]]     && CPUINFO /
+    [[ -n $mem ]]     && MEMINFO /
+    [[ -n $disks ]]   && STORAGE /
+    [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
+    [[ -n $lspci ]]   && COND_RUN lspci
+    [[ -n $ethtool ]] && COND_RUN ethtool --require_root
+    [[ -n $bonding ]] && BONDING /
+    [[ -n $ip ]]      && IPADDR
+    [[ -n $netdev ]]  && PROC_NET
+    [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
+    [[ -n $ps ]]      && PSCHECK
+
+  fi
+  
+  # If sending output to less or more, let's just append stderr to stdout
+  # If just outputting to term (cat), redirect fd2 to tty
+  case $XSOS_OUTPUT_HANDLER in
+    less*|more)  cat $stderr_file
+  ;;
+    cat)         exec 2>&7
+  esac
+
 } | $XSOS_OUTPUT_HANDLER
+
+# If output going to term (cat), print stderr tmp file contents to stderr
+[[ $XSOS_OUTPUT_HANDLER == cat ]] && cat $stderr_file >&2
