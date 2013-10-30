@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.6 last mod 2013/10/16
+# xsos v0.2.7 last mod 2013/10/30
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -170,9 +170,15 @@ fi
 #   Sets name of application to handle output
     [[ -z $XSOS_OUTPUT_HANDLER ]] && XSOS_OUTPUT_HANDLER="cat"
 #
+#
 # XSOS_OS_RHT_CENTRIC (bool: y/n)
 #   Configures whether OSINFO() focuses on Red Hat support issues
     [[ -z $XSOS_OS_RHT_CENTRIC ]] && XSOS_OS_RHT_CENTRIC="n"
+#
+#
+# XSOS_IP_VERSION (int: 4/6)
+#   Configures whether IPADDR() shows ipv4 or ipv6 addresses
+    [[ -z $XSOS_IP_VERSION ]] && XSOS_IP_VERSION="4"
 #
 # ==============================================================================
 
@@ -184,7 +190,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: $pzero [DISPLAY OPTIONS] [-abocmdtleginsp] [SOSREPORT ROOT]
+  echo "Usage: $pzero [DISPLAY OPTIONS] [-6abocmdtleginsp] [SOSREPORT ROOT]
   or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--G|--I|--N|--P FILE}...
   or:  $pzero [-?|-h|--help]
   or:  $pzero [-U|--update]
@@ -218,8 +224,9 @@ HELP_OPTS_DISPLAY() {
 Display options:"
 # --rhsupport❚tweak os output to focus on RHEL-centric support issues
   echo "
+ -6, --ipv6❚parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID❚restrict dm-multipath output to a particular mpath device,
-             ❚where ID is a wwid, friendly name, or LUN identifier to search for 
+              ❚where ID is a wwid, friendly name, or LUN identifier to search for 
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
@@ -294,7 +301,7 @@ Environment variables:
  For details of all configurable env variables, view first page of $pzero
  source. There are vars to change default colors as well as other settings.
  Each variable name is prefixed with \"XSOS_\" and the important ones follow.
-  COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR
+  COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR  IP_VERSION
   MEM_UNIT  NET_UNIT  PS_UNIT  PS_LEVEL  UPDATE_CONFIRM  OUTPUT_HANDLER
 "
   VERSINFO
@@ -394,8 +401,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='q:u:v:w:xyzabocmdtleginsp'
-lopts='rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
+sopts='6q:u:v:w:xyzabocmdtleginsp'
+lopts='ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -445,6 +452,7 @@ PARSE() {
   unset opts all bios os cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
+      -6|--ipv6)    shift; XSOS_IP_VERSION=6 ;;
       -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
                       XSOS_MULTIPATH_QUERY=$2; shift 2
                     ;;
@@ -1771,7 +1779,7 @@ IPADDR() {
   fi
   
   # Local vars:
-  local ip_a_input brctl_show_input ipdevs bridge interface i n ipv4addr alias
+  local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr alias
   
   # Declare our 7 associative arrays:
   local -A lookup_bridge iface_input slaveof ipv4 ipv4_alias state mac 
@@ -1788,7 +1796,7 @@ IPADDR() {
     ip_a_input=$(<"$1/sos_commands/networking/ip_address")
     brctl_show_input=$(cat "$1/sos_commands/networking/brctl_show" 2>/dev/null)
   fi
-
+  
   # Prepare ip addr input for awk by separating each interface block
   ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"$ip_a_input")
   
@@ -1811,8 +1819,13 @@ IPADDR() {
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   {
     # Header info ("❚" is used later by `column` to columnize the output)
-    echo "  Interface❚Slave Of❚IPv4 Address❚State❚MAC Address"
-    echo "  =========❚========❚==================❚=====❚================="
+    if [[ $XSOS_IP_VERSION -eq 6 ]]; then
+      echo "  Interface❚Slave Of❚IPv6 Address❚State❚MAC Address"
+      echo "  =========❚========❚===========================================❚=====❚================="
+    else
+      echo "  Interface❚Slave Of❚IPv4 Address❚State❚MAC Address"
+      echo "  =========❚========❚==================❚=====❚================="
+    fi
     
     # For each interface ($i) found in ip addr output
     for i in $ipdevs; do
@@ -1837,37 +1850,62 @@ IPADDR() {
       # Get macaddr for $i (don't show if all zeros)
       mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${iface_input[$i]}" || echo "-")
       
-      # If $i has an ipv4 address, time to figure out what it is
-      if grep -q "inet .* ${i%@*}\$" <<<"${iface_input[$i]}"; then
+      if [[ $XSOS_IP_VERSION -eq 6 ]]; then
         
-        # We could potentially have more than one non-alias ipaddr...
-        # So we need to set up a counter and do a loop
-        n=0; while read ipv4addr; do
-          if [[ $n -eq 0 ]]; then
-            echo "  $i❚${slaveof[$i]}❚$ipv4addr❚${state[$i]}❚${mac[$i]}"
-          else
-            echo "   ❚ ❚$ipv4addr❚ ❚ "
-          fi
-          n=$((n+1))
-        done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}")"
-      
-      # Otherwise, print out all info with ipv4 addr set to "-"
-      else
-        echo "  $i❚${slaveof[$i]}❚-❚${state[$i]}❚${mac[$i]}"
-        # ... And Continue on to the next interface, i.e., skip looking for aliases
-        continue
-      fi
-
-      # If $i had an ipv4 addr, it's ALIAS time!
-      if grep -q "inet .* $i:" <<<"${iface_input[$i]}"; then
-      
-        # For each "alias" (additional address) found ...
-        for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${iface_input[$i]}"); do
-          ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}")
+        # If $i has an ipv6 address, time to figure out what it is
+        if grep -q "inet6" <<<"${iface_input[$i]}"; then
           
-          # ... Print out a new line with its ipv4 addr
-          echo "  $alias❚ ❚${ipv4_alias[$alias]}❚ ❚ "
-        done
+          # We could have more than one ipv6addr...
+          # So we need to set up a counter and do a loop
+          n=0; while read ipaddr; do
+            if [[ $n -eq 0 ]]; then
+              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${state[$i]}❚${mac[$i]}"
+            else
+              echo "   ❚ ❚$ipaddr❚ ❚ "
+            fi
+            n=$((n+1))
+          done <<<"$(awk "/inet6/ {print \$2}" <<<"${iface_input[$i]}")"
+        
+        # Otherwise, print out all info with ipaddr set to "-"
+        else
+          echo "  $i❚${slaveof[$i]}❚-❚${state[$i]}❚${mac[$i]}"
+        fi        
+        
+      else
+      
+        # If $i has an ipv4 address, time to figure out what it is
+        if grep -q "inet .* ${i%@*}\$" <<<"${iface_input[$i]}"; then
+          
+          # We could have more than one non-alias ip4addr...
+          # So we need to set up a counter and do a loop
+          n=0; while read ipaddr; do
+            if [[ $n -eq 0 ]]; then
+              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${state[$i]}❚${mac[$i]}"
+            else
+              echo "   ❚ ❚$ipaddr❚ ❚ "
+            fi
+            n=$((n+1))
+          done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}")"
+        
+        # Otherwise, print out all info with ipaddr set to "-"
+        else
+          echo "  $i❚${slaveof[$i]}❚-❚${state[$i]}❚${mac[$i]}"
+          # ... And Continue on to the next interface, i.e., skip looking for aliases
+          continue
+        fi
+
+        # If $i had an ipv4 addr, it's ALIAS time!
+        if grep -q "inet .* $i:" <<<"${iface_input[$i]}"; then
+        
+          # For each "alias" (additional address) found ...
+          for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${iface_input[$i]}"); do
+            ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}")
+            
+            # ... Print out a new line with its ipv4 addr
+            echo "  $alias❚ ❚${ipv4_alias[$alias]}❚ ❚ "
+          done
+        fi
+      
       fi
       
     done
