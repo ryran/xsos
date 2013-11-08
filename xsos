@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.7 last mod 2013/10/30
+# xsos v0.2.8 last mod 2013/11/07
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -46,65 +46,65 @@ fi
 #   XSOS_COLORS (bool: y/n)
 #     Controls whether color is enabled or disabled by default
 #     Can also be controlled by cmdline arg 
-      [[ -z $XSOS_COLORS ]] && XSOS_COLORS=y
+      : ${XSOS_COLORS:="y"}
 #
 #   XSOS_COLOR_RESET -- color to reset terminal to after using other colors
-      [[ -z $XSOS_COLOR_RESET ]] && XSOS_COLOR_RESET=${c[reset]}
+      : ${XSOS_COLOR_RESET:="${c[reset]}"}
 #
 #   XSOS_COLOR_H1 -- color for content modules' primary header
-      [[ -z $XSOS_COLOR_H1 ]] && XSOS_COLOR_H1=${c[RED]}
+      : ${XSOS_COLOR_H1:="${c[RED]}"}
 #
 #   XSOS_COLOR_H2 -- color for content modules' secondary header
-      [[ -z $XSOS_COLOR_H2 ]] && XSOS_COLOR_H2=${c[PURPLE]}
+      : ${XSOS_COLOR_H2:="${c[PURPLE]}"}
 #
 #   XSOS_COLOR_H3 -- color for content modules' tertiary header
-      [[ -z $XSOS_COLOR_H3 ]] && XSOS_COLOR_H3=${c[BLUE]}
+      : ${XSOS_COLOR_H3:="${c[BLUE]}"}
 #
 #   XSOS_COLOR_H4 -- color used only for SYSCTL() module
-      [[ -z $XSOS_COLOR_H4 ]] && XSOS_COLOR_H4=${c[reset]}
+      : ${XSOS_COLOR_H4:="${c[reset]}"}
 #
 #   XSOS_COLOR_IMPORTANT -- color for drawing attention to important data
-      [[ -z $XSOS_COLOR_IMPORTANT ]] && XSOS_COLOR_IMPORTANT=${c[BOLD]}
+      : ${XSOS_COLOR_IMPORTANT:="${c[BOLD]}"}
 #
 #   XSOS_COLOR_WARN1 -- color for level-1 warnings
-      [[ -z $XSOS_COLOR_WARN1 ]] && XSOS_COLOR_WARN1=${c[orange]}
+      : ${XSOS_COLOR_WARN1:="${c[orange]}"}
 #
 #   XSOS_COLOR_WARN2 -- color for level-2 warnings
-      [[ -z $XSOS_COLOR_WARN2 ]] && XSOS_COLOR_WARN2=${c[ORANGE]}
+      : ${XSOS_COLOR_WARN2:="${c[ORANGE]}"}
 #
 #   XSOS_COLOR_MEMGRAPH_MEMUSED -- color for MemUsed in MEMINFO() graph
-      [[ -z $XSOS_COLOR_MEMGRAPH_MEMUSED ]] && XSOS_COLOR_MEMGRAPH_MEMUSED=${c[green]}
+      : ${XSOS_COLOR_MEMGRAPH_MEMUSED:="${c[green]}"}
 #
 #   XSOS_COLOR_MEMGRAPH_HUGEPAGES -- color for HugePages in MEMINFO() graph
-      [[ -z $XSOS_COLOR_MEMGRAPH_HUGEPAGES ]] && XSOS_COLOR_MEMGRAPH_HUGEPAGES=${c[cyan]}
+      : ${XSOS_COLOR_MEMGRAPH_HUGEPAGES:="${c[cyan]}"}
 #
 #   XSOS_COLOR_MEMGRAPH_BUFFERS -- color for Buffers in MEMINFO() graph
-      [[ -z $XSOS_COLOR_MEMGRAPH_BUFFERS ]] && XSOS_COLOR_MEMGRAPH_BUFFERS=${c[purple]}
+      : ${XSOS_COLOR_MEMGRAPH_BUFFERS:="${c[purple]}"}
 #
 #   XSOS_COLOR_MEMGRAPH_CACHED -- color for Cached in MEMINFO() graph
-      [[ -z $XSOS_COLOR_MEMGRAPH_CACHED ]] && XSOS_COLOR_MEMGRAPH_CACHED=${c[blue]}
+      : ${XSOS_COLOR_MEMGRAPH_CACHED:="${c[blue]}"}
 #
 #   XSOS_COLOR_MEMGRAPH_DIRTY -- color for Dirty in MEMINFO() graph
-      [[ -z $XSOS_COLOR_MEMGRAPH_DIRTY ]] && XSOS_COLOR_MEMGRAPH_DIRTY=${c[red]}
+      : ${XSOS_COLOR_MEMGRAPH_DIRTY:="${c[red]}"}
 #
 #   XSOS_COLOR_IFUP -- color for ethtool InterFace "up"
-      [[ -z $XSOS_COLOR_IFUP ]] && XSOS_COLOR_IFUP=${c[green]}
+      : ${XSOS_COLOR_IFUP:="${c[green]}"}
 #
 #   XSOS_COLOR_IFDOWN -- color for ethtool InterFace "down"
-      [[ -z $XSOS_COLOR_IFDOWN ]] && XSOS_COLOR_IFDOWN=${c[dgrey]}
+      : ${XSOS_COLOR_IFDOWN:="${c[dgrey]}"}
 #
 #
 # INDENTATION
 #   The following variables are not used universally and that might not change
 #
 #   XSOS_INDENT_H1 -- 1st level of indentation
-      [[ -z $XSOS_INDENT_H1 ]] && XSOS_INDENT_H1="  "
+      : ${XSOS_INDENT_H1:="  "}
 #
 #   XSOS_INDENT_H2 -- 2nd level of indentation
-      [[ -z $XSOS_INDENT_H2 ]] && XSOS_INDENT_H2="    "
+      : ${XSOS_INDENT_H2:="    "}
 #
 #   XSOS_INDENT_H3 -- 3rd level of indentation
-      [[ -z $XSOS_INDENT_H3 ]] && XSOS_INDENT_H3="      "
+      : ${XSOS_INDENT_H3:="      "}
 #
 #
 # XSOS_FOLD_WIDTH (w, 0, or positive number)
@@ -112,73 +112,73 @@ fi
 #   This setting controls the wrapping width for commands that use it
 #   Changing to w causes width of terminal to be used
 #   Changing to 0 causes 99999 to be used
-    [[ -z $XSOS_FOLD_WIDTH ]] && XSOS_FOLD_WIDTH=94
+    : ${XSOS_FOLD_WIDTH:="w"}
 #
 #
 # XSOS_UPDATE_CONFIRM (bool: y/n)
 #   Controls whether built-in update function prompts for confirmation
-    [[ -z $XSOS_UPDATE_CONFIRM ]] && XSOS_UPDATE_CONFIRM=y
+    : ${XSOS_UPDATE_CONFIRM:="y"}
 #
 #
 # XSOS_HEADING_SEPARATOR (str)
 #   Acts as a separator between content modules
 #   Should include at least 1 trailing new-line
-    [[ -z $XSOS_HEADING_SEPARATOR ]] && XSOS_HEADING_SEPARATOR="\n"
+    : ${XSOS_HEADING_SEPARATOR:="\n"}
 #
 #
 # XSOS_ALL_VIEW (str of variables, semicolon-separated)
 #   Controls what content modules to run when -a/--all switch is used
-    [[ -z $XSOS_ALL_VIEW ]] && XSOS_ALL_VIEW='bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; bonding=y; ip=y; netdev=y; sysctl=y; ps=y'
+    : ${XSOS_ALL_VIEW:="bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; bonding=y; ip=y; netdev=y; sysctl=y; ps=y"}
 #
 #
 # XSOS_DEFAULT_VIEW (str of variables, semicolon-separated)
 #   Controls default content modules, i.e. what to run when none are specififed
-    [[ -z $XSOS_DEFAULT_VIEW ]] && XSOS_DEFAULT_VIEW='os=y'
+    : ${XSOS_DEFAULT_VIEW:="os=y"}
 #
 #
 # XSOS_PS_LEVEL (int: 0-4)
 #   Controls verbosity level (4 being highest) in PSCHECK() function
-    [[ -z $XSOS_PS_LEVEL ]] && XSOS_PS_LEVEL=1
+    : ${XSOS_PS_LEVEL:="1"}
 #
 #
 # XSOS_MULTIPATH_QUERY (string: arbitrary regex)
 #   Only a tenuous case can be made for statically setting this
 #   It's used by the MULTIPATH() function to restrict display to a particular mpath device
 #   Traditionally controled by -q/--wwid option
-    [[ -z $XSOS_MULTIPATH_QUERY ]] && XSOS_MULTIPATH_QUERY=
+    : ${XSOS_MULTIPATH_QUERY:=""}
 #
 #   
 # XSOS_MEM_UNIT (str: b, k, m, g, t)
 #   Sets unit used by MEMINFO() function for printing
 #   Can also be controlled by cmdline opt -u/--unit
-    [[ -z $XSOS_MEM_UNIT ]] && XSOS_MEM_UNIT="g"
+    : ${XSOS_MEM_UNIT:="g"}
 #
 #
 # XSOS_NET_UNIT (str: b, k, m, g, t)
 #   Sets unit used by PROC_NET() function for printing Rx & Tx Bytes
 #   Can also be controlled by cmdline opt -u/--unit
-    [[ -z $XSOS_NET_UNIT ]] && XSOS_NET_UNIT="m"
+    : ${XSOS_NET_UNIT:="m"}
 #
 #
 # XSOS_PS_UNIT (str: k, m, g)
 #   Sets unit used by PSCHECK() function for printing VSZ & RSS
 #   Not affected by cmdline opt -u/--unit option
-    [[ -z $XSOS_PS_UNIT ]] && XSOS_PS_UNIT="m"
+    : ${XSOS_PS_UNIT:="m"}
 #
 #
 # XSOS_OUTPUT_HANDLER (str: application name)
 #   Sets name of application to handle output
-    [[ -z $XSOS_OUTPUT_HANDLER ]] && XSOS_OUTPUT_HANDLER="cat"
+    : ${XSOS_OUTPUT_HANDLER:="cat"}
 #
 #
 # XSOS_OS_RHT_CENTRIC (bool: y/n)
 #   Configures whether OSINFO() focuses on Red Hat support issues
-    [[ -z $XSOS_OS_RHT_CENTRIC ]] && XSOS_OS_RHT_CENTRIC="n"
+    : ${XSOS_OS_RHT_CENTRIC:="n"}
 #
 #
 # XSOS_IP_VERSION (int: 4/6)
 #   Configures whether IPADDR() shows ipv4 or ipv6 addresses
-    [[ -z $XSOS_IP_VERSION ]] && XSOS_IP_VERSION="4"
+    : ${XSOS_IP_VERSION:="4"}
 #
 # ==============================================================================
 
@@ -226,11 +226,12 @@ Display options:"
   echo "
  -6, --ipv6❚parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID❚restrict dm-multipath output to a particular mpath device,
-              ❚where ID is a wwid, friendly name, or LUN identifier to search for 
+              ❚where ID is a wwid, friendly name, or LUN identifier
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
- -w, --width=NUM❚change fold-width (w autodetects, 0 disables, default: 94)
+ -w, --width=NUM❚change fold-width, in columns (positive number, e.g., 80)
+                ❚\"0\" disables wrapping, \"w\" autodetects width (default)
  -x, --nocolor❚disable output colorization
  -y, --less❚send output to \`less -SR\`
  -z, --more❚send output to \`more\`" | column -ts❚
@@ -391,13 +392,12 @@ UPDATE() {
 
 # Help? Version? Update?
 case $1 in
-  -\?|-h)           HELP_SHORT
-;;
-  --help|help)      HELP_EXTENDED
-;;
-  -V|--vers|--version) echo "Version info: ${version:2}"; exit
-;;
-  -U|--update)      UPDATE
+  -V|--vers|--version)
+    echo "Version info: ${version:2}"; exit
+    ;;
+  -\?|-h)       HELP_SHORT ;;
+  --help|help)  HELP_EXTENDED ;;
+  -U|--update)  UPDATE ;;
 esac
 
 # GNU getopt short and long options:
@@ -544,7 +544,7 @@ fi
 
 # Properly setup fold setting
 if [[ $XSOS_FOLD_WIDTH == w ]]; then
-  XSOS_FOLD_WIDTH=$(($(tput cols)-3))
+  XSOS_FOLD_WIDTH=$(($(tput cols)-5))
 elif [[ $XSOS_FOLD_WIDTH == 0 ]]; then
   XSOS_FOLD_WIDTH=99999
 fi
@@ -2486,9 +2486,13 @@ COND_RUN() {
   fi
 }
 
-# Create temp file for stderr
-stderr_file=$(mktemp)
-trap "rm $stderr_file" EXIT
+
+# Create sub tempdir in /dev/shm (tons of bash constructs use TMPDIR)
+export TMPDIR=$(mktemp -d --tmpdir=/dev/shm)
+# Create tmp file for capturing stderr
+stderr_file=$TMPDIR/stderr
+# Remove temp dir when we're done
+trap "rm -rf $TMPDIR 2>/dev/null" EXIT
 
 {
   # Redirect stderr to temp file
