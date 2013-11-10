@@ -4,6 +4,29 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/11/10 xsos v0.2.9: fixed ethtool firmware-version bug; new bash-completion file**
+
+- Fixed [issue 75 - ethtool parsing (-e / --ethtool) truncates firmware-version; only shows first word](https://github.com/ryran/xsos/issues/75)
+- Updated xsos bash completion file, adding `-6` and `--ipv6`
+
+
+**2013/11/07 xsos v0.2.8: changed default fold-width from "94" to "auto-detect"**
+
+- As subject says, fold-width setting (`--width`) has defaulted to 94 columns for a while now, though only some modules use it (most notably, the OS output seen when xsos runs with no opts). New default for this is `w`, which auto-detects the terminal width and uses that.
+- Simple code re-factoring
+- Help page updates
+- Create tmpdir in /dev/shm (in-memory) and export `TMPDIR` env variable as that. Means all of the cool things bash does will use that instead of /tmp (usually on-disk). Additionally, move stderr tmpfile to same /dev/shm tmpdir. (And of course there's a trap to ensure the directory gets deleted when xsos exits or aborts.)
+
+
+**2013/10/30 xsos v0.2.7: added -6/--ipv6 option which affects --ip**
+
+- Implemented [issue 74 - RFE: Make it possible for -i / --ip to display IPv6 addresses](https://github.com/ryran/xsos/issues/74) via adding new `--ipv6` / `-6` option which changes behavior of `-i` / `--ip`
+
+
+**2013/10/16 xsos v0.2.6: utilize tmpfile for storing stderr, to show stderr last**
+
+- Implemented [issue 73 - RFE: Make --less & --more handle errors (stderr) appropriately](https://github.com/ryran/xsos/issues/73)
+
 
 **2013/09/08 xsos v0.2.5 --ip: now parses `brctl show` for bridge funness**
 

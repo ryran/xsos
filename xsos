@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.8 last mod 2013/11/07
+# xsos v0.2.9 last mod 2013/11/10
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -392,12 +392,10 @@ UPDATE() {
 
 # Help? Version? Update?
 case $1 in
-  -V|--vers|--version)
-    echo "Version info: ${version:2}"; exit
-    ;;
-  -\?|-h)       HELP_SHORT ;;
-  --help|help)  HELP_EXTENDED ;;
-  -U|--update)  UPDATE ;;
+  -V|--vers|--version)  echo "Version info: ${version:2}"; exit ;;
+  -\?|-h)               HELP_SHORT ;;
+  --help|help)          HELP_EXTENDED ;;
+  -U|--update)          UPDATE ;;
 esac
 
 # GNU getopt short and long options:
@@ -544,7 +542,7 @@ fi
 
 # Properly setup fold setting
 if [[ $XSOS_FOLD_WIDTH == w ]]; then
-  XSOS_FOLD_WIDTH=$(($(tput cols)-5))
+  XSOS_FOLD_WIDTH=$(( $(tput cols) - 8 ))
 elif [[ $XSOS_FOLD_WIDTH == 0 ]]; then
   XSOS_FOLD_WIDTH=99999
 fi
@@ -1990,12 +1988,12 @@ ETHTOOL() {
         }
       '
       )❚$(__ethtool_i $i |
-      awk '
-        BEGIN { driver="UNKNOWN"; drv_vers=""; fw_vers="" }
-        /^driver:/           { if ($2 != "") driver=$2 }
-        /^version:/          { if ($2 != "") drv_vers=" v"$2 }
-        /^firmware-version:/ { if ($2 != "") fw_vers=" / fw "$2 }
-        END { printf "drv %s%s%s", driver, drv_vers, fw_vers }
+      awk -F: '
+        BEGIN { driver="UNKNOWN"; drv_vers=""; fw_vers="UNKNOWN" }
+        /^driver:/           { if ($2 !~ /^ *$/) driver=$2;   sub(/^ /, "", driver) }
+        /^version:/          { if ($2 !~ /^ *$/) drv_vers=$2; sub(/^ /, " v", drv_vers) }
+        /^firmware-version:/ { if ($2 !~ /^ *$/) fw_vers=$2;  sub(/^ /, "", fw_vers) }
+        END { printf "drv %s%s / fw %s", driver, drv_vers, fw_vers }
       '
       )"
     done | column -ts❚ |
@@ -2549,8 +2547,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
   # If sending output to less or more, let's just append stderr to stdout
   # If just outputting to term (cat), redirect fd2 to tty
   case $XSOS_OUTPUT_HANDLER in
-    less*|more)  cat $stderr_file
-  ;;
+    less*|more)  cat $stderr_file ;;
     cat)         exec 2>&7
   esac
 

@@ -118,8 +118,8 @@ OS
 
 ```
 [rsaw]$ xsos -h
-Usage: xsos [DISPLAY OPTIONS] [-abocmdleinsp] [SOSREPORT ROOT]
-  or:  xsos [DISPLAY OPTIONS] {--B|--C|--M|--D|--L|--I|--N|--P FILE}...
+Usage: xsos [DISPLAY OPTIONS] [-6abocmdtleginsp] [SOSREPORT ROOT]
+  or:  xsos [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--G|--I|--N|--P FILE}...
   or:  xsos [-?|-h|--help]
   or:  xsos [-U|--update]
 
@@ -131,19 +131,26 @@ Content options:
  -o, --os       show hostname, distro, SELinux, kernel info, uptime, etc
  -c, --cpu      show info from /proc/cpuinfo
  -m, --mem      show info from /proc/meminfo
- -d, --disks    show info from /proc/partitions + dm-multipath
+ -d, --disks    show info from /proc/partitions + dm-multipath synopsis
+ -t, --mpath    show info from dm-multipath
  -l, --lspci    show info from lspci
  -e, --ethtool  show info from ethtool
+ -g, --bonding  show info from /proc/net/bonding
  -i, --ip       show info from ip addr (BASH v4+ required)
- -n, --net      show info from /proc/net/dev
+ -n, --netdev   show info from /proc/net/dev
+     --net      alias for: --lspci --ethtool --bonding --ip --netdev
  -s, --sysctl   show important kernel sysctls
  -p, --ps       inspect running processes via ps
 
 Display options:
+ -6, --ipv6         parse ip addr output for IPv6 addresses instead of IPv4
+ -q, --wwid=ID      restrict dm-multipath output to a particular mpath device,
+                    where ID is a wwid, friendly name, or LUN identifier
  -u, --unit=P       change byte display for /proc/meminfo & /proc/net/dev,
                     where P is "b" for byte, or else "k", "m", "g", or "t"
  -v, --verbose=NUM  specify ps verbosity level (0-4, default: 1)
- -w, --width=NUM    change fold-width (w autodetects, 0 disables, default: 94)
+ -w, --width=NUM    change fold-width, in columns (positive number, e.g., 80)
+                    "0" disables wrapping, "w" autodetects width (default)
  -x, --nocolor      disable output colorization
  -y, --less         send output to `less -SR`
  -z, --more         send output to `more`
@@ -153,14 +160,16 @@ Special options (BASH v4+ required):
  --C=FILE  read from FILE containing /proc/cpuinfo dump
  --M=FILE  read from FILE containing /proc/meminfo dump
  --D=FILE  read from FILE containing /proc/partitions dump
+ --T=FILE  read from FILE containing `multipath -v4 -ll` dump
  --L=FILE  read from FILE containing `lspci` dump
+ --G=FILE  read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE  read from FILE containing `ip addr` dump
  --N=FILE  read from FILE containing /proc/net/dev dump
  --P=FILE  read from FILE containing `ps aux` dump
 
 Run with "--help" to see full help page
 
-Version info: xsos v0.1.3 last mod 2013/01/13
+Version info: xsos v0.2.9 last mod 2013/11/10
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
