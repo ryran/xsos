@@ -4,6 +4,13 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/11/15 xsos v0.2.9b: sysctl fixes; added net.core.netdev\*, fs.nr_open**
+
+- Implemented [issue 76 - RFE: Display net.core.netdev_max_backlog in sysctls](https://github.com/ryran/xsos/issues/76)
+- Added fs.nr_open sysctl
+- Tweaked order and descriptions of multiple sysctls
+
+
 **2013/11/10 xsos v0.2.9: fixed ethtool firmware-version bug; new bash-completion file**
 
 - Fixed [issue 75 - ethtool parsing (-e / --ethtool) truncates firmware-version; only shows first word](https://github.com/ryran/xsos/issues/75)

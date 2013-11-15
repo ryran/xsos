@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.9 last mod 2013/11/10
+# xsos v0.2.9b last mod 2013/11/15
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2243,16 +2243,18 @@ SYSCTL() {
   __Pa kernel.sysrq "[bitmask] "  '{if ($1==0) printf "0%s  (disallowed)", H0; else if ($1==1) printf "1%s  (all SysRqs allowed)", H0; else printf "%s%s  (see proc man page)", $1, H0}'
 
   echo -e "$XSOS_INDENT_H1${c[H2]}fs.${c[0]}"
-  __Pa fs.file-max "[fds] "  '{printf "%s%s  (system-wide limit on nr open file descriptors)", $1,H0}'
-  #__Pa fs.nr_open  "[fds] "  '{printf "%s%s  (upper limit for fs.file-max)", $1,H0}'  #  ??? FIXME: Well, that's what I thought originally, but I don't think that's it.
-  __Pa fs.file-nr "[fds] "  '{printf "%s  %s  %s%s  (nr allocated fds, N/A, nr free fds)", $1,$2,$3,H0 }'
+  __Pa fs.file-max "[fds] "  '{printf "%s%s  (system-wide limit for num open files [file descriptors])", $1,H0}'
+  __Pa fs.nr_open  "[fds] "  '{printf "%s%s  (per-process limit for num open files [see also RLIMIT_NOFILE])", $1,H0}'
+  __Pa fs.file-nr "[fds] "  '{printf "%s  %s  %s%s  (num allocated fds, N/A, num free fds)", $1,$2,$3,H0 }'
   __Pa fs.inode-nr "[inodes] "  '{printf "%s  %s%s  (nr_inodes allocated, nr_free_inodes)", $1,$2,H0}'
   
   echo -e "$XSOS_INDENT_H1${c[H2]}net.${c[0]}"
-  __Pa net.core.rmem_max "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
-  __Pa net.core.wmem_max "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
+  __P net.core.netdev_budget "[packets] "
+  __P net.core.netdev_max_backlog "[packets] "
   __Pa net.core.rmem_default "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
   __Pa net.core.wmem_default "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.rmem_max "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.wmem_max "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
   __P net.ipv4.icmp_echo_ignore_all "[bool] "
   __P net.ipv4.ip_forward "[bool] "
   __Pa net.ipv4.tcp_max_orphans "[sockets] "  '{printf "%s%s  (%d MiB @ max 64 KiB per orphan)", $1, H0, $1*64/1024}'
