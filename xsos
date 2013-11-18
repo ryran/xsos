@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.2.9b last mod 2013/11/15
+# xsos v0.3.0 last mod 2013/11/18
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -91,7 +91,7 @@ fi
       : ${XSOS_COLOR_IFUP:="${c[green]}"}
 #
 #   XSOS_COLOR_IFDOWN -- color for ethtool InterFace "down"
-      : ${XSOS_COLOR_IFDOWN:="${c[dgrey]}"}
+      : ${XSOS_COLOR_IFDOWN:="${c[lgrey]}"}
 #
 #
 # INDENTATION
@@ -1968,6 +1968,8 @@ ETHTOOL() {
         END {
           if (link == "up" && spd != "")
             linkdetails = " "spd" "dup" (autoneg="aneg")"
+          else if (link == "")
+            link = "UNKNOWN"
           printf "link=%s%s", link, linkdetails
         }
       '
@@ -1997,7 +1999,11 @@ ETHTOOL() {
       '
       )"
     done | column -ts❚ |
-      awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" '/DOWN/{print D $0 H0}  /up/{print U $0 H0}'
+      awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" -vE="${c[Warn1]}" '
+        /link=DOWN/     { print D $0 H0 }
+        /link=up/       { print U $0 H0 }
+        /link=UNKNOWN/  { print E $0 H0 }
+      '
       
     echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Errors:${c[0]}"
     echo -en "${c[Warn1]}"

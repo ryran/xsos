@@ -4,6 +4,13 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/11/18 xsos v0.3.0: changed iface-down color to lt.grey; ethtool fix**
+
+- Fixed [issue 77 - When `ethtool iface` doesn't report any good output, interface is skipped](https://github.com/ryran/xsos/issues/77)
+- Interfaces that exist but don't have proper ethtool output now should show up (along with `link=UNKNOWN`). Such interfaces will be color-coded with the warn1 color (defaults to orange).
+- Changed the interface-down color to light grey (from dark grey). This should make it easier to see in both dark and white color schemes.
+
+
 **2013/11/15 xsos v0.2.9b: sysctl fixes; added net.core.netdev\*, fs.nr_open**
 
 - Implemented [issue 76 - RFE: Display net.core.netdev_max_backlog in sysctls](https://github.com/ryran/xsos/issues/76)
