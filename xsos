@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.0 last mod 2013/11/18
+# xsos v0.3.1 last mod 2013/11/21
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -128,7 +128,7 @@ fi
 #
 # XSOS_ALL_VIEW (str of variables, semicolon-separated)
 #   Controls what content modules to run when -a/--all switch is used
-    : ${XSOS_ALL_VIEW:="bios=y; os=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; bonding=y; ip=y; netdev=y; sysctl=y; ps=y"}
+    : ${XSOS_ALL_VIEW:="bios=y; os=y; kdump=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; bonding=y; ip=y; netdev=y; sysctl=y; ps=y"}
 #
 #
 # XSOS_DEFAULT_VIEW (str of variables, semicolon-separated)
@@ -190,7 +190,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: $pzero [DISPLAY OPTIONS] [-6abocmdtleginsp] [SOSREPORT ROOT]
+  echo "Usage: $pzero [DISPLAY OPTIONS] [-6abokcmdtleginsp] [SOSREPORT ROOT]
   or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--G|--I|--N|--P FILE}...
   or:  $pzero [-?|-h|--help]
   or:  $pzero [-U|--update]
@@ -205,6 +205,7 @@ Content options:"
  -a, --all❚show everything
  -b, --bios❚show info from dmidecode
  -o, --os❚show hostname, distro, SELinux, kernel info, uptime, etc
+ -k, --kdump❚inspect kdump configuration
  -c, --cpu❚show info from /proc/cpuinfo
  -m, --mem❚show info from /proc/meminfo
  -d, --disks❚show info from /proc/partitions + dm-multipath synopsis
@@ -399,8 +400,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='6q:u:v:w:xyzabocmdtleginsp'
-lopts='ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
+sopts='6q:u:v:w:xyzabokcmdtleginsp'
+lopts='ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -447,7 +448,7 @@ _OPT_CHECK() {
 
 # Parse command-line arguments
 PARSE() {
-  unset opts all bios os cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
+  unset opts all bios os kdump cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
       -6|--ipv6)    shift; XSOS_IP_VERSION=6 ;;
@@ -470,6 +471,7 @@ PARSE() {
       -a|--all)     shift; opts=y; all=y     ;;
       -b|--bios)    shift; opts=y; bios=y    ;;
       -o|--os)      shift; opts=y; os=y      ;;
+      -k|--kdump)   shift; opts=y; kdump=y   ;;
       -c|--cpu)     shift; opts=y; cpu=y     ;;
       -m|--mem)     shift; opts=y; mem=y     ;;
       -d|--disks)   shift; opts=y; disks=y   ;;
@@ -843,6 +845,9 @@ _CHECK_GRUB() {
   # Local vars:
   local grubcfg default
   
+  # Other vars that we want to be global, so no local here and no local in modules that call them:
+  ## bad_grubcfg default_missing grub_kernel grub_cmdline
+  
   # Find the grub config file
   if [[ -f $1/boot/grub/grub.conf ]]; then
     # Set grubcfg for grub1
@@ -889,7 +894,7 @@ _CHECK_GRUB() {
 
 OSINFO() {
   # Local vars:
-  local distro_release kernel_build kernel_buildhost bad_grubcfg default_missing grub_kernel grub_cmdline num_cpu btime hostname kernel serverURL sURLtmp uname systime boottime uptime_input runlevel initdefault timezone
+  local distro_release kernel_build kernel_buildhost num_cpu btime hostname kernel serverURL sURLtmp uname systime boottime uptime_input runlevel initdefault timezone
   
   # These functions populate variables for later use
   _CHECK_DISTRO "$1"
@@ -1101,6 +1106,106 @@ OSINFO() {
 }
 
 
+KDUMP() {
+  # Local vars
+  local kexec_tools_vers kdump_initrd kdump_cfg
+  
+  # If the os module was called, grub config was already inspected; otherwise, we need to do it
+  [[ -n $os ]] || _CHECK_GRUB "$1"
+  
+  # If running on localhost ....
+  if [[ $1 == / ]]; then
+    __rpm_check_kexec() {
+      kexec_tools_vers=$(rpm -q kexec-tools) \
+        && echo $kexec_tools_vers \
+        || echo -e "${c[Warn1]}$kexec_tools_vers${c[0]}"
+    }
+    __svc_check_kdump() {
+      chkconfig --list kdump &>/dev/null \
+        && chkconfig --list kdump | column -t \
+        || echo -e "${c[Warn1]}$(chkconfig --list kdump 2>&1)${c[0]}"
+    }
+    __initrd_file_check() {
+      ls /boot/initrd-*kdump.img &>/dev/null \
+        && ls -l /boot/initrd-*kdump.img | sed -r 's@^........... +[0-9]+ \w+ *\w+ *([0-9]+ .*)@\1@' | sed -r 's,/+boot/,,' \
+        || echo -e "${c[Warn1]}missing '/boot/initrd-*kdump.img'${c[0]}"
+    }
+  # If running on sosreport ....
+  else
+    __rpm_check_kexec() {
+      if [[ -r "$1"/installed-rpms ]]; then
+        grep -q kexec-tools "$1"/installed-rpms \
+          && awk '/kexec-tools/{print$1}' "$1"/installed-rpms \
+          || echo -e "${c[Warn1]}package kexec-tools is not installed${c[0]}"
+      else
+        echo -e "${c[Warn1]}missing '$1/installed-rpms'${c[0]}"
+      fi
+    }
+    __svc_check_kdump() {
+      if [[ -r "$1"/chkconfig ]]; then
+        grep -q ^kdump "$1"/chkconfig \
+          && grep ^kdump "$1"/chkconfig | column -t \
+          || echo -e "${c[Warn1]}kdump not present in chkconfig output${c[0]}"
+      else
+        echo -e "${c[Warn1]}missing '$1/chkconfig'${c[0]}"
+      fi
+    }
+    __initrd_file_check() {
+      if [[ -r "$1"/sos_commands/bootloader/ls_-laR_.boot ]]; then
+        kdump_initrd=$(grep 'initrd-.*kdump.img$' "$1"/sos_commands/bootloader/ls_-laR_.boot) \
+          && sed -r 's@^........... +[0-9]+ \w+ *\w+ *([0-9]+ .*)@\1@' <<<"$kdump_initrd" | sed -r 's,/+boot/,,' \
+          || echo -e "${c[Warn1]}missing '/boot/initrd-*kdump.img' according to '"$1"/sos_commands/bootloader/ls_-laR_.boot'${c[0]}"
+      else
+        echo -e "${c[Warn1]}missing '$1/sos_commands/bootloader/ls_-laR_.boot'${c[0]}"
+      fi
+    }
+  fi
+  
+  # A couple functions that work regardless of localhost/sosreport
+  __get_crashkernel_proc_cmdline() {
+    local out
+    if [[ -r "$1"/proc/cmdline ]]; then
+      out=$(egrep -o 'crashkernel=[[:graph:]]+' "$1"/proc/cmdline)
+    else
+      out="${c[Warn1]}file missing${c[0]}"
+    fi
+    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}not present${c[0]}"
+  }
+  __get_crashkernel_grub_cmdline() {
+    local out
+    if [[ -n $bad_grubcfg ]]; then
+      out="$bad_grubcfg"
+    else
+      out=$(egrep -o 'crashkernel=[[:graph:]]+' <<<"$grub_cmdline")
+    fi
+    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}not present${c[0]}"
+  }
+  
+  echo -e "${c[H1]}KDUMP CONFIG${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}kexec-tools rpm version:${c[0]}"
+    __rpm_check_kexec "$1" | sed "s,^,$XSOS_INDENT_H2,"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Service enablement:${c[0]}"
+    __svc_check_kdump "$1" | sed "s,^,$XSOS_INDENT_H2,"
+  echo -e "$XSOS_INDENT_H1${c[H2]}kdump initrd.img:${c[0]}"
+    __initrd_file_check "$1" | awk '{ print gensub(/^([0-9]+) *([[:upper:]][[:lower:]]+) *([0-9]{1,2}) *([0-9]{4}) *(initrd.*)$/, "\\1  \\2 \\3 \\4  \\5", 1) }' | sed "s,^,$XSOS_INDENT_H2,"
+    # The extra awk command above reformats spacing in the ls -l output
+  echo -e "$XSOS_INDENT_H1${c[H2]}Memory reservation:${c[0]}"
+    grep -qsw rescue "$1/proc/cmdline" && echo -e "$XSOS_INDENT_H1 ${c[Warn2]}(Rescue mode detected)${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}/proc/cmdline {${c[0]} $(__get_crashkernel_proc_cmdline "$1") ${c[H3]}}${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}GRUB default  {${c[0]} $(__get_crashkernel_grub_cmdline "$1") ${c[H3]}}${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf:${c[0]}"
+    if [[ -r "$1"/etc/kdump.conf ]]; then
+      kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$1"/etc/kdump.conf)
+      [[ -n $kdump_cfg ]] \
+        && sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg" \
+        || echo -e "$XSOS_INDENT_H2${c[DGREY]}[All commented]${c[0]}"
+    else
+      echo -e "$XSOS_INDENT_H2${c[Warn1]}missing '$1/etc/kdump.conf'${c[0]}"
+    fi
+  echo -en $XSOS_HEADING_SEPARATOR
+}
+
+
 CPUINFO() {
   # Local vars:
   local cpuinfo_input model_cpu vendor family num_cpu num_cpu_phys num_threads_per_cpu cpu_cores core_id num_cores_per_cpu cores1 cores2 coresNthreads cpu_flags
@@ -1167,7 +1272,7 @@ CPUINFO() {
   # Check important cpu flags
   # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
   # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
-  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
+  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc|rdrand" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
   
   # Print it all out
@@ -2521,6 +2626,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
   elif [[ -n $sosroot ]]; then
     SOS_CHECKFILE bios    {,sos_commands/kernel.}dmidecode     && DMIDECODE "$sosroot"
     SOS_CHECKFILE os      "proc/"                              && OSINFO    "$sosroot"
+    SOS_CHECKFILE kdump   ""                                   && KDUMP     "$sosroot"
     SOS_CHECKFILE cpu     "proc/cpuinfo"                       && CPUINFO   "$sosroot"
     SOS_CHECKFILE mem     "proc/meminfo"                       && MEMINFO   "$sosroot"
     SOS_CHECKFILE disks   "proc/partitions"                    && STORAGE   "$sosroot"
@@ -2538,6 +2644,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
   else
     [[ -n $bios ]]    && COND_RUN dmidecode --require_root
     [[ -n $os ]]      && OSINFO /
+    [[ -n $kdump ]]   && KDUMP /
     [[ -n $cpu ]]     && CPUINFO /
     [[ -n $mem ]]     && MEMINFO /
     [[ -n $disks ]]   && STORAGE /

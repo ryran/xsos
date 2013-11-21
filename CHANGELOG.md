@@ -4,6 +4,12 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/11/21 xsos v0.3.1: added new -k/--kdump module; added rdrand to --cpu**
+
+- Added `rdrand` to detected cpu flags (in `--cpu`)
+- Implemented [issue 78 - RFE: Add a new module for querying kdump configuration](https://github.com/ryran/xsos/issues/79) via `--kdump` / `-k`
+
+
 **2013/11/18 xsos v0.3.0: changed iface-down color to lt.grey; ethtool fix**
 
 - Fixed [issue 77 - When `ethtool iface` doesn't report any good output, interface is skipped](https://github.com/ryran/xsos/issues/77)
