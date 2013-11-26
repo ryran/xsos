@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.1 last mod 2013/11/21
+# xsos v0.3.2 last mod 2013/11/26
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -180,6 +180,12 @@ fi
 #   Configures whether IPADDR() shows ipv4 or ipv6 addresses
     : ${XSOS_IP_VERSION:="4"}
 #
+#
+# XSOS_SCRUB_OUTPUT (bool: y/n)
+#   Configures whether IP addrs & hostnames should be removed from output
+    : ${XSOS_SCRUB_OUTPUT:="n"}
+#
+#
 # ==============================================================================
 
 
@@ -225,6 +231,7 @@ HELP_OPTS_DISPLAY() {
 Display options:"
 # --rhsupport❚tweak os output to focus on RHEL-centric support issues
   echo "
+     --scrub❚remove hostnames and IP addresses from output
  -6, --ipv6❚parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID❚restrict dm-multipath output to a particular mpath device,
               ❚where ID is a wwid, friendly name, or LUN identifier
@@ -305,6 +312,7 @@ Environment variables:
  Each variable name is prefixed with \"XSOS_\" and the important ones follow.
   COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR  IP_VERSION
   MEM_UNIT  NET_UNIT  PS_UNIT  PS_LEVEL  UPDATE_CONFIRM  OUTPUT_HANDLER
+  SCRUB_OUTPUT
 "
   VERSINFO
 }
@@ -401,7 +409,7 @@ esac
 
 # GNU getopt short and long options:
 sopts='6q:u:v:w:xyzabokcmdtleginsp'
-lopts='ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
+lopts='scrub,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -451,6 +459,7 @@ PARSE() {
   unset opts all bios os kdump cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
+      --scrub)      shift; XSOS_SCRUB_OUTPUT=y ;;
       -6|--ipv6)    shift; XSOS_IP_VERSION=6 ;;
       -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
                       XSOS_MULTIPATH_QUERY=$2; shift 2
@@ -894,7 +903,7 @@ _CHECK_GRUB() {
 
 OSINFO() {
   # Local vars:
-  local distro_release kernel_build kernel_buildhost num_cpu btime hostname kernel serverURL sURLtmp uname systime boottime uptime_input runlevel initdefault timezone
+  local distro_release kernel_build kernel_buildhost num_cpu btime hostname hntmp kernel serverURL sURLtmp uname systime boottime uptime_input runlevel initdefault timezone
   
   # These functions populate variables for later use
   _CHECK_DISTRO "$1"
@@ -982,9 +991,16 @@ OSINFO() {
         initdefault=unknown
   fi
   
+  if [[ $XSOS_SCRUB_OUTPUT == y ]]; then
+    hntmp="${c[Warn2]}HOSTNAME SCRUBBED${c[0]}"
+    [[ $serverURL == "serverURL=https://xmlrpc.rhn.redhat.com/XMLRPC" ]] || serverURL="${c[Warn2]}SATELLITE URL SCRUBBED${c[0]}"
+  else
+    hntmp=$hostname
+  fi
+  
   # Start printing stuff
   echo -e "${c[H1]}OS${c[0]}"
-  echo -e "  ${c[H2]}Hostname:${c[0]} $hostname"
+  echo -e "  ${c[H2]}Hostname:${c[0]} $hntmp"
   echo -e "  ${c[H2]}Distro:${c[0]}   $distro_release"
   echo -e "  ${c[H2]}RHN:${c[0]}      $serverURL"
   [[ -n $runlevel ]] &&
@@ -1017,17 +1033,25 @@ OSINFO() {
   # If rescue mode detected, print a warning
   grep -qsw rescue "$1/proc/cmdline" &&
     echo -e "     ${c[Warn1]}(Rescue mode detected)${c[0]}"
-  [[ ! -r $1/proc/cmdline ]] && 
-    echo -e "$XSOS_INDENT_H3${c[Warn1]}unknown${c[0]}" ||
-    fold -sw$XSOS_FOLD_WIDTH "$1/proc/cmdline" 2>/dev/null | sed "s,^,$XSOS_INDENT_H3,"
+  if [[ -r $1/proc/cmdline ]]; then
+    [[ $XSOS_SCRUB_OUTPUT == y ]] \
+      && proc_cmdline=$(sed "s/${hostname%%.*}/HOSTNAME/g" "$1"/proc/cmdline) \
+      || proc_cmdline=$(<"$1"/proc/cmdline)
+    fold -sw$XSOS_FOLD_WIDTH <<<"$proc_cmdline" 2>/dev/null | sed -e "s,^,$XSOS_INDENT_H3,"
+  else
+    echo -e "$XSOS_INDENT_H3${c[Warn1]}unknown${c[0]}"
+  fi
 
   echo -e "    ${c[H3]}GRUB default kernel cmdline:${c[0]}  $default_missing"
   if [[ -n $bad_grubcfg ]]; then
     echo -e "      $bad_grubcfg"
   else
-    grep -qs 'unknown.*rescue mode' <<<"$grub_cmdline" &&
-      echo -e "$XSOS_INDENT_H3$grub_cmdline" ||
-      fold -sw$XSOS_FOLD_WIDTH <<<"$grub_cmdline" 2>/dev/null | sed "s,^,$XSOS_INDENT_H3,"
+    if grep -qs 'unknown.*rescue mode' <<<"$grub_cmdline"; then
+      echo -e "$XSOS_INDENT_H3$grub_cmdline"
+    else
+      [[ $XSOS_SCRUB_OUTPUT == y ]] && grub_cmdline=${grub_cmdline//${hostname%%.*}/HOSTNAME}
+      fold -sw$XSOS_FOLD_WIDTH <<<"$grub_cmdline" 2>/dev/null | sed -e "s,^,$XSOS_INDENT_H3,"
+    fi
   fi
     
   # Print kernel tainted-status
@@ -1881,6 +1905,14 @@ IPADDR() {
     return
   fi
   
+  if [[ $XSOS_SCRUB_OUTPUT == y ]]; then
+    __scrub_ipv4() { tr '[0-9]' 'X' ; }
+    __scrub_ipv6() { tr '[[:alnum:]]' 'X' ; }
+  else
+    __scrub_ipv4() { cat ; }
+    __scrub_ipv6() { cat ; }
+  fi  
+  
   # Local vars:
   local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr alias
   
@@ -1967,7 +1999,7 @@ IPADDR() {
               echo "   ❚ ❚$ipaddr❚ ❚ "
             fi
             n=$((n+1))
-          done <<<"$(awk "/inet6/ {print \$2}" <<<"${iface_input[$i]}")"
+          done <<<"$(awk "/inet6/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv6)"
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
@@ -1988,7 +2020,7 @@ IPADDR() {
               echo "   ❚ ❚$ipaddr❚ ❚ "
             fi
             n=$((n+1))
-          done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}")"
+          done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4)"
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
@@ -2327,7 +2359,9 @@ SYSCTL() {
   fi
   
   echo -e "$XSOS_INDENT_H1${c[H2]}kernel.${c[0]}"
-  __P kernel.hostname
+  [[ $XSOS_SCRUB_OUTPUT == y ]] \
+    && echo -e "$XSOS_INDENT_H2${c[H3]}hostname =  ${c[Warn2]}HOSTNAME SCRUBBED${c[0]}" \
+    || __P kernel.hostname
   __P kernel.osrelease
   echo -e "$XSOS_INDENT_H2${c[H3]}tainted =  $(CHECK_TAINTED "$1" H3)"
   __P kernel.random.boot_id

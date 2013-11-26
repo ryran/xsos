@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/11/26 xsos v0.3.2: added --scrub option + XSOS_SCRUB_OUTPUT env var**
+
+- See ongoing [issue 80 - RFE: Add option to scrub system identifiable information (i.e., hostnames & IP addrs) for e.g. government use](https://github.com/ryran/xsos/issues/80). So far cleaned up OS, IP, and SYSCTL output.
+
+
 **2013/11/21 xsos v0.3.1: added new -k/--kdump module; added rdrand to --cpu**
 
 - Added `rdrand` to detected cpu flags (in `--cpu`)
