@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.2 last mod 2013/11/26
+# xsos v0.3.3b last mod 2013/12/04
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1132,7 +1132,7 @@ OSINFO() {
 
 KDUMP() {
   # Local vars
-  local kexec_tools_vers kdump_initrd kdump_cfg
+  local kexec_tools_vers kdump_initrd path kdump_cfg target MemTotal PathAvailableSpace ColorAvailable
   
   # If the os module was called, grub config was already inspected; otherwise, we need to do it
   [[ -n $os ]] || _CHECK_GRUB "$1"
@@ -1154,6 +1154,10 @@ KDUMP() {
         && ls -l /boot/initrd-*kdump.img | sed -r 's@^........... +[0-9]+ \w+ *\w+ *([0-9]+ .*)@\1@' | sed -r 's,/+boot/,,' \
         || echo -e "${c[Warn1]}missing '/boot/initrd-*kdump.img'${c[0]}"
     }
+    __get_df_for_parent_fs_of_path() {
+      df_output=$(df "$path" | awk 'NR==2')
+    }
+      
   # If running on sosreport ....
   else
     __rpm_check_kexec() {
@@ -1182,6 +1186,22 @@ KDUMP() {
       else
         echo -e "${c[Warn1]}missing '$1/sos_commands/bootloader/ls_-laR_.boot'${c[0]}"
       fi
+    }
+    __get_df_for_parent_fs_of_path() {
+      local dfpath lastloop
+      dfpath=$path
+      while [[ $(awk -vP=$dfpath '{if ($6==P) n+=1} END{if (n>=1) print 0; else print 255}'  "$1"/sos_commands/filesys/df_-al) -eq 255 ]]; do
+        if [[ $lastloop == y ]]; then
+          echo "DEBUG: This should never happen unless sos_commands/filesys/df_-al is missing an entry for '/'"
+          return 2
+        fi
+        dfpath=${dfpath%/*}
+        if [[ -z $dfpath ]]; then
+          dfpath=/
+          lastloop=y
+        fi
+      done
+      df_output=$(awk -vP=$dfpath '$6==P'  "$1"/sos_commands/filesys/df_-al)
     }
   fi
   
@@ -1218,11 +1238,46 @@ KDUMP() {
     echo -e "$XSOS_INDENT_H2${c[H3]}/proc/cmdline {${c[0]} $(__get_crashkernel_proc_cmdline "$1") ${c[H3]}}${c[0]}"
     echo -e "$XSOS_INDENT_H2${c[H3]}GRUB default  {${c[0]} $(__get_crashkernel_grub_cmdline "$1") ${c[H3]}}${c[0]}"
   echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf:${c[0]}"
+  
     if [[ -r "$1"/etc/kdump.conf ]]; then
       kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$1"/etc/kdump.conf)
-      [[ -n $kdump_cfg ]] \
-        && sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg" \
-        || echo -e "$XSOS_INDENT_H2${c[DGREY]}[All commented]${c[0]}"
+      if [[ -n $kdump_cfg ]]; then
+        sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg"
+        path=$(awk '/^path / {print$2}' "$1"/etc/kdump.conf)
+        [[ -z $path ]] && path=/var/crash
+        
+        for target in raw nfs ssh ext2 ext3 ext4 btrfs xfs; do
+          if grep -q ^$target "$1"/etc/kdump.conf; then
+            path=
+            break
+          fi
+        done
+        
+      else
+        echo -e "$XSOS_INDENT_H2${c[DGREY]}[All commented]${c[0]}"
+        path=/var/crash
+      fi
+      
+      if [[ -n $path ]]; then
+        __get_df_for_parent_fs_of_path "$1"
+        if [[ -n $df_output ]]; then
+          echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf \"path\" available space:${c[0]}"
+          MemTotal=$(awk '/^MemTotal/{printf "%.2f\n", $2/1024/1024}' "$1"/proc/meminfo)
+          PathAvailableSpace=$(awk '{printf "%.2f\n", $4/1024/1024}' <<<"$df_output")
+          ColorAvailable=$(awk -vP=$path -vMemtotal=$(awk /MemTotal/{print\$2} "$1"/proc/meminfo) '
+            {
+              if ($4 > Memtotal) print "green"
+              else if ($4 == Memtotal) print "orange"
+              else if ($4 < Memtotal) print "red"
+            }
+          '  <<<"$df_output")
+          echo -e "$XSOS_INDENT_H2${c[H3]}System MemTotal (uncompressed core size) {${c[0]} $MemTotal GiB ${c[H3]}}${c[0]}"
+          echo -e "$XSOS_INDENT_H2${c[H3]}Available free space on target path fs   {${c[0]} ${c[$ColorAvailable]}$PathAvailableSpace GiB ${c[H3]}}${c[0]}  (path=$path; fs=$(awk '{print$6}' <<<"$df_output"))"
+        else
+          echo "DEBUG: no df_output .. shouldn't happen"
+        fi
+      fi
+      
     else
       echo -e "$XSOS_INDENT_H2${c[Warn1]}missing '$1/etc/kdump.conf'${c[0]}"
     fi
