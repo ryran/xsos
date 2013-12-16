@@ -16,7 +16,7 @@ In descending chronological order with most recent commits on top. See **[commit
 
 **2013/12/07 xsos v0.3.3d: --kdump fix for multiline df output**
 
-- See ongoing [issue 78 - RFE: Add a new module for querying kdump configuration](https://github.com/ryran/xsos/issues/78)
+- See ongoing [issue 81 - RFE: Add further kdump diagnostics](https://github.com/ryran/xsos/issues/81)
 - Changes between 0.3.2 and 0.3.3d:
   - Added kdump.conf path available space check to `--kdump`
   - Added panic-related sysctls and more color to `--kdump`
