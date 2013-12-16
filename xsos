@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.3d last mod 2013/12/07
+# xsos v0.3.4 last mod 2013/12/16
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -49,49 +49,49 @@ fi
       : ${XSOS_COLORS:="y"}
 #
 #   XSOS_COLOR_RESET -- color to reset terminal to after using other colors
-      : ${XSOS_COLOR_RESET:="${c[reset]}"}
+      : ${XSOS_COLOR_RESET:="reset"}
 #
 #   XSOS_COLOR_H1 -- color for content modules' primary header
-      : ${XSOS_COLOR_H1:="${c[RED]}"}
+      : ${XSOS_COLOR_H1:="RED"}
 #
 #   XSOS_COLOR_H2 -- color for content modules' secondary header
-      : ${XSOS_COLOR_H2:="${c[PURPLE]}"}
+      : ${XSOS_COLOR_H2:="PURPLE"}
 #
 #   XSOS_COLOR_H3 -- color for content modules' tertiary header
-      : ${XSOS_COLOR_H3:="${c[BLUE]}"}
+      : ${XSOS_COLOR_H3:="BLUE"}
 #
 #   XSOS_COLOR_H4 -- color used only for SYSCTL() module
-      : ${XSOS_COLOR_H4:="${c[reset]}"}
+      : ${XSOS_COLOR_H4:="reset"}
 #
 #   XSOS_COLOR_IMPORTANT -- color for drawing attention to important data
-      : ${XSOS_COLOR_IMPORTANT:="${c[BOLD]}"}
+      : ${XSOS_COLOR_IMPORTANT:="BOLD"}
 #
 #   XSOS_COLOR_WARN1 -- color for level-1 warnings
-      : ${XSOS_COLOR_WARN1:="${c[orange]}"}
+      : ${XSOS_COLOR_WARN1:="orange"}
 #
 #   XSOS_COLOR_WARN2 -- color for level-2 warnings
-      : ${XSOS_COLOR_WARN2:="${c[ORANGE]}"}
+      : ${XSOS_COLOR_WARN2:="ORANGE"}
 #
 #   XSOS_COLOR_MEMGRAPH_MEMUSED -- color for MemUsed in MEMINFO() graph
-      : ${XSOS_COLOR_MEMGRAPH_MEMUSED:="${c[green]}"}
+      : ${XSOS_COLOR_MEMGRAPH_MEMUSED:="green"}
 #
 #   XSOS_COLOR_MEMGRAPH_HUGEPAGES -- color for HugePages in MEMINFO() graph
-      : ${XSOS_COLOR_MEMGRAPH_HUGEPAGES:="${c[cyan]}"}
+      : ${XSOS_COLOR_MEMGRAPH_HUGEPAGES:="cyan"}
 #
 #   XSOS_COLOR_MEMGRAPH_BUFFERS -- color for Buffers in MEMINFO() graph
-      : ${XSOS_COLOR_MEMGRAPH_BUFFERS:="${c[purple]}"}
+      : ${XSOS_COLOR_MEMGRAPH_BUFFERS:="purple"}
 #
 #   XSOS_COLOR_MEMGRAPH_CACHED -- color for Cached in MEMINFO() graph
-      : ${XSOS_COLOR_MEMGRAPH_CACHED:="${c[blue]}"}
+      : ${XSOS_COLOR_MEMGRAPH_CACHED:="blue"}
 #
 #   XSOS_COLOR_MEMGRAPH_DIRTY -- color for Dirty in MEMINFO() graph
-      : ${XSOS_COLOR_MEMGRAPH_DIRTY:="${c[red]}"}
+      : ${XSOS_COLOR_MEMGRAPH_DIRTY:="red"}
 #
 #   XSOS_COLOR_IFUP -- color for ethtool InterFace "up"
-      : ${XSOS_COLOR_IFUP:="${c[green]}"}
+      : ${XSOS_COLOR_IFUP:="green"}
 #
 #   XSOS_COLOR_IFDOWN -- color for ethtool InterFace "down"
-      : ${XSOS_COLOR_IFDOWN:="${c[lgrey]}"}
+      : ${XSOS_COLOR_IFDOWN:="lgrey"}
 #
 #
 # INDENTATION
@@ -126,14 +126,14 @@ fi
     : ${XSOS_HEADING_SEPARATOR:="\n"}
 #
 #
-# XSOS_ALL_VIEW (str of variables, semicolon-separated)
+# XSOS_ALL_VIEW (str of variables, space-separated)
 #   Controls what content modules to run when -a/--all switch is used
-    : ${XSOS_ALL_VIEW:="bios=y; os=y; kdump=y; cpu=y; mem=y; disks=y; mpath=y; lspci=y; ethtool=y; bonding=y; ip=y; netdev=y; sysctl=y; ps=y"}
+    : ${XSOS_ALL_VIEW:="bios os kdump cpu mem disks mpath lspci ethtool bonding ip netdev sysctl ps"}
 #
 #
-# XSOS_DEFAULT_VIEW (str of variables, semicolon-separated)
+# XSOS_DEFAULT_VIEW (str of variables, space-separated)
 #   Controls default content modules, i.e. what to run when none are specififed
-    : ${XSOS_DEFAULT_VIEW:="os=y"}
+    : ${XSOS_DEFAULT_VIEW:="os"}
 #
 #
 # XSOS_PS_LEVEL (int: 0-4)
@@ -280,10 +280,12 @@ If no content options are specified, $pzero parses the environment variable
 XSOS_DEFAULT_VIEW to figure out what information to display. If this variable
 is unset at runtime, it is initialized internally as follows:
 
-   XSOS_DEFAULT_VIEW='os=y;'
+   XSOS_DEFAULT_VIEW='os'
 
-Tweak it to preference by adding additional semicolon-separated MODULE=y
-statements, where MODULE is the same as the long option (e.g. mem, ethtool).
+Tweak it to preference by adding additional space-separated MODULE statements,
+where MODULE is the same as the long option (e.g. mem, ethtool, netdev). Note
+that the --net alias option cannot be used for this purpose. Also note that the
+-a / --all option has it's own environment variable: XSOS_ALL_VIEW
 
 If SOSREPORT ROOT isn't provided, the data will be gathered from the localhost;
 however, bios, multipath, and ethtool output will only be displayed if running
@@ -324,7 +326,7 @@ UPDATE() {
     echo -e "${c[RED]}Unable to create temporary file with mktemp${c[reset]}"
     exit 73
   }
-  trap "rm '$latest_version_file'" EXIT
+  trap "rm -f '$latest_version_file' 2>/dev/null" EXIT
 
   # Download latest version of xsos with wget or curl
   if command -v wget >/dev/null; then
@@ -351,7 +353,7 @@ UPDATE() {
   if ! diff "$0" "$latest_version_file" >/dev/null; then
     echo -e "${c[blue]}The version you are running reports as:\n\t${c[orange]}${version:2}${c[blue]}\nThe version on github appears to be different and reports as:\n\t${c[ORANGE]}${latest_version:2}${c[blue]}"
     if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
-      echo -e "Type ${c[GREEN]}y${c[blue]} to see the differences between them, or else any other key${c[reset]}"
+      echo -e "Want to inspect differences between them? [${c[green]}y${c[blue]}/${c[green]}n${c[blue]}]${c[reset]}"
       read -p "> "
       if [[ $REPLY == y ]]; then
         if [[ -n $DISPLAY ]] && command -v meld >/dev/null; then
@@ -362,7 +364,7 @@ UPDATE() {
           vimdiff "$0" "$latest_version_file"
         else
           # set name of tmp diff file
-          diff_file=$latest_version_file.patch; trap "rm '$diff_file'" EXIT;
+          diff_file=$latest_version_file.patch; trap "rm -f '$diff_file' 2>/dev/null" EXIT;
           # create a diff file
           diff -u "$0" "$latest_version_file" > "$diff_file"
           if [[ -n $DISPLAY ]] && command -v gedit >/dev/null; then
@@ -378,12 +380,12 @@ UPDATE() {
       exit 77
     }
     if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
-      echo -e "${c[blue]}Type ${c[GREEN]}u${c[blue]} to replace $0 with the latest version\nOr any other key to cancel${c[reset]}"
+      echo -e "${c[blue]}Replace $0 with the latest downloaded version?\nAny key but ${c[green]}y${c[blue]} to cancel${c[reset]}"
       read -p "> "
     else
-      REPLY=u
+      REPLY=y
     fi
-    if [[ $REPLY == u ]]; then
+    if [[ $REPLY == y ]]; then
       echo -e "${c[blue]}Backing up current version and replacing it with downloaded version ...${c[cyan]}"
       cp -v "$0" "$(mktemp --tmpdir xsos-$(awk {print\$3} <<<"$version").XXX)"
       cp -v "$latest_version_file" "$0"
@@ -524,36 +526,40 @@ elif [[ $BASH_VERSINFO -lt 4 && -n $sfile ]]; then
   exit 32
 # Use default view if no content options specified
 elif [[ -z $opts ]]; then
-  eval $XSOS_DEFAULT_VIEW
+  for module in $XSOS_DEFAULT_VIEW; do eval $module=y; done
 # Else, if "all" option specified, set full view
 elif [[ -n $all ]]; then
-  eval $XSOS_ALL_VIEW
+  for module in $XSOS_ALL_VIEW; do eval $module=y; done
 fi
 
 # If color should be enabled, taste the rainbow
 if [[ $XSOS_COLORS == y && $BASH_VERSINFO -ge 4 ]]; then
-  c[0]=$XSOS_COLOR_RESET
-  c[H1]=$XSOS_COLOR_H1
-  c[H2]=$XSOS_COLOR_H2
-  c[H3]=$XSOS_COLOR_H3
-  c[H4]=$XSOS_COLOR_H4
-  c[Imp]=$XSOS_COLOR_IMPORTANT
-  c[Warn1]=$XSOS_COLOR_WARN1
-  c[Warn2]=$XSOS_COLOR_WARN2
-  c[Up]=$XSOS_COLOR_IFUP
-  c[Down]=$XSOS_COLOR_IFDOWN
-  c[MemUsed]=$XSOS_COLOR_MEMGRAPH_MEMUSED
-  c[HugePages]=$XSOS_COLOR_MEMGRAPH_HUGEPAGES
-  c[Buffers]=$XSOS_COLOR_MEMGRAPH_BUFFERS
-  c[Cached]=$XSOS_COLOR_MEMGRAPH_CACHED
-  c[Dirty]=$XSOS_COLOR_MEMGRAPH_DIRTY
+  c[0]=${c[$XSOS_COLOR_RESET]}
+  c[H1]=${c[$XSOS_COLOR_H1]}
+  c[H2]=${c[$XSOS_COLOR_H2]}
+  c[H3]=${c[$XSOS_COLOR_H3]}
+  c[H4]=${c[$XSOS_COLOR_H4]}
+  c[Imp]=${c[$XSOS_COLOR_IMPORTANT]}
+  c[Warn1]=${c[$XSOS_COLOR_WARN1]}
+  c[Warn2]=${c[$XSOS_COLOR_WARN2]}
+  c[Up]=${c[$XSOS_COLOR_IFUP]}
+  c[Down]=${c[$XSOS_COLOR_IFDOWN]}
+  c[MemUsed]=${c[$XSOS_COLOR_MEMGRAPH_MEMUSED]}
+  c[HugePages]=${c[$XSOS_COLOR_MEMGRAPH_HUGEPAGES]}
+  c[Buffers]=${c[$XSOS_COLOR_MEMGRAPH_BUFFERS]}
+  c[Cached]=${c[$XSOS_COLOR_MEMGRAPH_CACHED]}
+  c[Dirty]=${c[$XSOS_COLOR_MEMGRAPH_DIRTY]}
 else
   unset c
 fi
 
 # Properly setup fold setting
 if [[ $XSOS_FOLD_WIDTH == w ]]; then
-  XSOS_FOLD_WIDTH=$(( $(tput cols) - 8 ))
+  if tty &>/dev/null; then
+    XSOS_FOLD_WIDTH=$(( $(tput cols) - 8 ))
+  else
+    XSOS_FOLD_WIDTH=80
+  fi
 elif [[ $XSOS_FOLD_WIDTH == 0 ]]; then
   XSOS_FOLD_WIDTH=99999
 fi
@@ -2077,7 +2083,7 @@ IPADDR() {
               echo "   ❚ ❚$ipaddr❚ ❚ "
             fi
             n=$((n+1))
-          done <<<"$(awk "/inet6/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv6)"
+          done < <(awk "/inet6/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv6)
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
@@ -2098,7 +2104,7 @@ IPADDR() {
               echo "   ❚ ❚$ipaddr❚ ❚ "
             fi
             n=$((n+1))
-          done <<<"$(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4)"
+          done < <(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4)
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
@@ -2224,7 +2230,7 @@ ETHTOOL() {
     echo -en "${c[Warn1]}"
     for i in $ethdevs; do
       errsfound=
-      if errsfound=$(__ethtool_S $i | egrep '(drop|disc|err|fifo|buf).*: [^0]'); then
+      if errsfound=$(__ethtool_S $i | egrep '(drop|disc|err|fifo|buf|fail|miss).*: [^0]'); then
         ethindent=$(tr '[[:graph:]]'   ' ' <<<"${XSOS_INDENT_H2}$i")
         [[ -n $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}- - - - - - - - - - - - - - - - - - -"
         echo -en "${c[Warn1]}"
@@ -2712,7 +2718,8 @@ COND_RUN() {
 
 
 # Create sub tempdir in /dev/shm (tons of bash constructs use TMPDIR)
-export TMPDIR=$(mktemp -d --tmpdir=/dev/shm)
+[[ -d /dev/shm && -w /dev/shm ]] && parent=/dev/shm || parent=/tmp
+export TMPDIR=$(mktemp -d -p $parent)
 # Create tmp file for capturing stderr
 stderr_file=$TMPDIR/stderr
 # Remove temp dir when we're done

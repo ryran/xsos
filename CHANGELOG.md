@@ -4,6 +4,25 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/12/16 xsos v0.3.4: multiple env variable changes; ethtool; rhel5 mktemp**
+
+- Colors: `XSOS_COLOR_*` variables now must be defined as simple words -- blue, cyan, red, etc. and BLUE, CYAN, RED, etc. (for bold). Note that users don't need to define these -- they have defaults. But if one wanted to, they could tweak them as environment variables (in e.g. `~/.bash_profile`).
+- `XSOS_ALL_VIEW` & `XSOS_DEFAULT_VIEW` environment variables now take simple modules names instead of obfuscated `x=y;` syntax, i.e.: to change the default view seen when xsos is run with no options, you could run `XSOS_DEFAULTVIEW="bios cpu mem" xsos` (or of course set it in a config file as mentioned above).
+- Made the messaging simpler and hopefully much more clear when updating via `--update` / `-U`
+- Added additional logic to `XSOS_FOLD_WIDTH` for when it's set to `w` (autodetect). In such a case, if we don't have a tty (e.g. `ssh somesystem xsos`), it will statically be set to 80 columns.
+- Added `fail` and `miss` to the ethtool "Interface Errors" regex
+- Fixed invocation of `mktemp` with `--tmpdir` option which RHEL5 doesn't have *sigh* .... made it keep using old deprecated `-p` for now.
+
+
+**2013/12/07 xsos v0.3.3d: --kdump fix for multiline df output**
+
+- See ongoing [issue 78 - RFE: Add a new module for querying kdump configuration](https://github.com/ryran/xsos/issues/79)
+- Changes between 0.3.2 and 0.3.3d:
+  - Added kdump.conf path available space check to `--kdump`
+  - Added panic-related sysctls and more color to `--kdump`
+  - Fixed `--kdump` to appropriately handle multiline `df` output (i.e., when a device is too long to fit on the same line as its stats)
+
+
 **2013/11/26 xsos v0.3.2: added --scrub option + XSOS_SCRUB_OUTPUT env var**
 
 - See ongoing [issue 80 - RFE: Add option to scrub system identifiable information (i.e., hostnames & IP addrs) for e.g. government use](https://github.com/ryran/xsos/issues/80). So far cleaned up OS, IP, and SYSCTL output.
