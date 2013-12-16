@@ -16,7 +16,7 @@ In descending chronological order with most recent commits on top. See **[commit
 
 **2013/12/07 xsos v0.3.3d: --kdump fix for multiline df output**
 
-- See ongoing [issue 78 - RFE: Add a new module for querying kdump configuration](https://github.com/ryran/xsos/issues/79)
+- See ongoing [issue 78 - RFE: Add a new module for querying kdump configuration](https://github.com/ryran/xsos/issues/78)
 - Changes between 0.3.2 and 0.3.3d:
   - Added kdump.conf path available space check to `--kdump`
   - Added panic-related sysctls and more color to `--kdump`
@@ -31,7 +31,7 @@ In descending chronological order with most recent commits on top. See **[commit
 **2013/11/21 xsos v0.3.1: added new -k/--kdump module; added rdrand to --cpu**
 
 - Added `rdrand` to detected cpu flags (in `--cpu`)
-- Implemented [issue 78 - RFE: Add a new module for querying kdump configuration](https://github.com/ryran/xsos/issues/79) via `--kdump` / `-k`
+- Implemented [issue 78 - RFE: Add a new module for querying kdump configuration](https://github.com/ryran/xsos/issues/78) via `--kdump` / `-k`
 
 
 **2013/11/18 xsos v0.3.0: changed iface-down color to lt.grey; ethtool fix**
