@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.4 last mod 2013/12/16
+# xsos v0.3.5 last mod 2013/12/17
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -181,11 +181,14 @@ fi
     : ${XSOS_IP_VERSION:="4"}
 #
 #
-# XSOS_SCRUB_OUTPUT (bool: y/n)
+# XSOS_SCRUB_IP_HN (bool: y/n)
 #   Configures whether IP addrs & hostnames should be removed from output
-    : ${XSOS_SCRUB_OUTPUT:="n"}
+    : ${XSOS_SCRUB_IP_HN:="n"}
 #
 #
+# XSOS_SCRUB_MACADDR (bool: y/n)
+#   Configures whether HW MAC addresses should be removed from output
+    : ${XSOS_SCRUB_MACADDR:="n"}
 # ==============================================================================
 
 
@@ -231,7 +234,9 @@ HELP_OPTS_DISPLAY() {
 Display options:"
 # --rhsupport❚tweak os output to focus on RHEL-centric support issues
   echo "
-     --scrub❚remove hostnames and IP addresses from output
+     --scrub-ip❚remove IP addresses & hostnames from output
+     --scrub-mac❚remove HW MAC addresses from output
+                ❚see XSOS_SCRUB_IP_HN & XSOS_SCRUB_MACADDR env vars
  -6, --ipv6❚parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID❚restrict dm-multipath output to a particular mpath device,
               ❚where ID is a wwid, friendly name, or LUN identifier
@@ -314,7 +319,7 @@ Environment variables:
  Each variable name is prefixed with \"XSOS_\" and the important ones follow.
   COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR  IP_VERSION
   MEM_UNIT  NET_UNIT  PS_UNIT  PS_LEVEL  UPDATE_CONFIRM  OUTPUT_HANDLER
-  SCRUB_OUTPUT
+  SCRUB_IP_HN  SCRUB_MACADDR
 "
   VERSINFO
 }
@@ -411,7 +416,7 @@ esac
 
 # GNU getopt short and long options:
 sopts='6q:u:v:w:xyzabokcmdtleginsp'
-lopts='scrub,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
+lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -461,7 +466,8 @@ PARSE() {
   unset opts all bios os kdump cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
   until [[ $1 = -- ]]; do
     case $1 in
-      --scrub)      shift; XSOS_SCRUB_OUTPUT=y ;;
+      --scrub-ip)   shift; XSOS_SCRUB_IP_HN=y ;;
+      --scrub-mac)  shift; XSOS_SCRUB_MACADDR=y ;;
       -6|--ipv6)    shift; XSOS_IP_VERSION=6 ;;
       -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
                       XSOS_MULTIPATH_QUERY=$2; shift 2
@@ -997,7 +1003,7 @@ OSINFO() {
         initdefault=unknown
   fi
   
-  if [[ $XSOS_SCRUB_OUTPUT == y ]]; then
+  if [[ $XSOS_SCRUB_IP_HN == y ]]; then
     hntmp="${c[Warn2]}HOSTNAME SCRUBBED${c[0]}"
     [[ $serverURL == "serverURL=https://xmlrpc.rhn.redhat.com/XMLRPC" ]] || serverURL="${c[Warn2]}SATELLITE URL SCRUBBED${c[0]}"
   else
@@ -1040,7 +1046,7 @@ OSINFO() {
   grep -qsw rescue "$1/proc/cmdline" &&
     echo -e "     ${c[Warn1]}(Rescue mode detected)${c[0]}"
   if [[ -r $1/proc/cmdline ]]; then
-    [[ $XSOS_SCRUB_OUTPUT == y ]] \
+    [[ $XSOS_SCRUB_IP_HN == y ]] \
       && proc_cmdline=$(sed "s/${hostname%%.*}/HOSTNAME/g" "$1"/proc/cmdline) \
       || proc_cmdline=$(<"$1"/proc/cmdline)
     fold -sw$XSOS_FOLD_WIDTH <<<"$proc_cmdline" 2>/dev/null | sed -e "s,^,$XSOS_INDENT_H3,"
@@ -1055,7 +1061,7 @@ OSINFO() {
     if grep -qs 'unknown.*rescue mode' <<<"$grub_cmdline"; then
       echo -e "$XSOS_INDENT_H3$grub_cmdline"
     else
-      [[ $XSOS_SCRUB_OUTPUT == y ]] && grub_cmdline=${grub_cmdline//${hostname%%.*}/HOSTNAME}
+      [[ $XSOS_SCRUB_IP_HN == y ]] && grub_cmdline=${grub_cmdline//${hostname%%.*}/HOSTNAME}
       fold -sw$XSOS_FOLD_WIDTH <<<"$grub_cmdline" 2>/dev/null | sed -e "s,^,$XSOS_INDENT_H3,"
     fi
   fi
@@ -1243,7 +1249,7 @@ KDUMP() {
     __rpm_check_kexec | sed "s,^,$XSOS_INDENT_H2,"
   echo -e "$XSOS_INDENT_H1${c[H2]}Service enablement:${c[0]}"
     __svc_check_kdump | awk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
-            { for (i=2; i<6; i++) { gsub(i ":on", i ":" green "on" H0); gsub(i ":off", i ":" warn "off" H0) }
+            { for (i=3; i<6; i++) { gsub(i ":on", i ":" green "on" H0); gsub(i ":off", i ":" warn "off" H0) }
               print
             }' | sed "s,^,$XSOS_INDENT_H2,"
   echo -e "$XSOS_INDENT_H1${c[H2]}kdump initrd.img:${c[0]}"
@@ -1906,7 +1912,13 @@ BONDING() {
       mode="unrecognized: $1"
     fi
   }
-    
+  
+  if [[ $XSOS_SCRUB_MACADDR == y ]]; then
+    __scrub_mac() { tr '[0-9][abcdef]' 'X' ; }
+  else
+    __scrub_mac() { cat ; }
+  fi
+  
   echo -e "${c[H1]}BONDING${c[0]}"
     
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
@@ -1948,7 +1960,7 @@ BONDING() {
         fi
         
         awk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}/ $bond_input | 
-          awk '/Permanent HW addr/ {printf " (%s)", $4}'
+          awk '/Permanent HW addr/ {printf " (%s)", $4}' | __scrub_mac
         s=$((s+1))
         echo
       done
@@ -1979,7 +1991,9 @@ BONDING() {
 IPADDR() {
 # I spent a long time wondering how I would end up implementing ip-addr functionality
 # I couldn't think of a lovely elegant gawk-way and in the end I wrote this in 2 hours
-# This is probably one of the most expensive of the functions
+# (And later added brctl, ipv6, scrubbing, MTU)
+# This is probably one of the most expensive of the functions and the one most ripe for
+# being rewritten in Python
 
   # Require BASH v4
   if [[ -z $BASH_VERSINFO || $BASH_VERSINFO -lt 4 ]]; then
@@ -1989,13 +2003,20 @@ IPADDR() {
     return
   fi
   
-  if [[ $XSOS_SCRUB_OUTPUT == y ]]; then
+  if [[ $XSOS_SCRUB_IP_HN == y ]]; then
     __scrub_ipv4() { tr '[0-9]' 'X' ; }
     __scrub_ipv6() { tr '[[:alnum:]]' 'X' ; }
   else
     __scrub_ipv4() { cat ; }
     __scrub_ipv6() { cat ; }
   fi  
+
+  if [[ $XSOS_SCRUB_MACADDR == y ]]; then
+    __scrub_mac() { tr '[0-9][abcdef]' 'X' ; }
+  else
+    __scrub_mac() { cat ; }
+  fi  
+
   
   # Local vars:
   local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr alias
@@ -2039,11 +2060,11 @@ IPADDR() {
   {
     # Header info ("❚" is used later by `column` to columnize the output)
     if [[ $XSOS_IP_VERSION -eq 6 ]]; then
-      echo "  Interface❚Slave Of❚IPv6 Address❚State❚MAC Address"
-      echo "  =========❚========❚===========================================❚=====❚================="
+      echo "  Interface❚Slave Of❚IPv6 Address❚MTU❚State❚MAC Address"
+      echo "  =========❚========❚===========================================❚======❚=====❚================="
     else
-      echo "  Interface❚Slave Of❚IPv4 Address❚State❚MAC Address"
-      echo "  =========❚========❚==================❚=====❚================="
+      echo "  Interface❚Slave Of❚IPv4 Address❚MTU❚State❚MAC Address"
+      echo "  =========❚========❚==================❚======❚=====❚================="
     fi
     
     # For each interface ($i) found in ip addr output
@@ -2063,11 +2084,14 @@ IPADDR() {
         fi
       )
       
+      # Get MTU for $i
+      mtu[$i]=$(egrep -o 'mtu [0-9]+' <<<"${iface_input[$i]}" | awk '{print $2}')
+      
       # Get up/down state for $i
       state[$i]=$(grep -q "$i: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
       
       # Get macaddr for $i (don't show if all zeros)
-      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${iface_input[$i]}" || echo "-")
+      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" && awk '/link\/[[:graph:]]+ ..:..:..:..:..:../ {if ($2 == "00:00:00:00:00:00") print "-"; else print $2}' <<<"${iface_input[$i]}" | __scrub_mac || echo "-")
       
       if [[ $XSOS_IP_VERSION -eq 6 ]]; then
         
@@ -2078,16 +2102,16 @@ IPADDR() {
           # So we need to set up a counter and do a loop
           n=0; while read ipaddr; do
             if [[ $n -eq 0 ]]; then
-              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${state[$i]}❚${mac[$i]}"
+              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
             else
-              echo "   ❚ ❚$ipaddr❚ ❚ "
+              echo "   ❚ ❚$ipaddr❚ ❚ ❚ "
             fi
             n=$((n+1))
           done < <(awk "/inet6/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv6)
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
-          echo "  $i❚${slaveof[$i]}❚-❚${state[$i]}❚${mac[$i]}"
+          echo "  $i❚${slaveof[$i]}❚-❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
         fi        
         
       else
@@ -2099,16 +2123,16 @@ IPADDR() {
           # So we need to set up a counter and do a loop
           n=0; while read ipaddr; do
             if [[ $n -eq 0 ]]; then
-              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${state[$i]}❚${mac[$i]}"
+              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
             else
-              echo "   ❚ ❚$ipaddr❚ ❚ "
+              echo "   ❚ ❚$ipaddr❚ ❚ ❚ "
             fi
             n=$((n+1))
           done < <(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4)
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
-          echo "  $i❚${slaveof[$i]}❚-❚${state[$i]}❚${mac[$i]}"
+          echo "  $i❚${slaveof[$i]}❚-❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
           # ... And Continue on to the next interface, i.e., skip looking for aliases
           continue
         fi
@@ -2121,7 +2145,7 @@ IPADDR() {
             ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}")
             
             # ... Print out a new line with its ipv4 addr
-            echo "  $alias❚ ❚${ipv4_alias[$alias]}❚ ❚ "
+            echo "  $alias❚ ❚${ipv4_alias[$alias]}❚ ❚ ❚ "
           done
         fi
       
@@ -2443,7 +2467,7 @@ SYSCTL() {
   fi
   
   echo -e "$XSOS_INDENT_H1${c[H2]}kernel.${c[0]}"
-  [[ $XSOS_SCRUB_OUTPUT == y ]] \
+  [[ $XSOS_SCRUB_IP_HN == y ]] \
     && echo -e "$XSOS_INDENT_H2${c[H3]}hostname =  ${c[Warn2]}HOSTNAME SCRUBBED${c[0]}" \
     || __P kernel.hostname
   __P kernel.osrelease

@@ -4,6 +4,14 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/12/17 xsos v0.3.5: added MTU, --scrub-ip & --scrub-mac**
+
+- Added MTU column to `--ip`
+- Replaced `--scrub` with `--scrub-ip` & changed `XSOS_SCRUB_OUTPUT` env variable to `XSOS_SCRUB_IP_HN`
+- Added `--scrub-mac` and `XSOS_SCRUB_MACADDR `env var to scrub MACs from bonding and ipaddr output
+- Updated bash-completion file
+
+
 **2013/12/16 xsos v0.3.4: multiple env variable changes; ethtool; rhel5 mktemp**
 
 - Colors: `XSOS_COLOR_*` variables now must be defined as simple words -- blue, cyan, red, etc. and BLUE, CYAN, RED, etc. (for bold). Note that users don't need to define these -- they have defaults. But if one wanted to, they could tweak them as environment variables (in e.g. `~/.bash_profile`).
