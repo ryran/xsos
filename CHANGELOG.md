@@ -4,6 +4,16 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2013/12/27 xsos v0.3.6: enhancements to ethtool error-parsing**
+
+- See [discussion on ethtool interface error parsing](https://github.com/ryran/xsos/issues/85) for full details
+- Added `XSOS_ETHTOOL_ERR_REGEX` env variable (`XSOS_ETHTOOL_ERR_REGEX="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso).*: [^0]"`)
+- Added multiple items to above-mentioned regex
+- Completely re-tooled the error parsing to gracefully handle `ethtool -S` output with multiple Rx/Tx queues (i.e., if errors are found, the queue heading is printed)
+- As a consequence of indentation being used in `ethtool -S` output more and more, xsos no longer replaces all leading whitespace with the `XSOS_INDENT_H2` variable -- instead we just insert the interface name plus a couple spaces and call it good
+- Fixed [issue 86 - xsos -n shows same value for RX & TX bytes!](https://github.com/ryran/xsos/issues/86)
+
+
 **2013/12/17 xsos v0.3.5: added MTU, --scrub-ip & --scrub-mac**
 
 - Added MTU column to `--ip`

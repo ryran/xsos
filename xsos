@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.5 last mod 2013/12/17
+# xsos v0.3.6 last mod 2013/12/27
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -189,6 +189,12 @@ fi
 # XSOS_SCRUB_MACADDR (bool: y/n)
 #   Configures whether HW MAC addresses should be removed from output
     : ${XSOS_SCRUB_MACADDR:="n"}
+#
+#
+# XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
+#   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
+    : ${XSOS_ETHTOOL_ERR_REGEX:="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso).*: [^0]"}
+#
 # ==============================================================================
 
 
@@ -319,7 +325,7 @@ Environment variables:
  Each variable name is prefixed with \"XSOS_\" and the important ones follow.
   COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR  IP_VERSION
   MEM_UNIT  NET_UNIT  PS_UNIT  PS_LEVEL  UPDATE_CONFIRM  OUTPUT_HANDLER
-  SCRUB_IP_HN  SCRUB_MACADDR
+  SCRUB_IP_HN  SCRUB_MACADDR ETHTOOL_ERR_REGEX
 "
   VERSINFO
 }
@@ -432,9 +438,15 @@ _OPT_CHECK() {
   chosen_opt=$(tr '[:upper:]' '[:lower:]' <<<"$2")
   check_type=$3
   valid_opts=$4
-  if [[ $option == width ]]; then
-    egrep -qs '^[0-9]*$|^w$' <<<"$chosen_opt" && return
-    echo "$pzero: option '$option' expects a positive number or 'w' (auto-detect width) or '0' (disable wrapping)"
+  if [[ $check_type == regex ]]; then
+    egrep -qs "$valid_opts" <<<"$chosen_opt" && return
+    case $option in
+      width)
+        echo "$pzero: option '$option' expects a positive number or 'w' (auto-detect width) or '0' (disable wrapping)"
+        ;;
+      *)
+       echo "$pzero: option '$option' expects other input, i.e., matching regex '$valid_opts'"=
+    esac
   
   elif [[ $check_type == range ]]; then
     for n in $(seq $valid_opts); do
@@ -443,7 +455,7 @@ _OPT_CHECK() {
     echo "$pzero: option '$option' expects number from range: { ${valid_opts// /-} }"
     
   elif [[ $check_type == naturalnumber ]]; then
-    grep -qs '^[0-9]*$' <<<"$chosen_opt" && return
+    egrep -qs '^[0-9]+$' <<<"$chosen_opt" && return
     echo "$pzero: option '$option' expects any natural number, including zero"
     
   elif [[ $check_type == string ]]; then
@@ -464,7 +476,7 @@ _OPT_CHECK() {
 # Parse command-line arguments
 PARSE() {
   unset opts all bios os kdump cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
-  until [[ $1 = -- ]]; do
+  until [[ $1 == -- ]]; do
     case $1 in
       --scrub-ip)   shift; XSOS_SCRUB_IP_HN=y ;;
       --scrub-mac)  shift; XSOS_SCRUB_MACADDR=y ;;
@@ -478,7 +490,7 @@ PARSE() {
       -v|--verbose) _OPT_CHECK "verbose" "$2" range "0 4"
                       XSOS_PS_LEVEL=$2; shift 2
                     ;;
-      -w|--width)   _OPT_CHECK "width" "$2"
+      -w|--width)   _OPT_CHECK "width" "$2" regex '^[0-9]*$|^w$'
                       XSOS_FOLD_WIDTH=$2; shift 2
                     ;;
       -x|--nocolor) shift; XSOS_COLORS=n     ;;
@@ -2164,7 +2176,7 @@ IPADDR() {
         {
           if (NR <= 2) printf H2 $0
           else {
-            if ($4 == "DOWN") printf D $0
+            if ($5 == "DOWN") printf D $0
             else if ($0 ~ /^  [[:graph:]]/) printf gensub(/(^  [[:graph:]]+ )/,  H3"\\1"U, 1)
             else printf U $0
           }
@@ -2176,7 +2188,7 @@ IPADDR() {
 
 ETHTOOL() {
   # Local vars:
-  local changedir ethdevs i errsfound count ethindent
+  local changedir ethdevs i errsfound count ethindent multiqueue_header
   
   # If localhost, grab interfaces from /sys
   if [[ -z $1 ]]; then
@@ -2252,13 +2264,29 @@ ETHTOOL() {
       
     echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Errors:${c[0]}"
     echo -en "${c[Warn1]}"
+    multiqueue_header='^[[:space:]]+[RT]x.Queue#:'
     for i in $ethdevs; do
       errsfound=
-      if errsfound=$(__ethtool_S $i | egrep '(drop|disc|err|fifo|buf|fail|miss).*: [^0]'); then
-        ethindent=$(tr '[[:graph:]]'   ' ' <<<"${XSOS_INDENT_H2}$i")
+      ethindent=$(tr '[[:graph:]]'   ' ' <<<"$i ")
+      if __ethtool_S $i | egrep -q "$XSOS_ETHTOOL_ERR_REGEX"; then
         [[ -n $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}- - - - - - - - - - - - - - - - - - -"
         echo -en "${c[Warn1]}"
-        sed -e "1s/^[[:space:]]*/${XSOS_INDENT_H2}$i  /" -e "1!s/^[[:space:]]*/$ethindent  /" <<<"$errsfound"
+        errsfound=$(__ethtool_S $i |
+          tac |
+            awk "          
+              BEGIN { found = 0 }
+              /$XSOS_ETHTOOL_ERR_REGEX/ {
+                print ; found = 1
+              }
+              /$multiqueue_header/ {
+                if (found == 1) {
+                  print ; found = 0
+                }
+              }
+            " |
+              tac
+        )
+        sed -e "1s/[[:space:]][[:graph:]]/$i &/" -e "1!s/^/$ethindent/" <<<"$errsfound"
         count+=1
       fi
     done
@@ -2349,7 +2377,7 @@ PROC_NET() {
         # Now that we have our numbers, time to do rounding
                 
         RxBytes[$1]   = round(RxBytes[$1],   Precision_Bytes)
-        TxBytes[$1]   = round(RxBytes[$1],   Precision_Bytes)
+        TxBytes[$1]   = round(TxBytes[$1],   Precision_Bytes)
         RxPackets[$1] = round(RxPackets[$1], Precision_Pckts)
         TxPackets[$1] = round(TxPackets[$1], Precision_Pckts)
                   
