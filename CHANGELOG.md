@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/01/10 xsos v0.3.8: speed improvement for --lspci**
+
+- Improved speed of lspci processing
+
+
 **2014/01/06 xsos v0.3.7: fix for line 2100: syntax error: invalid arithmetic operator**
 
 - Fixed [issue 87 -xsos: line 2100: eth0_12@eth0: syntax error: invalid arithmetic operator (error token is "@eth0")](https://github.com/ryran/xsos/issues/87)

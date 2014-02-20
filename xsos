@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.7 last mod 2014/01/06
+# xsos v0.3.8 last mod 2014/01/10
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1832,18 +1832,16 @@ LSPCI() {
   if [[ -z $1 ]]; then
     lspci_input=$(lspci)
   elif [[ -f $1 ]]; then
-    lspci_input=$(<"$1")
+    lspci_input=$(awk '{print} /^lspci -n/{exit}' "$1" 2>/dev/null)
   else
-    lspci_input=$(<"$1/lspci")
+    lspci_input=$(awk '{print} /^lspci -n/{exit}' "$1/lspci" 2>/dev/null)
   fi
 
   echo -e "${c[H1]}LSPCI${c[0]}"
 
   awk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
-    !/Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:|InfiniBand:/ {
-      next
-    }
-    {
+    /Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:|InfiniBand:/ {
+      # Save 
       split($1, slot, ":")
       $1 = ""
       sub(" ", "")
@@ -1874,7 +1872,11 @@ LSPCI() {
   ' <<<"$lspci_input"
   
   echo -e "${c[H2]}  VGA:${c[0]}"
-  awk -F: '$2 ~ /^.... VGA/ { print "   "$3}' <<<"$lspci_input"
+  awk -F: '
+    $2 ~ /^.... VGA/ {
+      print "   "$3
+    }
+  ' <<<"$lspci_input"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
