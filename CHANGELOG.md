@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/05/02 xsos v0.3.9: quick fix for issue94**
+
+- Fixed [issue 94 - xsos --bonding shows multiple MAC addrs on slave interface](https://github.com/ryran/xsos/issues/94) 
+
+
 **2014/01/10 xsos v0.3.8: speed improvement for --lspci**
 
 - Improved speed of lspci processing
@@ -11,7 +16,7 @@ In descending chronological order with most recent commits on top. See **[commit
 
 **2014/01/06 xsos v0.3.7: fix for line 2100: syntax error: invalid arithmetic operator**
 
-- Fixed [issue 87 -xsos: line 2100: eth0_12@eth0: syntax error: invalid arithmetic operator (error token is "@eth0")](https://github.com/ryran/xsos/issues/87)
+- Fixed [issue 87 - xsos: line 2100: eth0_12@eth0: syntax error: invalid arithmetic operator (error token is "@eth0")](https://github.com/ryran/xsos/issues/87)
 
 
 **2013/12/27 xsos v0.3.6: enhancements to ethtool error-parsing**
