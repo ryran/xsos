@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.3.9 last mod 2014/05/02
+# xsos v0.4.0 last mod 2014/05/07
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1079,7 +1079,7 @@ OSINFO() {
   fi
     
   # Print kernel tainted-status
-  echo -e "    ${c[H3]}Taint-check:${c[0]} $(CHECK_TAINTED "$1" H3)"
+  echo -e "    ${c[H3]}Taint-check:${c[0]} $(CHECK_TAINTED --noquote "$1" H3)"
   # End the kernel section
   echo -e "    ${c[DGREY]}- - - - - - - - - - - - - - - - - - -${c[0]}"
   
@@ -2419,34 +2419,44 @@ PROC_NET() {
 
 CHECK_TAINTED() {
   # Local vars:
-  local sys_tainted_status tainvals taint indent t n
+  local quote sys_tainted_status taintvals taint indent t n
   
-  sys_tainted_status=$(<"$1/proc/sys/kernel/tainted")
+  [[ $1 == --quote ]] && quote=1 || quote=
   
-  if [[ $sys_tainted_status == 0 ]]; then
-    echo -e "0${c[0]}  (kernel untainted)"
-    return
-    
+  sys_tainted_status=$(<"$2/proc/sys/kernel/tainted")
+  
+  
+  if [[ -n $quote ]]; then
+    echo -en "\"$sys_tainted_status\"${c[0]}"
   else
-    case $2 in
-      H0) indent=                ;;
-      H1) indent=$XSOS_INDENT_H1 ;;
-      H2) indent=$XSOS_INDENT_H2 ;;
-      H3) indent=$XSOS_INDENT_H3
-    esac
-    
-    taintvals=$(
-      for taint in 536870912 268435456 4096 2048 1024 512 256 128 64 32 16 8 4 2 1; do
-        if [[ $sys_tainted_status -gt $taint ]]; then
-          printf "$taint "
-          sys_tainted_status=$((tainted-taint))
-        elif [[ $sys_tainted_status == $taint ]]; then
-          printf "$taint "                                                                                     
-          break
-        fi
-      done
-    )
+    echo -en "$sys_tainted_status${c[0]}"
   fi
+
+  if [[ $sys_tainted_status == 0 ]]; then
+    echo "  (kernel untainted)"
+    return
+  else
+    echo
+  fi
+    
+  case $3 in
+    H0) indent=                ;;
+    H1) indent=$XSOS_INDENT_H1 ;;
+    H2) indent=$XSOS_INDENT_H2 ;;
+    H3) indent=$XSOS_INDENT_H3
+  esac
+  
+  taintvals=$(
+    for taint in 536870912 268435456 4096 2048 1024 512 256 128 64 32 16 8 4 2 1; do
+      if [[ $sys_tainted_status -gt $taint ]]; then
+        printf "$taint "
+        sys_tainted_status=$((sys_tainted_status-taint))
+      elif [[ $sys_tainted_status == $taint ]]; then
+        printf "$taint "                                                                                     
+        break
+      fi
+    done
+  )
   
   # See /usr/share/doc/kernel-doc*/Documentation/sysctl/kernel.txt
   # Or linux/kernel/panic.c
@@ -2465,9 +2475,8 @@ CHECK_TAINTED() {
   t[4096]="Out-of-tree module has been loaded"
   t[268435456]="Hardware is unsupported"
   t[536870912]="Technology Preview code is loaded"
-  echo -e "$taintvals${c[0]}"
   for n in $taintvals; do
-    echo "$indent${t[$n]}"
+    echo "$indent$n  (${t[$n]})"
   done
 }
 
@@ -2483,11 +2492,11 @@ SYSCTL() {
   hpgsz=$(awk '/Hugepagesize:/{print $2/1024}' <"$1/proc/meminfo")  # Saved as MiB
   
   __P() {
-    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=  $(<"$sosroot"/proc/sys/${1//.//})${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || echo \"$(<"$sosroot"/proc/sys/${1//.//})\" )${c[0]}"
   }
   
   __Pa() {
-    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=  $(awk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//})${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || awk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//} )${c[0]}"
   }
   
   echo -e "${c[H1]}SYSCTLS${c[0]}"
@@ -2501,15 +2510,15 @@ SYSCTL() {
     && echo -e "$XSOS_INDENT_H2${c[H3]}hostname =  ${c[Warn2]}HOSTNAME SCRUBBED${c[0]}" \
     || __P kernel.hostname
   __P kernel.osrelease
-  echo -e "$XSOS_INDENT_H2${c[H3]}tainted =  $(CHECK_TAINTED "$1" H3)"
+  echo -e "$XSOS_INDENT_H2${c[H3]}tainted =  $(CHECK_TAINTED --quote "$1" H3)"
   __P kernel.random.boot_id
   __P kernel.random.entropy_avail "[bits] "
   __P kernel.hung_task_panic "[bool] "
-  __Pa kernel.hung_task_timeout_secs ""  '{if ($1>0) printf "%s%s  (secs task must be D-state to trigger)", $1, H0; else printf "0%s  (khungtaskd disabled)", H0}'
+  __Pa kernel.hung_task_timeout_secs ""  '{if ($1>0) printf "\"%s\"%s  (secs task must be D-state to trigger)", $1, H0; else printf "\"0\"%s  (khungtaskd disabled)", H0}'
   __P kernel.msgmax "[bytes] "
   __P kernel.msgmnb "[bytes] "
   __P kernel.msgmni "[msg queues] "
-  __Pa kernel.panic "[secs] "  '{if ($1>0) printf "%s%s  (secs til autoreboot after panic)", $1, H0; else printf "0%s  (no autoreboot on panic)", H0}'
+  __Pa kernel.panic "[secs] "  '{if ($1>0) printf "\"%s\"%s  (secs til autoreboot after panic)", $1, H0; else printf "\"0\"%s  (no autoreboot on panic)", H0}'
   __P kernel.panic_on_oops "[bool] "
   __P kernel.nmi_watchdog "[bool] "
   __P kernel.panic_on_io_nmi "[bool] "
@@ -2520,48 +2529,50 @@ SYSCTL() {
   __P kernel.softlockup_thresh "[secs] "
   __P kernel.pid_max
   __P kernel.threads-max
-  __Pa kernel.sem "[array] "  "-vS=$XSOS_INDENT_H3"  '{printf "%s  %s  %s  %s%s\n", $1,$2,$3,$4,H0; printf "%sSEMMSL (max semaphores per array) =  %d\n%sSEMMNS (max sems system-wide)     =  %d\n%sSEMOPM (max ops per semop call)   =  %d\n%sSEMMNI (max number of sem arrays) =  %d\n", S,$1, S,$2, S,$3, S,$4}'
-  __Pa kernel.shmall "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "%s%s  (%.1f GiB max total shared memory)", $1, H0, $1*PGSZ/1024/1024}'
-  __Pa kernel.shmmax "[bytes] "  '{printf "%s%s  (%.2f GiB max segment size)", $1, H0, $1/1024/1024/1024}'
-  __Pa kernel.shmmni "[segments] "  '{printf "%s%s  (max number of segs)", $1, H0}'
-  __Pa kernel.sysrq "[bitmask] "  '{if ($1==0) printf "0%s  (disallowed)", H0; else if ($1==1) printf "1%s  (all SysRqs allowed)", H0; else printf "%s%s  (see proc man page)", $1, H0}'
+  __Pa kernel.sem "[array] "  "-vS=$XSOS_INDENT_H3"  '{printf "\"%s  %s  %s  %s\"%s\n", $1,$2,$3,$4,H0; printf "%sSEMMSL (max semaphores per array) =  %d\n%sSEMMNS (max sems system-wide)     =  %d\n%sSEMOPM (max ops per semop call)   =  %d\n%sSEMMNI (max number of sem arrays) =  %d\n", S,$1, S,$2, S,$3, S,$4}'
+  __Pa kernel.shmall "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "\"%s\"%s  (%.1f GiB max total shared memory)", $1, H0, $1*PGSZ/1024/1024}'
+  __Pa kernel.shmmax "[bytes] "  '{printf "\"%s\"%s  (%.2f GiB max segment size)", $1, H0, $1/1024/1024/1024}'
+  __Pa kernel.shmmni "[segments] "  '{printf "\"%s\"%s  (max number of segs)", $1, H0}'
+  __Pa kernel.sysrq "[bitmask] "  '{if ($1==0) printf "\"0\"%s  (disallowed)", H0; else if ($1==1) printf "\"1\"%s  (all SysRqs allowed)", H0; else printf "\"%s\"%s  (see proc man page)", $1, H0}'
 
   echo -e "$XSOS_INDENT_H1${c[H2]}fs.${c[0]}"
-  __Pa fs.file-max "[fds] "  '{printf "%s%s  (system-wide limit for num open files [file descriptors])", $1,H0}'
-  __Pa fs.nr_open  "[fds] "  '{printf "%s%s  (per-process limit for num open files [see also RLIMIT_NOFILE])", $1,H0}'
-  __Pa fs.file-nr "[fds] "  '{printf "%s  %s  %s%s  (num allocated fds, N/A, num free fds)", $1,$2,$3,H0 }'
-  __Pa fs.inode-nr "[inodes] "  '{printf "%s  %s%s  (nr_inodes allocated, nr_free_inodes)", $1,$2,H0}'
+  __Pa fs.file-max "[fds] "  '{printf "\"%s\"%s  (system-wide limit for num open files [file descriptors])", $1,H0}'
+  __Pa fs.nr_open  "[fds] "  '{printf "\"%s\"%s  (per-process limit for num open files [see also RLIMIT_NOFILE])", $1,H0}'
+  __Pa fs.file-nr "[fds] "  '{printf "\"%s  %s  %s\"%s  (num allocated fds, N/A, num free fds)", $1,$2,$3,H0 }'
+  __Pa fs.inode-nr "[inodes] "  '{printf "\"%s  %s\"%s  (nr_inodes allocated, nr_free_inodes)", $1,$2,H0}'
   
   echo -e "$XSOS_INDENT_H1${c[H2]}net.${c[0]}"
   __P net.core.netdev_budget "[packets] "
   __P net.core.netdev_max_backlog "[packets] "
-  __Pa net.core.rmem_default "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
-  __Pa net.core.wmem_default "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
-  __Pa net.core.rmem_max "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
-  __Pa net.core.wmem_max "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.rmem_default "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.wmem_default "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.rmem_max "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.wmem_max "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
   __P net.ipv4.icmp_echo_ignore_all "[bool] "
   __P net.ipv4.ip_forward "[bool] "
-  __Pa net.ipv4.tcp_max_orphans "[sockets] "  '{printf "%s%s  (%d MiB @ max 64 KiB per orphan)", $1, H0, $1*64/1024}'
-  __Pa net.ipv4.tcp_mem "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "%s  %s  %s%s  (%.2f GiB, %.2f GiB, %.2f GiB)", $1, $2, $3, H0, $1*PGSZ/1024/1024, $2*PGSZ/1024/1024, $3*PGSZ/1024/1024}'
-  __Pa net.ipv4.udp_mem "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "%s  %s  %s%s  (%.2f GiB, %.2f GiB, %.2f GiB)", $1, $2, $3, H0, $1*PGSZ/1024/1024, $2*PGSZ/1024/1024, $3*PGSZ/1024/1024}'
+  __Pa net.ipv4.ip_local_port_range "[ports] "  '{printf "\"%s  %s\"%s  (defines ephemeral port range used by TCP/UDP)", $1,$2,H0}'
+  __Pa net.ipv4.ip_local_reserved_ports "[ports] "  '{printf "\"%s\"%s  (comma-separated ports/ranges to exclude from automatic port assignments)", $0,H0}'
+  __Pa net.ipv4.tcp_max_orphans "[sockets] "  '{printf "\"%s\"%s  (%d MiB @ max 64 KiB per orphan)", $1, H0, $1*64/1024}'
+  __Pa net.ipv4.tcp_mem "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "\"%s  %s  %s\"%s  (%.2f GiB, %.2f GiB, %.2f GiB)", $1, $2, $3, H0, $1*PGSZ/1024/1024, $2*PGSZ/1024/1024, $3*PGSZ/1024/1024}'
+  __Pa net.ipv4.udp_mem "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "\"%s  %s  %s\"%s  (%.2f GiB, %.2f GiB, %.2f GiB)", $1, $2, $3, H0, $1*PGSZ/1024/1024, $2*PGSZ/1024/1024, $3*PGSZ/1024/1024}'
   __P net.ipv4.tcp_window_scaling "[bool] "
-  __Pa net.ipv4.tcp_rmem "[bytes] "  '{printf "%s  %s  %s%s  (%d KiB, %d KiB, %d KiB)", $1, $2, $3, H0, $1/1024, $2/1024, $3/1024}'
-  __Pa net.ipv4.tcp_wmem "[bytes] "  '{printf "%s  %s  %s%s  (%d KiB, %d KiB, %d KiB)", $1, $2, $3, H0, $1/1024, $2/1024, $3/1024}'
-  __Pa net.ipv4.udp_rmem_min "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
-  __Pa net.ipv4.udp_wmem_min "[bytes] "  '{printf "%s%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.ipv4.tcp_rmem "[bytes] "  '{printf "\"%s  %s  %s\"%s  (%d KiB, %d KiB, %d KiB)", $1, $2, $3, H0, $1/1024, $2/1024, $3/1024}'
+  __Pa net.ipv4.tcp_wmem "[bytes] "  '{printf "\"%s  %s  %s\"%s  (%d KiB, %d KiB, %d KiB)", $1, $2, $3, H0, $1/1024, $2/1024, $3/1024}'
+  __Pa net.ipv4.udp_rmem_min "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.ipv4.udp_wmem_min "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
 
   echo -e "$XSOS_INDENT_H1${c[H2]}vm.${c[0]}"
-  __Pa vm.dirty_ratio ""  '{if ($1>0) printf "%s%s  (%% of total system memory)", $1, H0; else printf "0%s  (disabled -- check dirty_bytes)", H0}'
-  __Pa vm.dirty_bytes ""  '{if ($1>0) printf "%s%s  (%.1f MiB)", $1, H0, $1/1024/1024; else printf "0%s  (disabled -- check dirty_ratio)", H0}'
-  __Pa vm.dirty_background_ratio ""  '{if ($1>0) printf "%s%s  (%% of total system memory)", $1, H0; else printf "0%s  (disabled -- check dirty_background_bytes)", H0}'
-  __Pa vm.dirty_background_bytes ""  '{if ($1>0) printf "%s%s  (%.1f MiB)", $1, H0, $1/1024/1024; else printf "0%s  (disabled -- check dirty_background_ratio)", H0}'
+  __Pa vm.dirty_ratio ""  '{if ($1>0) printf "\"%s\"%s  (%% of total system memory)", $1, H0; else printf "\"0\"%s  (disabled -- check dirty_bytes)", H0}'
+  __Pa vm.dirty_bytes ""  '{if ($1>0) printf "\"%s\"%s  (%.1f MiB)", $1, H0, $1/1024/1024; else printf "\"0\"%s  (disabled -- check dirty_ratio)", H0}'
+  __Pa vm.dirty_background_ratio ""  '{if ($1>0) printf "\"%s\"%s  (%% of total system memory)", $1, H0; else printf "\"0\"%s  (disabled -- check dirty_background_bytes)", H0}'
+  __Pa vm.dirty_background_bytes ""  '{if ($1>0) printf "\"%s\"%s  (%.1f MiB)", $1, H0, $1/1024/1024; else printf "\"0\"%s  (disabled -- check dirty_background_ratio)", H0}'
   __P vm.dirty_expire_centisecs
   __P vm.dirty_writeback_centisecs
-  __Pa vm.nr_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "%s%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else print $1 H0}'
-  __Pa vm.overcommit_memory "[0-2] "   '{if ($1==0) printf "0%s  (heuristic overcommit)", H0; else if ($1==1) printf "1%s  (always overcommit, never check)", H0; else if ($1==2) print "2%s  (always check, never overcommit)", H0}'
+  __Pa vm.nr_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
+  __Pa vm.overcommit_memory "[0-2] "   '{if ($1==0) printf "\"0\"%s  (heuristic overcommit)", H0; else if ($1==1) printf "\"1\"%s  (always overcommit, never check)", H0; else if ($1==2) print "\"2\"%s  (always check, never overcommit)", H0}'
   __P vm.overcommit_ratio
-  __Pa vm.oom_kill_allocating_task "[bool] "  '{if ($1==0) printf "0%s  (scan tasklist)", H0; else printf "1%s  (kill OOM-triggering task)", H0}'
-  __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "0%s  (no panic)", H0; else if ($1==1) printf "1%s  (no panic if OOM-triggering task limited by mbind/cpuset)", H0; else if ($1==2) printf "2%s  (always panic)", H0}'
+  __Pa vm.oom_kill_allocating_task "[bool] "  '{if ($1==0) printf "\"0\"%s  (scan tasklist)", H0; else printf "\"1\"%s  (kill OOM-triggering task)", H0}'
+  __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "\"0\"%s  (no panic)", H0; else if ($1==1) printf "\"1\"%s  (no panic if OOM-triggering task limited by mbind/cpuset)", H0; else if ($1==2) printf "\"2\"%s  (always panic)", H0}'
   __P vm.swappiness "[0-100] "
   echo -en $XSOS_HEADING_SEPARATOR
 }

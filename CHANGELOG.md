@@ -4,6 +4,12 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/05/07 xsos v0.4.0: issue95 & issue96**
+
+- Fixed [issue 95 - taintcheck in xsos -s and xsos -o has problems](https://github.com/ryran/xsos/issues/95)
+- Implemented [issue 96 - RFE: xsos --sysctl need moar better](https://github.com/ryran/xsos/issues/96)
+
+
 **2014/05/02 xsos v0.3.9: quick fix for issue94**
 
 - Fixed [issue 94 - xsos --bonding shows multiple MAC addrs on slave interface](https://github.com/ryran/xsos/issues/94) 
