@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.4.0 last mod 2014/05/07
+# xsos v0.4.1 last mod 2014/05/07
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -26,7 +26,7 @@ version=$(sed '2q;d' $0)
 # Colors and colors and colors oh my (but only for bash v4)
 if [[ $BASH_VERSINFO -ge 4 ]]; then
   declare -A c
-  c[reset]='\033[0;0m';   c[BOLD]='\033[1;1m'
+  c[reset]='\033[0;0m';   c[BOLD]='\033[0;0m\033[1;1m'
   c[dgrey]='\033[0;30m';  c[DGREY]='\033[1;30m';  c[bg_DGREY]='\033[40m'
   c[red]='\033[0;31m';    c[RED]='\033[1;31m';    c[bg_RED]='\033[41m'
   c[green]='\033[0;32m';  c[GREEN]='\033[1;32m';  c[bg_GREEN]='\033[42m'
@@ -2425,7 +2425,6 @@ CHECK_TAINTED() {
   
   sys_tainted_status=$(<"$2/proc/sys/kernel/tainted")
   
-  
   if [[ -n $quote ]]; then
     echo -en "\"$sys_tainted_status\"${c[0]}"
   else
@@ -2492,11 +2491,11 @@ SYSCTL() {
   hpgsz=$(awk '/Hugepagesize:/{print $2/1024}' <"$1/proc/meminfo")  # Saved as MiB
   
   __P() {
-    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || echo \"$(<"$sosroot"/proc/sys/${1//.//})\" )${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || echo \"$(<"$sosroot"/proc/sys/${1//.//})\" )${c[0]}"
   }
   
   __Pa() {
-    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || awk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//} )${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || awk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//} )${c[0]}"
   }
   
   echo -e "${c[H1]}SYSCTLS${c[0]}"
@@ -2510,7 +2509,7 @@ SYSCTL() {
     && echo -e "$XSOS_INDENT_H2${c[H3]}hostname =  ${c[Warn2]}HOSTNAME SCRUBBED${c[0]}" \
     || __P kernel.hostname
   __P kernel.osrelease
-  echo -e "$XSOS_INDENT_H2${c[H3]}tainted =  $(CHECK_TAINTED --quote "$1" H3)"
+  echo -e "$XSOS_INDENT_H2${c[H3]}tainted =${c[Imp]}  $(CHECK_TAINTED --quote "$1" H3)"
   __P kernel.random.boot_id
   __P kernel.random.entropy_avail "[bits] "
   __P kernel.hung_task_panic "[bool] "

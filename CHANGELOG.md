@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/05/07 xsos v0.4.1: changed sysctl value color to simple bold**
+
+- Changed sysctl values to use "important" color instead of h3 color (as far as defaults go, that means instead of blue, the values will be just bold)
+
+
 **2014/05/07 xsos v0.4.0: issue95 & issue96**
 
 - Fixed [issue 95 - taintcheck in xsos -s and xsos -o has problems](https://github.com/ryran/xsos/issues/95)
