@@ -3,6 +3,12 @@ Changelog for xsos & rsar
 In descending chronological order with most recent commits on top. See **[commit history page](/ryran/xsos/commits/master)** to browse code.
 
 - - -
+v0.4.2 last mod 2014/06/13
+**2014/06/13 xsos v0.4.2: added to bios display; added rhel7 issue support**
+
+- Modified `-b` / `--bios` display to show more info, per [issue 98 - RFE: Add dmidecode "Firmware Revision" to xsos BIOS page #98 ](https://github.com/ryran/xsos/issues/98)
+- Added RHEL7 to supported systems regex due to GA release a couple days ago (really only affects colorization with `--os`) and tweaked the way `/etc/os-release` is parsed
+
 
 **2014/05/07 xsos v0.4.1: changed sysctl value color to simple bold**
 

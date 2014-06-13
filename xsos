@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.4.1 last mod 2014/05/07
+# xsos v0.4.2 last mod 2014/06/13
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -615,11 +615,19 @@ DMIDECODE() {
   # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
   echo -e "${c[H2]}  BIOS:${c[0]}"
   awk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode_input" |
-    awk -F: '
-      /Vendor:/       { Vendor      = $2; gsub(/  */, " ", Vendor) }
-      /Version:/      { Version     = $2; gsub(/  */, " ", Version) }
-      /Release Date:/ { ReleaseDate = $2; gsub(/  */, " ", ReleaseDate) }
-      END { printf "   %s, version%s,%s\n", Vendor, Version, ReleaseDate }
+    awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+      /Vendor:/            { Vendor  = $2; gsub(/  */, " ", Vendor) }
+      /Version:/           { Version = $2; gsub(/  */, " ", Version) }
+      /Release Date:/      { RelDate = $2; gsub(/  */, " ", RelDate) }
+      /BIOS Revision:/     { BiosRev = $2; gsub(/  */, " ", BiosRev) }
+      /Firmware Revision:/ { FirmRev = $2; gsub(/  */, " ", FirmRev) }
+      END {
+        printf "    %sVend:%s%s\n", H3, H0, Vendor
+        printf "    %sVers:%s%s\n", H3, H0, Version
+        printf "    %sDate:%s%s\n", H3, H0, RelDate
+        printf "    %sBIOS Rev:%s%s\n", H3, H0, BiosRev
+        printf "    %sFW Rev:%s  %s\n", H3, H0, FirmRev
+	  }
     '
   # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
   echo -e "${c[H2]}  System:${c[0]}"
@@ -688,10 +696,11 @@ _CHECK_DISTRO() {
     distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
     
   else
-    # If release is RHEL 4,5,6 in standard expected format ...
+    # If release is RHEL 4,5,6,7 in standard expected format ...
     if egrep -e 'Red Hat Enterprise Linux (AS|ES|Desktop|WS) release 4 \((Nahant|Nahant Update [1-9])\)' \
              -e 'Red Hat Enterprise Linux (Client|Server) release 5\.?[0-9]* \(Tikanga\)' \
              -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 6\.?[0-9]* \(Santiago\)' \
+             -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 7\.[0-9] \(Maipo\)' \
              -qs "$1/etc/redhat-release"; then
     
       # ... And if redhat-release file has more than 1 line ...
@@ -703,7 +712,7 @@ _CHECK_DISTRO() {
           # Otherwise, if only 1 line, all is well -- print it normally
           distro_release=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
           
-    # If release is not RHEL 4,5,6 in standard expected format, freak out
+    # If release is not RHEL 4,5,6,7 in standard expected format, freak out
     else
       distro_release=$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
       
@@ -739,7 +748,7 @@ _CHECK_DISTRO() {
   # But in modern Linux boxen this file is standard
   # If able to source the new standard /etc/os-release, list it out
   if source "$1/etc/os-release" 2>/dev/null; then
-    distro_release="$distro_release\n$OS_INDENT${c[Imp]}[os-release]${c[0]} $PRETTY_NAME"
+    distro_release="$distro_release\n$OS_INDENT${c[Imp]}[os-release]${c[0]} $PRETTY_NAME $VERSION"
   fi
 }
 
