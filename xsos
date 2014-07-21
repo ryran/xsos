@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.4.3 last mod 2014/06/22
+# xsos v0.4.4 last mod 2014/07/21
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1865,7 +1865,7 @@ MULTIPATH() {
   if [[ -n $mpath_output ]]; then
     sed '1!s,^[[:alnum:]].*dm-,\n&,' <<<"$mpath_output" | $search_cmd | sed "s/^/$XSOS_INDENT_H1/"
   else
-    echo -e "${XSOS_INDENT_H1}${c[DGREY]}[No paths detected]"
+    echo -e "${XSOS_INDENT_H1}${c[DGREY]}[No paths detected]${c[0]}"
   fi
   
   echo -en $XSOS_HEADING_SEPARATOR

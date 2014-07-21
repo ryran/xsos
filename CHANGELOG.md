@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/07/21 xsos v0.4.4: color fix for issue 100**
+
+- Closed [issue 100 - xsos -t / --mpath doesn't reset color properly when no paths detected](https://github.com/ryran/xsos/issues/100)
+
+
 **2014/06/22 xsos v0.4.3: rhel7 fixes for --kdump & /proc/cmdline**
 
 - See ongoing [issue 97 - catchall for RHEL7 issues](https://github.com/ryran/xsos/issues/97)
