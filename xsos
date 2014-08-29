@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.4.4 last mod 2014/07/21
+# xsos v0.4.5 last mod 2014/08/29
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2202,11 +2202,14 @@ IPADDR() {
         if grep -q "inet .* $i:" <<<"${iface_input[$i]}"; then
         
           # For each "alias" (additional address) found ...
-          for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${iface_input[$i]}"); do
-            ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}")
+          for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${iface_input[$i]}" | sort -u); do
+            # The sed nonsense at the end allows for multiple new-style global addresses on top of an old-style alias (https://github.com/ryran/xsos/issues/103)
+            # Thankfully we don't need to do a while loop like above because in the case of aliases we don't need to display mtu, state, mac
+            ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4 | sed -e '1s/.*/&❚ ❚ ❚ /' -e '1!s/.*/   ❚ ❚&❚ ❚ ❚ /')
             
             # ... Print out a new line with its ipv4 addr
-            echo "  $alias❚ ❚${ipv4_alias[$alias]}❚ ❚ ❚ "
+            # No extra columns at the end needed because they're added by sed in above line
+            echo "  $alias❚ ❚${ipv4_alias[$alias]}"
           done
         fi
       

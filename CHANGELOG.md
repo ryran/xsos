@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/08/29 xsos v0.4.5: --ip fix for issue #103**
+
+- Closed [issue 103 - xsos --ip problems](https://github.com/ryran/xsos/issues/103)
+
+
 **2014/07/21 xsos v0.4.4: color fix for issue 100**
 
 - Closed [issue 100 - xsos -t / --mpath doesn't reset color properly when no paths detected](https://github.com/ryran/xsos/issues/100)
