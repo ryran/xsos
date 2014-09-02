@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.4.5 last mod 2014/08/29
+# xsos v0.5.0 last mod 2014/09/02
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2080,10 +2080,10 @@ IPADDR() {
 
   
   # Local vars:
-  local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr alias
+  local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr scope alias
   
   # Declare our 7 associative arrays:
-  local -A lookup_bridge iface_input slaveof mtu ipv4 ipv4_alias state mac 
+  local -A lookup_bridge iface_input slaveof state ipv4 ipv4_alias mtu mac 
   
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
@@ -2121,11 +2121,11 @@ IPADDR() {
   {
     # Header info ("❚" is used later by `column` to columnize the output)
     if [[ $XSOS_IP_VERSION -eq 6 ]]; then
-      echo "  Interface❚Slave Of❚IPv6 Address❚MTU❚State❚MAC Address"
-      echo "  =========❚========❚===========================================❚======❚=====❚================="
+      echo "  Interface❚Master IF❚MAC Address❚MTU❚State❚IPv6 Address❚Scope"
+      echo "  =========❚=========❚=================❚======❚=====❚===========================================❚====="
     else
-      echo "  Interface❚Slave Of❚IPv4 Address❚MTU❚State❚MAC Address"
-      echo "  =========❚========❚==================❚======❚=====❚================="
+      echo "  Interface❚Master IF❚MAC Address❚MTU❚State❚IPv4 Address"
+      echo "  =========❚=========❚=================❚======❚=====❚=================="
     fi
     
     # For each interface ($i) found in ip addr output
@@ -2161,18 +2161,18 @@ IPADDR() {
           
           # We could have more than one ipv6addr...
           # So we need to set up a counter and do a loop
-          n=0; while read ipaddr; do
+          n=0; while read ipaddr scope; do
             if [[ $n -eq 0 ]]; then
-              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
+              echo "  $i❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚$ipaddr❚$scope"
             else
-              echo "   ❚ ❚$ipaddr❚ ❚ ❚ "
+              echo "   ❚ ❚ ❚ ❚ ❚$ipaddr❚$scope"
             fi
             n=$((n+1))
-          done < <(awk "/inet6/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv6)
+          done < <(awk '/inet6/ {printf $2}' <<<"${iface_input[$i]}" | __scrub_ipv6; awk '/inet6/ {print " "$4}' <<<"${iface_input[$i]}")
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
-          echo "  $i❚${slaveof[$i]}❚-❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
+          echo "  $i❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚-❚-"
         fi        
         
       else
@@ -2184,16 +2184,16 @@ IPADDR() {
           # So we need to set up a counter and do a loop
           n=0; while read ipaddr; do
             if [[ $n -eq 0 ]]; then
-              echo "  $i❚${slaveof[$i]}❚$ipaddr❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
+              echo "  $i❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚$ipaddr"
             else
-              echo "   ❚ ❚$ipaddr❚ ❚ ❚ "
+              echo "   ❚ ❚ ❚ ❚ ❚$ipaddr"
             fi
             n=$((n+1))
           done < <(awk "/inet .* ${i%@*}\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4)
         
         # Otherwise, print out all info with ipaddr set to "-"
         else
-          echo "  $i❚${slaveof[$i]}❚-❚${mtu[$i]}❚${state[$i]}❚${mac[$i]}"
+          echo "  $i❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚-"
           # ... And Continue on to the next interface, i.e., skip looking for aliases
           continue
         fi
@@ -2205,11 +2205,11 @@ IPADDR() {
           for alias in $(awk "/inet .* $i:/ {print \$NF}" <<<"${iface_input[$i]}" | sort -u); do
             # The sed nonsense at the end allows for multiple new-style global addresses on top of an old-style alias (https://github.com/ryran/xsos/issues/103)
             # Thankfully we don't need to do a while loop like above because in the case of aliases we don't need to display mtu, state, mac
-            ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4 | sed -e '1s/.*/&❚ ❚ ❚ /' -e '1!s/.*/   ❚ ❚&❚ ❚ ❚ /')
+            ipv4_alias[$alias]=$(awk "/inet .* $alias\$/ {print \$2}" <<<"${iface_input[$i]}" | __scrub_ipv4 | sed -e '1!s/.*/   ❚ ❚ ❚ ❚ ❚&/')
             
             # ... Print out a new line with its ipv4 addr
             # No extra columns at the end needed because they're added by sed in above line
-            echo "  $alias❚ ❚${ipv4_alias[$alias]}"
+            echo "  $alias❚ ❚ ❚ ❚ ❚${ipv4_alias[$alias]}"
           done
         fi
       

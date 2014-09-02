@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/09/02 xsos v0.5.0: completely reworked --ip output #102**
+
+- Closed [issue 102 - RFE: xsos --ip --ipv6 should tag link-local addresses as such](https://github.com/ryran/xsos/issues/102)
+- As part of that, the columns for `--ip` were completely re-arranged and a "Scope" column was added for IPv6
+
 **2014/08/29 xsos v0.4.5: --ip fix for issue #103**
 
 - Closed [issue 103 - xsos --ip problems](https://github.com/ryran/xsos/issues/103)
