@@ -4,10 +4,17 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/09/03 xsos v0.5.1: more enhancements to --ip**
+
+- Closed [issue 104 - xsos --ip --ipv6 improperly handling interfaces with multiple addrs](https://github.com/ryran/xsos/issues/104)
+- Fixed [issue 105 - --ip --scrub-ip leaks too much information](https://github.com/ryran/xsos/issues/105) and also changed the character the scrub-ip & scrub-mac options use from `X` to `⣿`
+
+
 **2014/09/02 xsos v0.5.0: completely reworked --ip output #102**
 
 - Closed [issue 102 - RFE: xsos --ip --ipv6 should tag link-local addresses as such](https://github.com/ryran/xsos/issues/102)
 - As part of that, the columns for `--ip` were completely re-arranged and a "Scope" column was added for IPv6
+
 
 **2014/08/29 xsos v0.4.5: --ip fix for issue #103**
 
