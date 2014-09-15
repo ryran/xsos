@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/09/15 xsos v0.5.2: fix for issue #106**
+
+- Fixed [issue 106 - xsos -g doesn't handle it gracefully if an ifcfg-bond* file has multiple BONDING_OPTS declarations](https://github.com/ryran/xsos/issues/106)
+
+
 **2014/09/03 xsos v0.5.1: more enhancements to --ip**
 
 - Closed [issue 104 - xsos --ip --ipv6 improperly handling interfaces with multiple addrs](https://github.com/ryran/xsos/issues/104)

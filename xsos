@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.1 last mod 2014/09/03
+# xsos v0.5.2 last mod 2014/09/15
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1995,7 +1995,7 @@ BONDING() {
       __transform_mode "$(awk -F: '/Bonding Mode/ {printf $2}' $bond_input | sed -e 's/^ //')"
       echo -n "$mode❚"
       
-      bonding_opts=$(awk '/^BONDING_OPTS=/' "$netscriptsdir/ifcfg-${bond_input##*/}" 2>/dev/null | sed s/BONDING_OPTS=// | tr -d \"\')
+      bonding_opts=$(awk '/^BONDING_OPTS=/' "$netscriptsdir/ifcfg-${bond_input##*/}" 2>/dev/null | tail -n1 | sed s/BONDING_OPTS=// | tr -d \"\')
       [[ -z $bonding_opts ]] && bonding_opts=-
       echo -n "$bonding_opts❚"
       
