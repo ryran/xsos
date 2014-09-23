@@ -4,6 +4,11 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2014/09/22 xsos v0.5.3: fix for issue #107**
+
+- Fixed [issue 107 - xsos -k hangs indefinitely](https://github.com/ryran/xsos/issues/107)
+
+
 **2014/09/15 xsos v0.5.2: fix for issue #106**
 
 - Fixed [issue 106 - xsos -g doesn't handle it gracefully if an ifcfg-bond* file has multiple BONDING_OPTS declarations](https://github.com/ryran/xsos/issues/106)

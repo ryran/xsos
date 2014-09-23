@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.2 last mod 2014/09/15
+# xsos v0.5.3 last mod 2014/09/22
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1324,11 +1324,11 @@ KDUMP() {
       kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$sosroot"/etc/kdump.conf)
       if [[ -n $kdump_cfg ]]; then
         sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg"
-        path=$(awk '/^path / {print$2}' "$sosroot"/etc/kdump.conf)
+        path=$(awk '/^path / {print$2}' <<<"$kdump_cfg")
         [[ -z $path ]] && path=/var/crash
         
-        for target in raw nfs ssh ext2 ext3 ext4 btrfs xfs; do
-          if grep -q ^$target "$sosroot"/etc/kdump.conf; then
+        for target in raw net nfs nfs4 ssh minix ext2 ext3 ext4 btrfs xfs; do
+          if grep -q ^$target <<<"$kdump_cfg"; then
             path=
             break
           fi
