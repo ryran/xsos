@@ -1,8 +1,8 @@
 #!/bin/bash
-# xsos v0.5.3 last mod 2014/09/22
+# xsos v0.5.4 last mod 2015/01/01
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
-# Copyright 2012, 2013, 2014 Ryan Sawhill Aroha <rsaw@redhat.com>
+# Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -2386,13 +2386,17 @@ PROC_NET() {
         TxDrop[$1]    = $13
         TxCols[$1]    = $15
         
-        # Set percent variables only if gt 0
+        # Calculate percentages only if rx/tx packets gt 0
         
-        if  ($4 > 0) RxErrsPercent[$1] = "(" round($4  * 100 / $3,  0) "%)"
-        if  ($5 > 0) RxDropPercent[$1] = "(" round($5  * 100 / $3,  0) "%)"
-        if ($12 > 0) TxErrsPercent[$1] = "(" round($12 * 100 / $11, 0) "%)"
-        if ($13 > 0) TxDropPercent[$1] = "(" round($13 * 100 / $11, 0) "%)"
-        if ($15 > 0) TxColsPercent[$1] = "(" round($15 * 100 / $11, 0) "%)"
+        if  ($3 > 0) {
+          if  ($4 > 0) RxErrsPercent[$1] = "(" round($4  * 100 / $3,  0) "%)"
+          if  ($5 > 0) RxDropPercent[$1] = "(" round($5  * 100 / $3,  0) "%)"
+        }
+        if ($11 > 0) {
+          if ($12 > 0) TxErrsPercent[$1] = "(" round($12 * 100 / $11, 0) "%)"
+          if ($13 > 0) TxDropPercent[$1] = "(" round($13 * 100 / $11, 0) "%)"
+          if ($15 > 0) TxColsPercent[$1] = "(" round($15 * 100 / $11, 0) "%)"
+        }
         
         # Figure out what number to divide by to end up with KiB, MiB, GiB, or TiB
         
