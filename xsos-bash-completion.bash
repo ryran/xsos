@@ -1,10 +1,10 @@
 # This file is part of xsos, providing intelligent xsos tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2013/12/17 matching up with xsos v0.3.5
+# Revision date:  2015/01/01 matching up with xsos v0.5.5
 # Latest version: <http://github.com/ryran/xsos>
 # 
-# Copyright 2013 Ryan Sawhill Aroha <rsaw@redhat.com>
+# Copyright 2013, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
 # 
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -37,8 +37,8 @@ _xsos()  {
             -x -y -z"
             
   longopts="--help --version --update
-            --all --bios --os --kdump --cpu --mem --disks --mpath --lspci --ethtool --bonding --ip --netdev --net --sysctl --ps
-            --B --C --M --D --T --L --G --I --N --P
+            --all --bios --os --kdump --cpu --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps
+            --B --C --M --D --T --L --N --R --G --I --P
             --scrub-ip --scrub-mac --ipv6 --wwid --unit --verbose --width
             --nocolor --less --more"
   
@@ -51,9 +51,9 @@ _xsos()  {
           ;;
           
       # These special opts require filenames as arguments
-	    --B|--C|--M|--D|--T|--L|--G|--I|--N|--P)
-	        compopt -o plusdirs  # Important!
-	        COMPREPLY=( $(compgen -f -- "$curr") )
+      --B|--C|--M|--D|--T|--L|--R|--N|--G|--I|--P)
+          compopt -o plusdirs  # Important!
+          COMPREPLY=( $(compgen -f -- "$curr") )
           return 0
           ;;
           

@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.4 last mod 2015/01/01
+# xsos v0.5.5 last mod 2015/01/01
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -155,7 +155,7 @@ fi
 #
 #
 # XSOS_NET_UNIT (str: b, k, m, g, t)
-#   Sets unit used by PROC_NET() function for printing Rx & Tx Bytes
+#   Sets unit used by NETDEV() function for printing Rx & Tx Bytes
 #   Can also be controlled by cmdline opt -u/--unit
     : ${XSOS_NET_UNIT:="m"}
 #
@@ -227,10 +227,11 @@ Content options:"
  -t, --mpath❚show info from dm-multipath
  -l, --lspci❚show info from lspci
  -e, --ethtool❚show info from ethtool
+ -r, --softirq❚show info from /proc/net/softnet_stat
+ -n, --netdev❚show info from /proc/net/dev
  -g, --bonding❚show info from /proc/net/bonding
  -i, --ip❚show info from ip addr (BASH v4+ required)
- -n, --netdev❚show info from /proc/net/dev
-     --net❚alias for: --lspci --ethtool --bonding --ip --netdev
+     --net❚alias for: --lspci --ethtool --softirq  --netdev --bonding --ip
  -s, --sysctl❚show important kernel sysctls
  -p, --ps❚inspect running processes via ps" | column -ts❚
 }
@@ -266,9 +267,10 @@ Special options (BASH v4+ required):"
  --D=FILE❚read from FILE containing /proc/partitions dump
  --T=FILE❚read from FILE containing \`multipath -v4 -ll\` dump
  --L=FILE❚read from FILE containing \`lspci\` dump
+ --N=FILE❚read from FILE containing /proc/net/dev dump
+ --R=FILE❚read from FILE containing /proc/net/softnet_stat dump
  --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
- --N=FILE❚read from FILE containing /proc/net/dev dump
  --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
 }
 
@@ -398,7 +400,7 @@ UPDATE() {
     fi
     if [[ $REPLY == y ]]; then
       echo -e "${c[blue]}Backing up current version and replacing it with downloaded version ...${c[cyan]}"
-      cp -v "$0" "$(mktemp --tmpdir xsos-$(awk {print\$3} <<<"$version").XXX)"
+      cp -v "$0" "$(mktemp --tmpdir xsos-$(gawk {print\$3} <<<"$version").XXX)"
       cp -v "$latest_version_file" "$0"
       chmod +x "$0"
       echo -e "${c[reset]}"
@@ -421,8 +423,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='6q:u:v:w:xyzabokcmdtleginsp'
-lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,mem,disks,mpath,lspci,ethtool,bonding,ip,netdev,net,sysctl,ps,B:,C:,M:,D:,T:,L:,I:,G:,N:,P:'
+sopts='6q:u:v:w:xyzabokcmdtlerngisp'
+lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -475,7 +477,7 @@ _OPT_CHECK() {
 
 # Parse command-line arguments
 PARSE() {
-  unset opts all bios os kdump cpu mem disks mpath lspci ethtool bonding ip netdev net sysctl ps
+  unset opts all bios os kdump cpu mem disks mpath lspci ethtool softirq netdev bonding ip net sysctl ps
   until [[ $1 == -- ]]; do
     case $1 in
       --scrub-ip)   shift; XSOS_SCRUB_IP_HN=y ;;
@@ -507,12 +509,13 @@ PARSE() {
       -t|--mpath)   shift; opts=y; mpath=y   ;;
       -l|--lspci)   shift; opts=y; lspci=y   ;;
       -e|--ethtool) shift; opts=y; ethtool=y ;;
+      -r|--softirq) shift; opts=y; softirq=y ;;
+      -n|--netdev)  shift; opts=y; netdev=y  ;;
       -g|--bonding) shift; opts=y; bonding=y ;;
       -i|--ip)      shift; opts=y; ip=y      ;;
-      -n|--netdev)  shift; opts=y; netdev=y  ;;
       -s|--sysctl)  shift; opts=y; sysctl=y  ;;
       -p|--ps)      shift; opts=y; ps=y      ;;
-      --net)        shift; opts=y; lspci=y; ethtool=y; ip=y; bonding=y; netdev=y ;;
+      --net)        shift; opts=y; lspci=y; ethtool=y; softirq=y; netdev=y; ip=y; bonding=y; ;;
       
       --B)  sfile[B]=$2; shift 2 ;;
       --C)  sfile[C]=$2; shift 2 ;;
@@ -520,9 +523,10 @@ PARSE() {
       --D)  sfile[D]=$2; shift 2 ;;
       --T)  sfile[T]=$2; shift 2 ;;
       --L)  sfile[L]=$2; shift 2 ;;
+      --R)  sfile[R]=$2; shift 2 ;;
+      --N)  sfile[N]=$2; shift 2 ;;
       --G)  sfile[G]=$2; shift 2 ;;
       --I)  sfile[I]=$2; shift 2 ;;
-      --N)  sfile[N]=$2; shift 2 ;;
       --P)  sfile[P]=$2; shift 2 ;;
     esac
   done
@@ -614,8 +618,8 @@ DMIDECODE() {
   
   # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
   echo -e "${c[H2]}  BIOS:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode_input" |
-    awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  gawk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode_input" |
+    gawk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Vendor:/            { Vendor  = $2; gsub(/  */, " ", Vendor) }
       /Version:/           { Version = $2; gsub(/  */, " ", Version) }
       /Release Date:/      { RelDate = $2; gsub(/  */, " ", RelDate) }
@@ -631,8 +635,8 @@ DMIDECODE() {
     '
   # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
   echo -e "${c[H2]}  System:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode_input" |
-    awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  gawk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode_input" |
+    gawk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Manufacturer:/ { Mfr     = $2; gsub(/  */, " ", Mfr) }
       /Product Name:/ { Product = $2; gsub(/  */, " ", Product) }
       /Version:/      { Version = $2; gsub(/  */, " ", Version) }
@@ -650,8 +654,8 @@ DMIDECODE() {
   # Prints "<N> of <N> CPU sockets populated, <N> cores/<N> threads per CPU"
   # Prints "<N> total cores, <N> total threads"
   echo -e "${c[H2]}  CPU:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode_input" |
-    awk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  gawk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode_input" |
+    gawk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
       /Core Count:/   { SumCores   += $2; CoresPerCpu = $2 }
       /Thread Count:/ { SumThreads += $2; ThreadsPerCpu = $2 }
@@ -672,8 +676,8 @@ DMIDECODE() {
   # Prints "<N> MB (<N> GB) total"
   # Prints "<N> of <N> DIMMs populated (max capacity <N>)"
   echo -e "${c[H2]}  Memory:${c[0]}"
-  awk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode_input" |
-    awk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  gawk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode_input" |
+    gawk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       /Size:/ { NumDimmSlots ++; if ($2 ~ /^[0-9]/) { NumDimms ++; SumRam+=$2 } }
       /Maximum Capacity:/ { MaxRam = $3" "$4 }
       END {
@@ -787,7 +791,7 @@ _CHECK_KERNELBUILD() {
   # Fix format if necessary
   if [[ -n $kernel_build ]]; then
     kernel_build=$(sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build")
-    kernel_buildhost=$(awk '{print $4}' <<<"$kernel_build")
+    kernel_buildhost=$(gawk '{print $4}' <<<"$kernel_build")
   fi
 }
 
@@ -807,7 +811,7 @@ _CHECK_SELINUX() {
     
   # Else, from $sosroot/sestatus & dmesg
   else
-    input_sestatus=$(awk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null)
+    input_sestatus=$(gawk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null)
     egrep -qis '^SELinux: *Disabled at (boot|runtime)' "$1"/var/log/dmesg "$1"/sos_commands/general/dmesg* && selinux_dmesg=disabled
     # Could also check /var/log/messages, but it would be too expensive and complicated
     # to ensure any hits were for the current boot-cycle
@@ -821,7 +825,7 @@ _CHECK_SELINUX() {
   
   # Check /etc/selinux/config input
   if [[ -n $input_seconfig ]]; then
-    eval $(awk -F= '
+    eval $(gawk -F= '
       /^SELINUX=/     { cfgmode = $2 }
       /^SELINUXTYPE=/ { policy  = $2 }
       END { 
@@ -832,7 +836,7 @@ _CHECK_SELINUX() {
   
   # Check sestatus input
   if [[ -n $input_sestatus ]]; then
-    eval $(awk '
+    eval $(gawk '
       /SELinux status/                    { status  = $NF }
       /Current mode/                      { mode    = $NF }
       /Mode from config file/             { cfgmode = $NF }
@@ -916,20 +920,20 @@ _CHECK_GRUB() {
   case "${grubcfg##*/}" in
     grub.conf)
       # If we have grub.conf, use that
-      default=$(awk -F= '/^default=/{print$2}' "$grubcfg" 2>/dev/null)
+      default=$(gawk -F= '/^default=/{print$2}' "$grubcfg" 2>/dev/null)
       [[ -z $default ]] && {
         default=0; default_missing="${c[Warn1]}(Warning: grub.conf lacks \"default=\"; showing title 0)${c[0]}"
       }
       # Get the full kernel line for the default title statement
-      grub_cmdline=$(awk /^title/,G "$grubcfg" | egrep -v '^#|^ *#' | sed '1!s/^title.*/\n&/' | awk -vDEFAULT=$((default+1)) -vRS="\n\n" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
+      grub_cmdline=$(gawk /^title/,G "$grubcfg" | egrep -v '^#|^ *#' | sed '1!s/^title.*/\n&/' | gawk -vDEFAULT=$((default+1)) -vRS="\n\n" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
       ;;
     grub.cfg)
       # Otherwise, if we have a grub2 config (grub.cfg), use that
-      default=$(awk -F\" '/^set default=/{print$2}' "$grubcfg")
-      grub_cmdline=$(awk '/^menuentry.*{/,/^}/' "$grubcfg" | awk -vRS="\n}\n" -vDEFAULT="$((default+1))" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
+      default=$(gawk -F\" '/^set default=/{print$2}' "$grubcfg")
+      grub_cmdline=$(gawk '/^menuentry.*{/,/^}/' "$grubcfg" | gawk -vRS="\n}\n" -vDEFAULT="$((default+1))" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
   esac
   
-  grub_kernel=$(awk {print\$1} <<<"${grub_cmdline#/vmlinuz-}" 2>/dev/null)
+  grub_kernel=$(gawk {print\$1} <<<"${grub_cmdline#/vmlinuz-}" 2>/dev/null)
   grub_cmdline=$(cut -d' ' -f2- <<<"$grub_cmdline")
 }
 
@@ -944,10 +948,10 @@ OSINFO() {
   _CHECK_GRUB "$1"
   
   # Grab number of cpus from proc/stat
-  num_cpu=$(awk '/^cpu[[:graph:]]+/{n++} END{print n}' "$1/proc/stat" 2>/dev/null)
+  num_cpu=$(gawk '/^cpu[[:graph:]]+/{n++} END{print n}' "$1/proc/stat" 2>/dev/null)
   
   # Grab btime (in seconds since U.Epoch) from proc/stat
-  btime=$(awk '/^btime/{print $2}' "$1/proc/stat" 2>/dev/null)
+  btime=$(gawk '/^btime/{print $2}' "$1/proc/stat" 2>/dev/null)
   
   # Grab system hostname & kernel version from /proc first
   hostname=$(cat "$1/proc/sys/kernel/hostname" 2>/dev/null)
@@ -962,30 +966,30 @@ OSINFO() {
   
   # If running on localhost
   if [[ $1 == / ]]; then
-    uname=$(uname -a | awk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
+    uname=$(uname -a | gawk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
     systime=$(date)
     [[ $(wc -w <<<"$systime") == 6 ]] &&
-      systime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
+      systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
     boottime=$(date --date=@$btime 2>/dev/null)
     [[ $(wc -w <<<"$boottime") == 6 ]] &&
-      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+      boottime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
     uptime_input=$(uptime)
     runlevel=$(runlevel)
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
       initdefault=${initdefault%.target} ||
-        initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
+        initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
     
   # Otherwise, running on sosreport
   else
     # If sosreport ran in rescue mode, try to get good hostname
     if grep -qsw rescue "$1/proc/cmdline"; then
-      hostname=$(awk -F= /^HOSTNAME=/{print\$2}  "$1/etc/sysconfig/network" 2>/dev/null) ||
+      hostname=$(gawk -F= /^HOSTNAME=/{print\$2}  "$1/etc/sysconfig/network" 2>/dev/null) ||
         hostname="${c[Warn1]}unknown${c[0]}  (sosreport collected from rescue mode)"
     # Otherwise, if no hostname from proc/, try to get from sosroot/hostname or sosroot/uname
     else
       [[ -z $hostname ]] && {
-        hostname=$(awk '!/\/.*bin/ && NF!=0' "$1/hostname" 2>/dev/null) ||
-          hostname=$(awk '!/\/.*bin/ && NF!=0 {print $2}' "$1/uname" 2>/dev/null) ||
+        hostname=$(gawk '!/\/.*bin/ && NF!=0' "$1/hostname" 2>/dev/null) ||
+          hostname=$(gawk '!/\/.*bin/ && NF!=0 {print $2}' "$1/uname" 2>/dev/null) ||
             hostname="${c[Warn1]}unknown${c[0]}"
       }
     fi
@@ -995,32 +999,32 @@ OSINFO() {
     # Otherwise, if no kernel version from proc/, try to get from sosroot/uname
     else
       [[ -z $kernel ]] && {
-        kernel=$(awk '!/\/.*bin/ && NF!=0 {print $3}' "$1/uname" 2>/dev/null) ||
+        kernel=$(gawk '!/\/.*bin/ && NF!=0 {print $3}' "$1/uname" 2>/dev/null) ||
           kernel="${c[Warn1]}unknown${c[0]}"
       }
     fi
-    uname=$(awk '!/\/.*bin/ && NF!=0 {printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}' "$1/uname" 2>/dev/null) ||
+    uname=$(gawk '!/\/.*bin/ && NF!=0 {printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}' "$1/uname" 2>/dev/null) ||
       uname="${c[Warn1]}unknown${c[0]}"
     # Check kernel for uek
     grep -qsi uek <<<"$kernel" && kernel=$(grep --color=always -i uek <<<"$kernel")
     grep -qsi uek <<<"$grub_kernel" && grub_kernel=$(grep --color=always -i uek <<<"$grub_kernel")
     
-    systime=$(awk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null) 
+    systime=$(gawk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null) 
     [[ $(wc -w <<<"$systime") == 6 ]] &&
-      systime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
+      systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
     
-    timezone=$(awk -F= '/^ZONE=/{print $2}' "$1/etc/sysconfig/clock" 2>/dev/null | tr -d \")
+    timezone=$(gawk -F= '/^ZONE=/{print $2}' "$1/etc/sysconfig/clock" 2>/dev/null | tr -d \")
     [[ -n $timezone && -f /usr/share/zoneinfo/$timezone ]] &&
       boottime=$(echo -n $(TZ=$timezone date --date=@$btime 2>/dev/null)) ||
         boottime=$(echo -n $(TZ= date --date=@$btime 2>/dev/null))
     
     [[ $(wc -w <<<"$boottime") == 6 ]] &&
-      boottime=$(awk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+      boottime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
     
-    uptime_input=$(awk '!/\/.*bin/ && NF!=0' "$1/uptime")
+    uptime_input=$(gawk '!/\/.*bin/ && NF!=0' "$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] &&
-      initdefault=$(awk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab") ||
+      initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab") ||
         initdefault=unknown
   fi
   
@@ -1098,7 +1102,7 @@ OSINFO() {
   
   # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
   [[ -n $uptime_input && -n $num_cpu ]] &&
-  awk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDBOLD="${c[RED]}" -vRED="${c[red]}" -vORANGE="${c[orange]}" -vGREEN="${c[green]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  gawk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDBOLD="${c[RED]}" -vRED="${c[red]}" -vORANGE="${c[orange]}" -vGREEN="${c[green]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       !/load average/ { next }
       {
       Time = $1
@@ -1129,7 +1133,7 @@ OSINFO() {
     
   # Print info from proc/stat
   [[ -n $btime ]] &&
-  awk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  gawk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
     /^cpu / {
       TotalTime = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9 + $10 + $11
       user    = $2 * 100 / TotalTime
@@ -1179,7 +1183,7 @@ KDUMP() {
     __svc_check_kdump() {
       if command -v systemctl >/dev/null; then
         if systemctl list-units --all | grep -qs kdump.service; then
-          systemctl list-units --all | awk 'NR==1 || /kdump.service/ { print $1, $2, $3, $4 }' | column -t | awk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+          systemctl list-units --all | gawk 'NR==1 || /kdump.service/ { print $1, $2, $3, $4 }' | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
             { gsub("not-found|failed", warn "&" H0)
               gsub("active", green "&" H0)
               print
@@ -1189,7 +1193,7 @@ KDUMP() {
         fi
       else
         if chkconfig --list kdump &>/dev/null; then
-          chkconfig --list kdump | column -t | awk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+          chkconfig --list kdump | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
             { for (i=3; i<6; i++) {
                 gsub(i ":on", i ":" green "on" H0)
                 gsub(i ":off", i ":" warn "off" H0)
@@ -1207,7 +1211,7 @@ KDUMP() {
         || echo -e "${c[Warn1]}missing '/boot/initr*kdump.img'${c[0]}"
     }
     __get_df_for_parent_fs_of_path() {
-      df_output=$(df "$path" | awk '{if (NF==1) {dev=$1; getline; print dev $0} else if (NR==2) print}')
+      df_output=$(df "$path" | gawk '{if (NF==1) {dev=$1; getline; print dev $0} else if (NR==2) print}')
     }
     
       
@@ -1216,7 +1220,7 @@ KDUMP() {
     __rpm_check_kexec() {
       if [[ -r "$sosroot"/installed-rpms ]]; then
         grep -q kexec-tools "$sosroot"/installed-rpms \
-          && awk '/kexec-tools/{print$1}' "$sosroot"/installed-rpms \
+          && gawk '/kexec-tools/{print$1}' "$sosroot"/installed-rpms \
           || echo -e "${c[Warn1]}package kexec-tools is not installed${c[0]}"
       else
         echo -e "${c[Warn1]}missing '$sosroot/installed-rpms'${c[0]}"
@@ -1225,7 +1229,7 @@ KDUMP() {
     __svc_check_kdump() {
       if [[ -r "$sosroot"/sos_commands/systemd/systemctl_list-units_--all ]]; then
         if grep -qs kdump.service "$sosroot"/sos_commands/systemd/systemctl_list-units_--all; then
-          awk 'NR==1 || /kdump.service/ { print $1, $2, $3, $4 }' "$sosroot"/sos_commands/systemd/systemctl_list-units_--all | column -t | awk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+          gawk 'NR==1 || /kdump.service/ { print $1, $2, $3, $4 }' "$sosroot"/sos_commands/systemd/systemctl_list-units_--all | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
             { gsub("not-found|failed", warn "&" H0)
               gsub("active", green "&" H0)
               print
@@ -1236,7 +1240,7 @@ KDUMP() {
       else
         if [[ -r "$sosroot"/chkconfig ]]; then
           if grep -q ^kdump "$sosroot"/chkconfig; then
-            grep ^kdump "$sosroot"/chkconfig | column -t | awk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+            grep ^kdump "$sosroot"/chkconfig | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
               { for (i=3; i<6; i++) {
                   gsub(i ":on", i ":" green "on" H0)
                   gsub(i ":off", i ":" warn "off" H0)
@@ -1265,7 +1269,7 @@ KDUMP() {
     __get_df_for_parent_fs_of_path() {
       local dfpath lastloop
       dfpath=$path
-      while [[ $(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | awk -vP=$dfpath '{if ($6==P || $5==P) n+=1} END{if (n>0) print 0; else print 255}') -eq 255 ]]; do
+      while [[ $(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | gawk -vP=$dfpath '{if ($6==P || $5==P) n+=1} END{if (n>0) print 0; else print 255}') -eq 255 ]]; do
         if [[ $lastloop == y ]]; then
           echo "DEBUG: This should never happen unless sos_commands/filesys/df_-al is missing an entry for '/'"
           return 2
@@ -1276,7 +1280,7 @@ KDUMP() {
           lastloop=y
         fi
       done
-      df_output=$(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | awk -vP=$dfpath '{if (NF==6 && $6==P) print; else if (NF==1) {dev=$1; getline; if ($5==P) print dev $0} }')
+      df_output=$(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | gawk -vP=$dfpath '{if (NF==6 && $6==P) print; else if (NF==1) {dev=$1; getline; if ($5==P) print dev $0} }')
     }
   fi
   
@@ -1300,10 +1304,10 @@ KDUMP() {
     [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}not present${c[0]}"
   }
   __P() {
-    echo -e "$XSOS_INDENT_H2${c[H3]}${1} =  $(awk -vW="${c[Warn1]}" -vG="${c[green]}" '{ if ($1==0) print W 0; else print G $1 }' "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1} =  $(gawk -vW="${c[Warn1]}" -vG="${c[green]}" '{ if ($1==0) print W 0; else print G $1 }' "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
   }
   __Pa() {
-    echo -e "$XSOS_INDENT_H2${c[H3]}${1} ${c[H4]}$2${c[H3]}=  $(awk -vW="${c[Warn1]}" -vG="${c[green]}" -vH0="${c[0]}" "$3" "$4" "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1} ${c[H4]}$2${c[H3]}=  $(gawk -vW="${c[Warn1]}" -vG="${c[green]}" -vH0="${c[0]}" "$3" "$4" "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
   }
   
   echo -e "${c[H1]}KDUMP CONFIG${c[0]}"
@@ -1312,8 +1316,8 @@ KDUMP() {
   echo -e "$XSOS_INDENT_H1${c[H2]}Service enablement:${c[0]}"
     __svc_check_kdump | sed "s,^,$XSOS_INDENT_H2,"
   echo -e "$XSOS_INDENT_H1${c[H2]}kdump initrd/initramfs:${c[0]}"
-    __initrd_file_check | awk '{ print gensub(/^([0-9]+) *([[:upper:]][[:lower:]]+) *([0-9]{1,2}) *([0-9]{4}) *(initrd.*)$/, "\\1  \\2 \\3 \\4  \\5", 1) }' | sed "s,^,$XSOS_INDENT_H2,"
-    # The extra awk command above reformats spacing in the ls -l output
+    __initrd_file_check | gawk '{ print gensub(/^([0-9]+) *([[:upper:]][[:lower:]]+) *([0-9]{1,2}) *([0-9]{4}) *(initrd.*)$/, "\\1  \\2 \\3 \\4  \\5", 1) }' | sed "s,^,$XSOS_INDENT_H2,"
+    # The extra gawk command above reformats spacing in the ls -l output
   echo -e "$XSOS_INDENT_H1${c[H2]}Memory reservation:${c[0]}"
     grep -qsw rescue "$1/proc/cmdline" && echo -e "$XSOS_INDENT_H1 ${c[Warn2]}(Rescue mode detected)${c[0]}"
     echo -e "$XSOS_INDENT_H2${c[H3]}/proc/cmdline {${c[0]} $(__get_crashkernel_proc_cmdline) ${c[H3]}}${c[0]}"
@@ -1324,7 +1328,7 @@ KDUMP() {
       kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$sosroot"/etc/kdump.conf)
       if [[ -n $kdump_cfg ]]; then
         sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg"
-        path=$(awk '/^path / {print$2}' <<<"$kdump_cfg")
+        path=$(gawk '/^path / {print$2}' <<<"$kdump_cfg")
         [[ -z $path ]] && path=/var/crash
         
         for target in raw net nfs nfs4 ssh minix ext2 ext3 ext4 btrfs xfs; do
@@ -1343,13 +1347,13 @@ KDUMP() {
         __get_df_for_parent_fs_of_path
         if [[ -n $df_output ]]; then
           echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf \"path\" available space:${c[0]}"
-          MemTotal=$(awk '/^MemTotal/{printf "%.2f\n", $2/1024/1024}' "$sosroot"/proc/meminfo)
-          PathAvailableSpace=$(awk '{printf "%.2f\n", $4/1024/1024}' <<<"$df_output")
-          ColorAvailable=$(awk -vP=$path -vMemtotal=$(awk /MemTotal/{print\$2} "$sosroot"/proc/meminfo) '
+          MemTotal=$(gawk '/^MemTotal/{printf "%.2f\n", $2/1024/1024}' "$sosroot"/proc/meminfo)
+          PathAvailableSpace=$(gawk '{printf "%.2f\n", $4/1024/1024}' <<<"$df_output")
+          ColorAvailable=$(gawk -vP=$path -vMemtotal=$(gawk /MemTotal/{print\$2} "$sosroot"/proc/meminfo) '
                             { if ($4 > Memtotal) print "green"; else print "orange" }
                            '  <<<"$df_output")
           echo -e "$XSOS_INDENT_H2${c[H3]}System MemTotal (uncompressed core size) {${c[0]} $MemTotal GiB ${c[H3]}}${c[0]}"
-          echo -e "$XSOS_INDENT_H2${c[H3]}Available free space on target path's fs {${c[0]} ${c[$ColorAvailable]}$PathAvailableSpace GiB ${c[H3]}}${c[0]}  (fs=$(awk '{print$6}' <<<"$df_output"))"
+          echo -e "$XSOS_INDENT_H2${c[H3]}Available free space on target path's fs {${c[0]} ${c[$ColorAvailable]}$PathAvailableSpace GiB ${c[H3]}}${c[0]}  (fs=$(gawk '{print$6}' <<<"$df_output"))"
         else
           echo "DEBUG: no df_output .. shouldn't happen"
         fi
@@ -1386,12 +1390,12 @@ CPUINFO() {
   [[ -f $1 ]] && cpuinfo_input=$1 || cpuinfo_input=$1/proc/cpuinfo
   
   # Get model of cpu
-  model_cpu=$(awk -F: '/^model name/{print $2; exit}' <"$cpuinfo_input")
+  model_cpu=$(gawk -F: '/^model name/{print $2; exit}' <"$cpuinfo_input")
   
   # If no model detected (e.g. on Itanium), try to use vendor+family
   [[ -z $model_cpu ]] && {
-    vendor=$(awk -F: '/^vendor /{print $2; exit}' <"$cpuinfo_input")
-    family=$(awk -F: '/^family /{print $2; exit}' <"$cpuinfo_input")
+    vendor=$(gawk -F: '/^vendor /{print $2; exit}' <"$cpuinfo_input")
+    family=$(gawk -F: '/^family /{print $2; exit}' <"$cpuinfo_input")
     model_cpu="$vendor$family"
   }
   
@@ -1399,7 +1403,7 @@ CPUINFO() {
   model_cpu=$(sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g' -e 's,^ ,,' <<<"$model_cpu")
   
   # Get number of logical processors
-  num_cpu=$(awk '/^processor/{n++} END{print n}' <"$cpuinfo_input")
+  num_cpu=$(gawk '/^processor/{n++} END{print n}' <"$cpuinfo_input")
   
   # Get number of physical processors
   num_cpu_phys=$(grep '^physical id' <"$cpuinfo_input" | sort -u | wc -l)
@@ -1413,10 +1417,10 @@ CPUINFO() {
   if [[ $num_cpu != $num_cpu_phys ]]; then
     
     # Detect number of threads (logical) per cpu
-    num_threads_per_cpu=$(awk '/^siblings/{print $3; exit}' <"$cpuinfo_input")
+    num_threads_per_cpu=$(gawk '/^siblings/{print $3; exit}' <"$cpuinfo_input")
     
     # Two possibile ways to detect number of cores
-    cpu_cores=$(awk '/^cpu cores/{print $4; exit}' <"$cpuinfo_input")
+    cpu_cores=$(gawk '/^cpu cores/{print $4; exit}' <"$cpuinfo_input")
     core_id=$(grep '^core id' <"$cpuinfo_input" | sort -u | wc -l)
     
     # The first is the most accurate, if it works
@@ -1468,7 +1472,7 @@ MEMINFO() {
     echo -e "${c[Warn1]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c[0]}"
   fi
   
-  awk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_MEM_UNIT) -vcolor_MemUsed="${c[MemUsed]}" -vcolor_HugePages="${c[HugePages]}" -vcolor_Buffers="${c[Buffers]}" -vcolor_Cached="${c[Cached]}" -vcolor_Dirty="${c[Dirty]}" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+  gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_MEM_UNIT) -vcolor_MemUsed="${c[MemUsed]}" -vcolor_HugePages="${c[HugePages]}" -vcolor_Buffers="${c[Buffers]}" -vcolor_Cached="${c[Cached]}" -vcolor_Dirty="${c[Dirty]}" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     # These will come in handy
     
     function round(num, places) {
@@ -1758,7 +1762,7 @@ STORAGE() {
     
     # Print out names & sizes of each multipath map
     egrep -B1 '^\[?size=' <<<"$mpath_input" |
-      awk -vRS="--" '
+      gawk -vRS="--" '
         {
           printf "    %s;%s\n",
             $1, gensub(/.*size=([0-9]+\.?[0-9]*) ?([MGT]).*/, "\\1  \\2iB", 1)
@@ -1767,7 +1771,7 @@ STORAGE() {
     
     # Also, create a blacklist containing all paths to LUNS used for multipath
     # This will be used to hide certain devices in the plain "whole disk" output
-    scsi_blacklist=$(awk '
+    scsi_blacklist=$(gawk '
       # The beginning of this regex is quite odd .. we are matching lines starting with:
       #   \_  OR  |-  OR  `-
       
@@ -1780,7 +1784,7 @@ STORAGE() {
   # If we have linux swraid info, let's use it to expand our blacklist
   if [[ -r $1/proc/mdstat ]]; then
     # Append software raid component disks to the blacklist
-    scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | awk '{printf "%s|", $1}')
+    scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | gawk '{printf "%s|", $1}')
   fi
   
   # Yay, let's go.
@@ -1788,7 +1792,7 @@ STORAGE() {
   [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
   echo -e "  ${c[H2]}Whole Disks from /proc/partitions:${c[0]}"
   egrep -v "${scsi_blacklist%?}" "$partitions_input" |
-    awk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+    gawk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
       # For starters, we search /proc/partitions for certain types of devices
       # (These partition types are from devices.txt in the linux kernel documentation)
       
@@ -1846,16 +1850,16 @@ MULTIPATH() {
 
   echo -e "${c[H1]}DM-MULTIPATH${c[0]}"
   
-  # If we have a specific query, we'll use awk for post-processing
+  # If we have a specific query, we'll use gawk for post-processing
   # Otherwise simply use cat
   if [[ -n $XSOS_MULTIPATH_QUERY ]]; then
-    search_cmd="awk -vRS=\n\n /$XSOS_MULTIPATH_QUERY/"
+    search_cmd="gawk -vRS=\n\n /$XSOS_MULTIPATH_QUERY/"
   else
     search_cmd=cat
   fi
   
   # Need to parse through `multipath -v4 -ll` output from multiple version of rhel
-  mpath_output=$(awk '
+  mpath_output=$(gawk '
     /^[[:graph:]]+ \([[:alnum:][:punct:]]+\) *dm-/
     /^[[:graph:]]+ *dm-/
     /^\[?size=/
@@ -1879,14 +1883,14 @@ LSPCI() {
   if [[ -z $1 ]]; then
     lspci_input=$(lspci)
   elif [[ -f $1 ]]; then
-    lspci_input=$(awk '{print} /^lspci -n/{exit}' "$1" 2>/dev/null)
+    lspci_input=$(gawk '{print} /^lspci -n/{exit}' "$1" 2>/dev/null)
   else
-    lspci_input=$(awk '{print} /^lspci -n/{exit}' "$1/lspci" 2>/dev/null)
+    lspci_input=$(gawk '{print} /^lspci -n/{exit}' "$1/lspci" 2>/dev/null)
   fi
 
   echo -e "${c[H1]}LSPCI${c[0]}"
 
-  awk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+  gawk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     /Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:|InfiniBand:/ {
       # Save 
       split($1, slot, ":")
@@ -1919,7 +1923,7 @@ LSPCI() {
   ' <<<"$lspci_input"
   
   echo -e "${c[H2]}  VGA:${c[0]}"
-  awk -F: '
+  gawk -F: '
     $2 ~ /^.... VGA/ {
       print "   "$3
     }
@@ -1992,16 +1996,16 @@ BONDING() {
       
       echo -n "  ${bond_input##*/}❚"
       
-      __transform_mode "$(awk -F: '/Bonding Mode/ {printf $2}' $bond_input | sed -e 's/^ //')"
+      __transform_mode "$(gawk -F: '/Bonding Mode/ {printf $2}' $bond_input | sed -e 's/^ //')"
       echo -n "$mode❚"
       
-      bonding_opts=$(awk '/^BONDING_OPTS=/' "$netscriptsdir/ifcfg-${bond_input##*/}" 2>/dev/null | tail -n1 | sed s/BONDING_OPTS=// | tr -d \"\')
+      bonding_opts=$(gawk '/^BONDING_OPTS=/' "$netscriptsdir/ifcfg-${bond_input##*/}" 2>/dev/null | tail -n1 | sed s/BONDING_OPTS=// | tr -d \"\')
       [[ -z $bonding_opts ]] && bonding_opts=-
       echo -n "$bonding_opts❚"
       
-      active=$(awk '/Active Slave/ {printf $4}' $bond_input)
+      active=$(gawk '/Active Slave/ {printf $4}' $bond_input)
       
-      slaves=($(awk '/^Slave Interface:/ {print $3}' $bond_input))
+      slaves=($(gawk '/^Slave Interface:/ {print $3}' $bond_input))
       
       [[ ${#slaves[@]} -eq 0 ]] && echo "[None]"
       
@@ -2020,8 +2024,8 @@ BONDING() {
           fi
         fi
         
-        awk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}'\>/' $bond_input | 
-          awk '/Permanent HW addr/ {printf " (%s)", $4}' | __scrub_mac
+        gawk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}'\>/' $bond_input | 
+          gawk '/Permanent HW addr/ {printf " (%s)", $4}' | __scrub_mac
         s=$((s+1))
         echo
       done
@@ -2033,12 +2037,12 @@ BONDING() {
     
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
-      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
         {
           if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }' |
-          awk -vU="${c[Up]}" -vH0="${c[0]}" -vgrey="${c[DGREY]}" '
+          gawk -vU="${c[Up]}" -vH0="${c[0]}" -vgrey="${c[DGREY]}" '
             {
               if (NR <= 2) print
               else if ($1 == "-") print grey $0 H0
@@ -2083,18 +2087,18 @@ IPADDR() {
     brctl_show_input=$(cat "${1}/sos_commands/networking/brctl_show" 2>/dev/null)
   fi
   
-  # Prepare ip addr input for awk by separating each interface block
+  # Prepare ip addr input for gawk by separating each interface block
   ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"${ip_a_input}")
   
   # Grab a list of the interface names
-  ipdevs=$(awk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"${ip_a_input}" | egrep -v 'sit0')
+  ipdevs=$(gawk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"${ip_a_input}" | egrep -v 'sit0')
   
-  # Prepare brctl input for awk by separating each bridge block & filling in empty columns
+  # Prepare brctl input for gawk by separating each bridge block & filling in empty columns
   brctl_show_input=$(sed -e 1d -e 's,^[[:graph:]],\n&,' <<<"${brctl_show_input}" | sed -r 's,^[[:space:]]+[[:graph:]]+,1 2 3&,')
   
   # Populate a dict where each slave interface is key & value is the controlling bridge
-  for bridge in $(awk 'BEGIN {RS="\n\n"} {print $1}' <<<"${brctl_show_input}"); do
-    for interface in $(awk 'BEGIN {RS="\n\n"} $1=="'${bridge}'"' <<<"${brctl_show_input}" | awk  '{print $4}'); do
+  for bridge in $(gawk 'BEGIN {RS="\n\n"} {print $1}' <<<"${brctl_show_input}"); do
+    for interface in $(gawk 'BEGIN {RS="\n\n"} $1=="'${bridge}'"' <<<"${brctl_show_input}" | gawk  '{print $4}'); do
       lookup_bridge[$interface]=${bridge}
     done
   done
@@ -2117,12 +2121,12 @@ IPADDR() {
     for i in ${ipdevs}; do
       
       # Pull out input for specific interface and save to interface key in array
-      iface_input[$i]=$(awk "BEGIN {RS=\"\n\n\"} /^[0-9]+: ${i}:/" <<<"${ip_a_input}")
+      iface_input[$i]=$(gawk "BEGIN {RS=\"\n\n\"} /^[0-9]+: ${i}:/" <<<"${ip_a_input}")
 
       # Figure out if $i is a slave of some bond / bridge device
       slaveof[$i]=$(
         if grep -q SLAVE <<<"${iface_input[$i]}"; then
-          egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | awk '{print $2}'
+          egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | gawk '{print $2}'
         elif [[ -n $brctl_show_input && -n ${lookup_bridge[$i]} ]]; then
           echo ${lookup_bridge[$i]}
         else
@@ -2131,14 +2135,14 @@ IPADDR() {
       )
       
       # Get MTU for $i
-      mtu[$i]=$(egrep -o 'mtu [0-9]+' <<<"${iface_input[$i]}" | awk '{print $2}')
+      mtu[$i]=$(egrep -o 'mtu [0-9]+' <<<"${iface_input[$i]}" | gawk '{print $2}')
       
       # Get up/down state for $i
       state[$i]=$(grep -q "${i}: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
       
       # Get macaddr for $i (don't show if all zeros)
       mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" &&
-                awk -v scrub="${XSOS_SCRUB_MACADDR}" '
+                gawk -v scrub="${XSOS_SCRUB_MACADDR}" '
                     /link\/[[:graph:]]+ ..:..:..:..:..:../ {
                         if ($2 == "00:00:00:00:00:00") print "-"
                         else if (scrub == "y") print "⣿⣿:⣿⣿:⣿⣿:⣿⣿:⣿⣿:⣿⣿"
@@ -2160,7 +2164,7 @@ IPADDR() {
               echo "   ❚ ❚ ❚ ❚ ❚${ipaddr}❚${scope}"
             fi
             ((n++))
-          done < <(awk -v scrub="${XSOS_SCRUB_IP_HN}" '
+          done < <(gawk -v scrub="${XSOS_SCRUB_IP_HN}" '
                        /inet6/ {
                            if (scrub == "y") print "⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿/⣿⣿⣿ " $4
                            else print $2,$4
@@ -2186,7 +2190,7 @@ IPADDR() {
               echo "   ❚ ❚ ❚ ❚ ❚${ipaddr}"
             fi
             ((n++))
-          done < <(awk -v scrub="${XSOS_SCRUB_IP_HN}" "
+          done < <(gawk -v scrub="${XSOS_SCRUB_IP_HN}" "
                         /inet .* ${i%@*}\$/ {
                             if (scrub == \"y\") print \"⣿⣿⣿.⣿⣿⣿.⣿⣿⣿.⣿⣿⣿/⣿⣿\"
                             else print \$2
@@ -2204,8 +2208,8 @@ IPADDR() {
         if grep -q "inet .* ${i}:" <<<"${iface_input[$i]}"; then
         
           # For each "alias" (additional address) found ...
-          for alias in $(awk "/inet .* ${i}:/ {print \$NF}" <<<"${iface_input[$i]}" | sort -u); do
-            ipv4_alias[$alias]=$(awk -v scrub="${XSOS_SCRUB_IP_HN}" "
+          for alias in $(gawk "/inet .* ${i}:/ {print \$NF}" <<<"${iface_input[$i]}" | sort -u); do
+            ipv4_alias[$alias]=$(gawk -v scrub="${XSOS_SCRUB_IP_HN}" "
                                     /inet .* ${alias}\$/ {
                                         if (scrub == \"y\") print \"⣿⣿⣿.⣿⣿⣿.⣿⣿⣿.⣿⣿⣿/⣿⣿\"
                                         else print \$2
@@ -2231,7 +2235,7 @@ IPADDR() {
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
       # Plus DOWN interfaces with Down color and up interfaces with Up color
-      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" -vU="${c[Up]}" -vD="${c[Down]}" '
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" -vU="${c[Up]}" -vD="${c[Down]}" '
         {
           if (NR <= 2) printf H2 $0
           else {
@@ -2276,7 +2280,7 @@ ETHTOOL() {
     echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Status:${c[0]}"
     for i in $ethdevs; do
       echo -e "${XSOS_INDENT_H2}$i❚$(__ethtool $i |
-      awk '
+      gawk '
         /Link detected:/    { link = $3; sub(/yes/, "up", link); sub(/no/, "DOWN", link) }
         /Speed:/            { spd = $2 }
         /Duplex:/           { dup = tolower($2) }
@@ -2290,7 +2294,7 @@ ETHTOOL() {
         }
       '
       )❚$(__ethtool_g $i |
-      awk '
+      gawk '
         /Pre-set maximums:/          { getline; if ($1 == "RX:") rx_max=$2 }
         /Current hardware settings:/ { getline; if ($1 == "RX:") rx_now=$2 }
         END { 
@@ -2306,7 +2310,7 @@ ETHTOOL() {
         }
       '
       )❚$(__ethtool_i $i |
-      awk -F: '
+      gawk -F: '
         BEGIN { driver="UNKNOWN"; drv_vers=""; fw_vers="UNKNOWN" }
         /^driver:/           { if ($2 !~ /^ *$/) driver=$2;   sub(/^ /, "", driver) }
         /^version:/          { if ($2 !~ /^ *$/) drv_vers=$2; sub(/^ /, " v", drv_vers) }
@@ -2315,7 +2319,7 @@ ETHTOOL() {
       '
       )"
     done | column -ts❚ |
-      awk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" -vE="${c[Warn1]}" '
+      gawk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" -vE="${c[Warn1]}" '
         /link=DOWN/     { print D $0 H0 }
         /link=up/       { print U $0 H0 }
         /link=UNKNOWN/  { print E $0 H0 }
@@ -2332,7 +2336,7 @@ ETHTOOL() {
         echo -en "${c[Warn1]}"
         errsfound=$(__ethtool_S $i |
           tac |
-            awk "          
+            gawk "          
               BEGIN { found = 0 }
               /$XSOS_ETHTOOL_ERR_REGEX/ {
                 print ; found = 1
@@ -2358,15 +2362,57 @@ ETHTOOL() {
 }
 
 
-PROC_NET() {
+SOFTIRQ() {
   # Local vars:
-  local netdev_input
+  local softirq_input_file suffix= backlog= budget=
   
-  [[ -f $1 ]] && netdev_input=$1 || netdev_input=$1/proc/net/dev
+  if [[ -f $1 ]]; then
+    softirq_input_file=$1
+  else
+    softirq_input_file=$1/proc/net/softnet_stat
+    if [[ ! -r $softirq_input_file ]]; then
+      echo -e "${c[Warn2]}Warning:${c[Warn1]} '/proc/net/softnet_stat' unreadable; skipping softirq check${c[0]}" >&2
+      echo -en $XSOS_HEADING_SEPARATOR >&2
+      return
+    fi
+    backlog=$(cat "$1"/proc/sys/net/core/netdev_max_backlog 2>/dev/null) \
+      && backlog=" (Current value: net.core.netdev_max_backlog = $backlog)" \
+      || backlog=" (However, proc/sys/net/core/netdev_max_backlog is missing)"
+    budget=$(cat "$1"/proc/sys/net/core/netdev_budget 2>/dev/null) \
+      && budget=" (Current value: net.core.netdev_budget = $budget)" \
+      || budget=" (However, proc/sys/net/core/netdev_budget is missing)"
+  fi
+  
+  echo -e "${c[H1]}SOFTIRQ${c[0]}"
+  
+  awk '{if (strtonum("0x" $2) > 0) exit 177}' "$softirq_input_file"
+  
+  if [[ $? -eq 177 ]]; then
+    echo -e "${XSOS_INDENT_H1}${c[Warn1]}Backlog max has been reached, needs to be increased!${c[0]}$backlog"
+  else
+    echo -e "${XSOS_INDENT_H1}Backlog max is sufficient${c[0]}$backlog"
+  fi
+  
+  
+  awk '{if (strtonum("0x" $3) > 0) exit 177}' "$softirq_input_file"
+  if [[ $? -eq 177 ]]; then
+    echo -e "${XSOS_INDENT_H1}${c[Warn1]}Budget is not sufficient, needs to be increased!${c[0]}$budget"
+  else
+    echo -e "${XSOS_INDENT_H1}Budget is sufficient${c[0]}$budget"
+  fi
+  echo -en $XSOS_HEADING_SEPARATOR
+}
+
+
+NETDEV() {
+  # Local vars:
+  local netdev_input_file
+  
+  [[ -f $1 ]] && netdev_input_file=$1 || netdev_input_file=$1/proc/net/dev
   
   echo -e "${c[H1]}NETDEV${c[0]}"
-  tail -n+3 "$netdev_input" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
-    awk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_NET_UNIT) '
+  tail -n+3 "$netdev_input_file" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
+    gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_NET_UNIT) '
       function round(num, places) {
         places = 10 ^ places
         return int(num * places + .5) / places
@@ -2461,7 +2507,7 @@ PROC_NET() {
                    TxBytes[IF[i]], TxPackets[IF[i]], Packets_Unit, TxErrs[IF[i]], TxErrsPercent[IF[i]], TxDrop[IF[i]], TxDropPercent[IF[i]], TxCols[IF[i]], TxColsPercent[IF[i]]
       }
     ' | column -ts❚ |
-      awk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
         {
           if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
@@ -2471,7 +2517,7 @@ PROC_NET() {
 #  if [[ -d $1 ]]; then
 #    echo -en $XSOS_HEADING_SEPARATOR
 #    echo -e "${c[H1]}SOCKSTAT${c[0]}"
-#    awk -vS="  " -vH3="${c[H3]}" -vH0="${c[0]}" '
+#    gawk -vS="  " -vH3="${c[H3]}" -vH0="${c[0]}" '
 #      { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
 #  fi
   echo -en $XSOS_HEADING_SEPARATOR
@@ -2549,14 +2595,14 @@ SYSCTL() {
   [[ $1 == / ]] && pgsz=$(($(getconf PAGESIZE)/1024)) || pgsz=4     # Saved as KiB
   
   # HugePage size
-  hpgsz=$(awk '/Hugepagesize:/{print $2/1024}' <"$1/proc/meminfo")  # Saved as MiB
+  hpgsz=$(gawk '/Hugepagesize:/{print $2/1024}' <"$1/proc/meminfo")  # Saved as MiB
   
   __P() {
     echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || echo \"$(<"$sosroot"/proc/sys/${1//.//})\" )${c[0]}"
   }
   
   __Pa() {
-    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || awk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//} )${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || gawk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//} )${c[0]}"
   }
   
   echo -e "${c[H1]}SYSCTLS${c[0]}"
@@ -2620,6 +2666,8 @@ SYSCTL() {
   __Pa net.ipv4.tcp_wmem "[bytes] "  '{printf "\"%s  %s  %s\"%s  (%d KiB, %d KiB, %d KiB)", $1, $2, $3, H0, $1/1024, $2/1024, $3/1024}'
   __Pa net.ipv4.udp_rmem_min "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
   __Pa net.ipv4.udp_wmem_min "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __P net.ipv4.tcp_sack "[bool] "
+  __P net.ipv4.tcp_timestamps "[bool] "
 
   echo -e "$XSOS_INDENT_H1${c[H2]}vm.${c[0]}"
   __Pa vm.dirty_ratio ""  '{if ($1>0) printf "\"%s\"%s  (%% of total system memory)", $1, H0; else printf "\"0\"%s  (disabled -- check dirty_bytes)", H0}'
@@ -2692,7 +2740,7 @@ PSCHECK() {
   
   # First, we need to convert VSZ & RSS in the ps input to MiB or GiB (if necessary)
   # We also need to perfectly columnize the input and chop off extra command args based on above options
-  ps_input=$(awk -vMAX_fields=$((num_comm_args+12)) -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
+  ps_input=$(gawk -vMAX_fields=$((num_comm_args+12)) -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
     BEGIN {
       # Not going to worry about down-converting to bytes or up-converting to TiB
       if      (u == "B") u = "K"
@@ -2732,8 +2780,8 @@ PSCHECK() {
   ps_input=$(tail -n+2 <<<"$ps_input")
   
   # Format and prepare sleeping/zombie processes
-  Dsleepers=$(awk -vcolor_warn="${c[Warn1]}" -vc_0="${c[0]}" '$8~/D/ {print color_warn $0 c_0}' <<<"$ps_input")
-  Zombies=$(awk -vc_grey="${c[DGREY]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
+  Dsleepers=$(gawk -vcolor_warn="${c[Warn1]}" -vc_0="${c[0]}" '$8~/D/ {print color_warn $0 c_0}' <<<"$ps_input")
+  Zombies=$(gawk -vc_grey="${c[DGREY]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
   [[ -n $Dsleepers ]] && Dsleepers="\n$Dsleepers"
   [[ -n $Zombies ]] && Zombies="\n$Zombies"
   [[ -z $Dsleepers && -z $Zombies ]] && Dsleepers="\n$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}"
@@ -2742,7 +2790,7 @@ PSCHECK() {
   if [[ $XSOS_PS_LEVEL < 3 ]]; then  # If verbosity level 0-2, restrict number of users shown
     # Process ps input to generate summary user-list of top-users
     top_users=$(
-      awk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
+      gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
         BEGIN { print "USER❚%CPU❚%MEM❚RSS" }
         { pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6 }
         END {
@@ -2762,7 +2810,7 @@ PSCHECK() {
   else  # If verbosity level 3-4, show all users
     # Process ps input to generate summary user-list of top-users
     top_users=$(
-      awk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
+      gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
         BEGIN { print "USER❚%CPU❚%MEM❚RSS" }
         { pCPU[$1]+=$3; pMEM[$1]+=$4; sRSS[$1]+=$6 }
         END {
@@ -2862,9 +2910,10 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -r ${sfile[D]} ]] && STORAGE   "${sfile[D]}" --no-mpath
     [[ -r ${sfile[T]} ]] && MULTIPATH "${sfile[T]}"
     [[ -r ${sfile[L]} ]] && LSPCI     "${sfile[L]}"
+    [[ -r ${sfile[R]} ]] && SOFTIRQ   "${sfile[R]}"
+    [[ -r ${sfile[N]} ]] && NETDEV    "${sfile[N]}"
     [[ -r ${sfile[G]} ]] && BONDING   "${sfile[G]}"
     [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
-    [[ -r ${sfile[N]} ]] && PROC_NET  "${sfile[N]}"
     [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
 
   # If SOSREPORT-ROOT provided, use that
@@ -2879,9 +2928,10 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
                                                                && MULTIPATH "$sosroot"
     SOS_CHECKFILE lspci   "lspci"                              && LSPCI     "$sosroot"
     SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && ETHTOOL   "$sosroot"
+    SOS_CHECKFILE softirq "proc/net/softnet_stat"              && SOFTIRQ   "$sosroot"
+    SOS_CHECKFILE netdev  "proc/net/dev"                       && NETDEV    "$sosroot"
     SOS_CHECKFILE bonding "proc/net/bonding/"                  && BONDING   "$sosroot"
     SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && IPADDR    "$sosroot"
-    SOS_CHECKFILE netdev  "proc/net/dev"                       && PROC_NET  "$sosroot"
     SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
     SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
     
@@ -2896,9 +2946,10 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
     [[ -n $lspci ]]   && COND_RUN lspci
     [[ -n $ethtool ]] && COND_RUN ethtool --require_root
+    [[ -n $softirq ]] && SOFTIRQ /
+    [[ -n $netdev ]]  && NETDEV /
     [[ -n $bonding ]] && BONDING /
     [[ -n $ip ]]      && IPADDR
-    [[ -n $netdev ]]  && PROC_NET
     [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
     [[ -n $ps ]]      && PSCHECK
 
