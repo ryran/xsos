@@ -114,12 +114,11 @@ OS
 ```
 
 
-**While xsos is always being improved, here's the minimal help page from v0.1.3:**
+**While xsos is always being improved, here's the minimal help page from v0.5.6:**
 
 ```
-[rsaw]$ xsos -h
-Usage: xsos [DISPLAY OPTIONS] [-6abocmdtleginsp] [SOSREPORT ROOT]
-  or:  xsos [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--G|--I|--N|--P FILE}...
+Usage: xsos [DISPLAY OPTIONS] [-6abokcmdtlerngisp] [SOSREPORT ROOT]
+  or:  xsos [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
   or:  xsos [-?|-h|--help]
   or:  xsos [-U|--update]
 
@@ -129,20 +128,25 @@ Content options:
  -a, --all      show everything
  -b, --bios     show info from dmidecode
  -o, --os       show hostname, distro, SELinux, kernel info, uptime, etc
+ -k, --kdump    inspect kdump configuration
  -c, --cpu      show info from /proc/cpuinfo
  -m, --mem      show info from /proc/meminfo
  -d, --disks    show info from /proc/partitions + dm-multipath synopsis
  -t, --mpath    show info from dm-multipath
  -l, --lspci    show info from lspci
  -e, --ethtool  show info from ethtool
+ -r, --softirq  show info from /proc/net/softnet_stat
+ -n, --netdev   show info from /proc/net/dev
  -g, --bonding  show info from /proc/net/bonding
  -i, --ip       show info from ip addr (BASH v4+ required)
- -n, --netdev   show info from /proc/net/dev
-     --net      alias for: --lspci --ethtool --bonding --ip --netdev
+     --net      alias for: --lspci --ethtool --softirq --netdev --bonding --ip
  -s, --sysctl   show important kernel sysctls
  -p, --ps       inspect running processes via ps
 
 Display options:
+     --scrub-ip     remove IP addresses & hostnames from output
+     --scrub-mac    remove HW MAC addresses from output
+                    see XSOS_SCRUB_IP_HN & XSOS_SCRUB_MACADDR env vars
  -6, --ipv6         parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID      restrict dm-multipath output to a particular mpath device,
                     where ID is a wwid, friendly name, or LUN identifier
@@ -162,14 +166,15 @@ Special options (BASH v4+ required):
  --D=FILE  read from FILE containing /proc/partitions dump
  --T=FILE  read from FILE containing `multipath -v4 -ll` dump
  --L=FILE  read from FILE containing `lspci` dump
+ --R=FILE  read from FILE containing /proc/net/softnet_stat dump
+ --N=FILE  read from FILE containing /proc/net/dev dump
  --G=FILE  read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE  read from FILE containing `ip addr` dump
- --N=FILE  read from FILE containing /proc/net/dev dump
  --P=FILE  read from FILE containing `ps aux` dump
 
 Run with "--help" to see full help page
 
-Version info: xsos v0.2.9 last mod 2013/11/10
+Version info: xsos v0.5.6 last mod 2015/01/01
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
@@ -246,14 +251,14 @@ PS CHECK
     qemu  27.4%  4.9%   0.38 GiB
     root  2.7%   1.0%   0.20 GiB
   Uninteruptible sleep & Defunct processes: 
-    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND  
-    rsaw     5287   0.0   0.0   0        0        pts/0  D+     17:19  0:00    [cat]  
+    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND
+    rsaw     5287   0.0   0.0   0        0        pts/0  D+     17:19  0:00    [cat]
     rsaw     5125   0.0   0.0   0        0        ?      Z      Dec16  0:48    [chromium-browse] <defunct> 
     rsaw     8307   0.2   0.0   0        0        ?      Z      Dec17  3:07    [chromium-browse] <defunct> 
     rsaw     8867   0.0   0.0   0        0        ?      Z      Dec17  1:20    [xchat] <defunct> 
     rsaw     9533   0.0   0.0   0        0        ?      Z      Dec17  0:32    [gedit] <defunct> 
   Top CPU-using processes: 
-    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND  
+    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND
     qemu     613    27.4  4.9   3094     393      ?      Sl     00:38  0:29    /usr/bin/qemu-kvm -S -M 
     rsaw     23059  13.7  2.3   1091     185      ?      Sl     Dec26  21:34   /proc/self/exe --type=plugin --plugin-path=/usr/lib64/flash-plugin/libflashplayer.so 
     rsaw     621    5.9   0.8   964      65       ?      Ss     00:38  0:06    python /usr/share/virt-manager/virt-manager.py 
@@ -265,7 +270,7 @@ PS CHECK
     rsaw     23084  0.8   1.2   1140     99       ?      Sl     Dec26  1:18    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
     rsaw     22952  0.8   1.7   1168     141      ?      Sl     Dec26  1:22    /usr/lib64/chromium-browser/chromium-browser --type=renderer --lang=en-US 
   Top MEM-using processes: 
-    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND  
+    USER     PID    %CPU  %MEM  VSZ-MiB  RSS-MiB  TTY    STAT   START  TIME    COMMAND
     rsaw     2137   5.3   18.7  2705     1472     ?      Sl     Dec24  204:37  /usr/lib64/firefox/firefox 
     qemu     613    27.4  4.9   3094     393      ?      Sl     00:38  0:29    /usr/bin/qemu-kvm -S -M 
     rsaw     11901  2.1   4.2   2319     335      ?      SLl    Dec24  74:54   /usr/bin/gnome-shell 
@@ -512,9 +517,15 @@ THINGS THAT MIGHT SURPRISE YOU
 AUTHORS
 -------
 
-As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill Aroha](http://b19.org).
+As far as direct contributions go, so far it's just me, [ryran](/ryran), aka rsaw, aka [Ryan Sawhill Aroha](http://b19.org). That said, many folks have reported bugs and given suggestions for new features:
 
-When I was clueless in how to further my awk career early on, two prolific users over on StackOverflow -- [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) -- each provided answers (to two separate questions) with code that was brilliantly instructive. I've since moved far beyond what I was trying to do back then, but thanks definitely goes to both of them for inspiration.
+- Patrick Talbert especially deserves a huge shout-out! Using xsos on sosreports while diagnosing networking issues, he's uncovered many an odd corner case and discussions with him have led to implementing new features and refining what the networking modules show.
+
+- Jamie Bainbridge has been so consistently kind and effusive in expressing his appreciation of xsos. The RFEs he has suggested (at least the ones we've implemented) have surely made xsos a more powerful tool.
+
+- Joe Wright was the first person to request a kdump module. Turned out to be a great idea!
+
+When I was clueless in how to further my awk career early on, two prolific users over on StackOverflow -- [Dennis Williamson](http://stackoverflow.com/users/26428/dennis-williamson) and [ghostdog74](http://stackoverflow.com/users/131527/ghostdog74) -- each provided answers (to two separate questions) with code that was brilliantly instructive. My awk skills have since evolved far beyond what I was trying to do back then, but thanks definitely goes to both of them for that early inspiration.
 
 Please contact me if you have ideas, suggestions, questions, or want to collaborate on this or something similar. For specific bugs and feature-requests, you can [post a new issue on the tracker](/ryran/xsos/issues).
 
@@ -522,7 +533,7 @@ Please contact me if you have ideas, suggestions, questions, or want to collabor
 LICENSE
 -------
 
-Copyright (C) 2012, 2013 [Ryan Sawhill Aroha](http://b19.org)
+Copyright (C) 2012, 2013, 2014, 2015 [Ryan Sawhill Aroha](http://b19.org)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.5 last mod 2015/01/01
+# xsos v0.5.6 last mod 2015/01/01
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -205,8 +205,8 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: $pzero [DISPLAY OPTIONS] [-6abokcmdtleginsp] [SOSREPORT ROOT]
-  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--G|--I|--N|--P FILE}...
+  echo "Usage: $pzero [DISPLAY OPTIONS] [-6abokcmdtlerngisp] [SOSREPORT ROOT]
+  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
   or:  $pzero [-?|-h|--help]
   or:  $pzero [-U|--update]
 
@@ -231,7 +231,7 @@ Content options:"
  -n, --netdev❚show info from /proc/net/dev
  -g, --bonding❚show info from /proc/net/bonding
  -i, --ip❚show info from ip addr (BASH v4+ required)
-     --net❚alias for: --lspci --ethtool --softirq  --netdev --bonding --ip
+     --net❚alias for: --lspci --ethtool --softirq --netdev --bonding --ip
  -s, --sysctl❚show important kernel sysctls
  -p, --ps❚inspect running processes via ps" | column -ts❚
 }
@@ -267,8 +267,8 @@ Special options (BASH v4+ required):"
  --D=FILE❚read from FILE containing /proc/partitions dump
  --T=FILE❚read from FILE containing \`multipath -v4 -ll\` dump
  --L=FILE❚read from FILE containing \`lspci\` dump
- --N=FILE❚read from FILE containing /proc/net/dev dump
  --R=FILE❚read from FILE containing /proc/net/softnet_stat dump
+ --N=FILE❚read from FILE containing /proc/net/dev dump
  --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
  --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
@@ -515,7 +515,7 @@ PARSE() {
       -i|--ip)      shift; opts=y; ip=y      ;;
       -s|--sysctl)  shift; opts=y; sysctl=y  ;;
       -p|--ps)      shift; opts=y; ps=y      ;;
-      --net)        shift; opts=y; lspci=y; ethtool=y; softirq=y; netdev=y; ip=y; bonding=y; ;;
+      --net)        shift; opts=y; lspci=y; ethtool=y; softirq=y; netdev=y; ip=y; bonding=y ;;
       
       --B)  sfile[B]=$2; shift 2 ;;
       --C)  sfile[C]=$2; shift 2 ;;
