@@ -1,6 +1,6 @@
 Changelog for xsos & rsar
 ===================================================
-In descending chronological order with most recent commits on top. See **[commit history page](/ryran/xsos/commits/master)** to browse code.
+In descending chronological order with most recent commits on top. See **[commit history page](https://github.com/ryran/xsos/commits/master)** to browse code.
 
 - - -
 
