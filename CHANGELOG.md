@@ -4,6 +4,19 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**2015/01/01 xsos v0.5.5: #90, #108 (new module --softirq/-r), #110**
+
+- Implemented Jamie's [issue 108 - RFE: Alert on network SoftIRQ backlog or budget drops](https://github.com/ryran/xsos/issues/108)
+- Updated bash completion file to account for 3 new options (`-r`, `--R`, `--softirq`)
+- Implemented Patrick's [issue 90 - RFE: Add tcp_timestamps to sysctl output](https://github.com/ryran/xsos/issues/90)
+- Implemeneted [issue 110 - RFE: explicitly require gawk instead of awk](https://github.com/ryran/xsos/issues/110)
+
+
+**2015/01/01 xsos v0.5.4: fix division by zero error if weird NETDEV input**
+
+- Fixed [issue 109 - awk division by zero error in NETDEV output](https://github.com/ryran/xsos/issues/109)
+
+
 **2014/09/22 xsos v0.5.3: fix for issue #107**
 
 - Fixed [issue 107 - xsos -k hangs indefinitely](https://github.com/ryran/xsos/issues/107)
