@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.6 last mod 2015/01/01
+# xsos v0.5.7 last mod 2015/01/07
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -193,7 +193,7 @@ fi
 #
 # XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
-    : ${XSOS_ETHTOOL_ERR_REGEX:="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso).*: [^0]"}
+    : ${XSOS_ETHTOOL_ERR_REGEX:="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause).*: [^0]"}
 #
 # ==============================================================================
 
