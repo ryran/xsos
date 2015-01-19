@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.7 last mod 2015/01/07
+# xsos v0.5.8 last mod 2015/01/19
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -631,7 +631,7 @@ DMIDECODE() {
         printf "    %sDate:%s%s\n", H3, H0, RelDate
         printf "    %sBIOS Rev:%s%s\n", H3, H0, BiosRev
         printf "    %sFW Rev:%s  %s\n", H3, H0, FirmRev
-	  }
+      }
     '
   # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
   echo -e "${c[H2]}  System:${c[0]}"
@@ -1979,7 +1979,7 @@ BONDING() {
   }
   
   if [[ $XSOS_SCRUB_MACADDR == y ]]; then
-    __scrub_mac() { tr '[0-9][abcdef]' 'X' ; }
+    __scrub_mac() { sed -r 's/[0-9abcdef]/⣿/g' ; }
   else
     __scrub_mac() { cat ; }
   fi
@@ -1989,8 +1989,8 @@ BONDING() {
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   { 
     # Header info ("❚" is used later by `column` to columnize the output)
-    echo "  Device❚Mode❚ifcfg-File BONDING_OPTS❚Slaves (* denotes active)"
-    echo "  ========❚=================❚========================❚==========================="
+    echo "  Device❚Mode❚ifcfg-File BONDING_OPTS❚Partner MAC Addr❚Slaves (*=active; [n]=AggID)"
+    echo "  ========❚=================❚========================❚==================❚==============================="
     
     f=0; for bond_input in ${files[@]}; do
       
@@ -2003,24 +2003,49 @@ BONDING() {
       [[ -z $bonding_opts ]] && bonding_opts=-
       echo -n "$bonding_opts❚"
       
-      active=$(gawk '/Active Slave/ {printf $4}' $bond_input)
+      if [[ ${mode::1} == 4 ]]; then
+        active_agg_info=$(gawk 'BEGIN{RS="\n\n"} /Active Aggregator Info:/ {print}' $bond_input)
+        partner_mac=$(gawk '/Partner Mac Address:/ {print $4}' <<<"$active_agg_info" | __scrub_mac)
+        echo -n "${partner_mac:--}❚"
+        active=$(gawk '/Aggregator ID:/ {print $3}' <<<"$active_agg_info")
+      else
+        echo -n "-❚"
+        active=$(gawk '/Active Slave/ {printf $4}' $bond_input)
+      fi
       
-      slaves=($(gawk '/^Slave Interface:/ {print $3}' $bond_input))
+      slaves=( $(gawk '/^Slave Interface:/ {print $3}' $bond_input) )
       
       [[ ${#slaves[@]} -eq 0 ]] && echo "[None]"
       
       s=0; until [[ $s -eq ${#slaves[@]} ]]; do
+        if [[ ${mode::1} == 4 ]]; then
+          agg_id=$(gawk 'BEGIN{RS="\n\n"} /Slave Interface: '"${slaves[s]}/" $bond_input | gawk '/Aggregator ID:/ {print $3}')
+        fi
+        # First line
         if [[ $s -eq 0 ]]; then
-          if [[ $active == ${slaves[s]} ]]; then
+          if [[ ${mode::1} == 4 ]]; then
+            if [[ $active == $agg_id ]]; then
+              echo -n "* [$agg_id] ${slaves[s]}"
+            else
+              echo -n "  [$agg_id] ${slaves[s]}"
+            fi
+          elif [[ $active == ${slaves[s]} ]]; then
             echo -n "* ${slaves[s]}"
           else
             echo -n "  ${slaves[s]}"
           fi
+        # Not first line
         else
-          if [[ $active == ${slaves[s]} ]]; then
-            echo -n " ❚ ❚ ❚* ${slaves[s]}"
+          if [[ ${mode::1} == 4 ]]; then
+            if [[ $active == $agg_id ]]; then
+              echo -n " ❚ ❚ ❚ ❚* [$agg_id] ${slaves[s]}"
+            else
+              echo -n " ❚ ❚ ❚ ❚  [$agg_id] ${slaves[s]}"
+            fi
+          elif [[ $active == ${slaves[s]} ]]; then
+            echo -n " ❚ ❚ ❚ ❚* ${slaves[s]}"
           else
-            echo -n " ❚ ❚ ❚  ${slaves[s]}"
+            echo -n " ❚ ❚ ❚ ❚  ${slaves[s]}"
           fi
         fi
         
@@ -2030,7 +2055,7 @@ BONDING() {
         echo
       done
     f=$((f+1))
-    [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚ ❚- - - - - - - - - - - - - -"
+    [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚ ❚ ❚- - - - - - - - - - - - - - - -"
     done 
   } |
     column -ts❚ |
