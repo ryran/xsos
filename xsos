@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.8 last mod 2015/01/19
+# xsos v0.5.9 last mod 2015/01/19
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2304,7 +2304,13 @@ ETHTOOL() {
     echo -e "${c[H1]}ETHTOOL${c[0]}"
     echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Status:${c[0]}"
     for i in $ethdevs; do
-      echo -e "${XSOS_INDENT_H2}$i❚$(__ethtool $i |
+      echo -e "${XSOS_INDENT_H2}$i❚$(__ethtool_i $i |
+      gawk '
+        BEGIN { pci = "PCI UNKNOWN" }
+        /^bus-info:/ { pci = $2 }
+        END { printf pci }
+      '
+      )❚$(__ethtool $i |
       gawk '
         /Link detected:/    { link = $3; sub(/yes/, "up", link); sub(/no/, "DOWN", link) }
         /Speed:/            { spd = $2 }
