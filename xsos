@@ -1328,7 +1328,7 @@ KDUMP() {
       kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$sosroot"/etc/kdump.conf)
       if [[ -n $kdump_cfg ]]; then
         sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg"
-        path=$(gawk '/^path / {print$2}' <<<"$kdump_cfg")
+        path=$(gawk '/^path / {print$2}' <<<"$kdump_cfg" | tail -n1)
         [[ -z $path ]] && path=/var/crash
         
         for target in raw net nfs nfs4 ssh minix ext2 ext3 ext4 btrfs xfs; do
