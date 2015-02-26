@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.10 last mod 2015/02/13
+# xsos v0.5.12 last mod 2015/02/26
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -194,6 +194,16 @@ fi
 # XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
     : ${XSOS_ETHTOOL_ERR_REGEX:="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause).*: [^0]"}
+#
+#
+# XSOS_LSPCI_NET_REGEX (str: regular expression)
+#   Configures what LSPCI() uses to search for peripherals under the "Net" heading
+    : ${XSOS_LSPCI_NET_REGEX:="(Ethernet controller|Network controller|InfiniBand):"}
+#
+#
+# XSOS_LSPCI_STORAGE_REGEX (str: regular expression)
+#   Configures what LSPCI() uses to search for peripherals under the "Storage" heading
+    : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller):"}
 #
 # ==============================================================================
 
@@ -1887,47 +1897,51 @@ LSPCI() {
   else
     lspci_input=$(gawk '{print} /^lspci -n/{exit}' "$1/lspci" 2>/dev/null)
   fi
-
-  echo -e "${c[H1]}LSPCI${c[0]}"
-
-  gawk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
-    /Ethernet controller:|Network controller:|Fibre Channel:|Mass storage controller:|InfiniBand:/ {
-      # Save 
-      split($1, slot, ":")
-      $1 = ""
-      sub(" ", "")
-      split($0, type, ":")
-      dev[type[2]] ++
-      if (!(slot[1] SUBSEP type[2] in slots)) {
-        slots[slot[1], type[2]]
-        slotcount[type[2]] ++
-      }
-    }
-    END {
-      printf "%s  Net/Storage:%s\n", H2, H0
-      for (devtype in dev) {
-        slotc = slotcount[devtype]
-        typec = dev[devtype]
-        ports = ""
-        if (typec > 1) {
-          numports = typec/slotc
-          if      (numports == 1) numports = "single"
-          else if (numports == 2) numports = "dual"
-          else if (numports == 3) numports = "triple"
-          else if (numports == 4) numports = "quad"
-          ports = " "slotc " " numports "-port"
+  
+  _parse_devs() {
+    local regex=${1}
+    gawk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" "
+      /${regex}/"'{
+        # Save 
+        split($1, slot, ":")
+        $1 = ""
+        sub(" ", "")
+        split($0, type, ":")
+        dev[type[2]] ++
+        if (!(slot[1] SUBSEP type[2] in slots)) {
+          slots[slot[1], type[2]]
+          slotcount[type[2]] ++
         }
-        printf "   %s%s (%s)%s%s\n", H_IMP, ports, typec, H0, devtype
       }
-    }
-  ' <<<"$lspci_input"
+      END {
+        for (devtype in dev) {
+          slotc = slotcount[devtype]
+          typec = dev[devtype]
+          ports = ""
+          if (typec > 1) {
+            numports = typec/slotc
+            if      (numports == 1) numports = "single"
+            else if (numports == 2) numports = "dual"
+            else if (numports == 3) numports = "triple"
+            else if (numports == 4) numports = "quad"
+            ports = " "slotc " " numports "-port"
+          }
+          printf "   %s%s (%s)%s%s\n", H_IMP, ports, typec, H0, devtype
+        }
+      }
+    ' <<<"$lspci_input"
+  }
+  
+  echo -e "${c[H1]}LSPCI${c[0]}"
+  
+  echo -e "${c[H2]}  Net:${c[0]}"
+  _parse_devs "${XSOS_LSPCI_NET_REGEX}"
+  
+  echo -e "${c[H2]}  Storage:${c[0]}"
+  _parse_devs "${XSOS_LSPCI_STORAGE_REGEX}"
   
   echo -e "${c[H2]}  VGA:${c[0]}"
-  gawk -F: '
-    $2 ~ /^.... VGA/ {
-      print "   "$3
-    }
-  ' <<<"$lspci_input"
+  gawk '/VGA compatible controller:/ {$1=$2=$3=$4=""; print}' <<<"$lspci_input"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
