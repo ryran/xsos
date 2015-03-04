@@ -506,7 +506,7 @@ THINGS THAT MIGHT SURPRISE YOU
 
 * xsos does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor` and colors can be modified via environment variables).
   * If you like the color but need to use a pager, use the `--less` (`-y`) or `--more` (`-z`) options to auto-pipe output to `less -SR` or `more`.
-* There are a bunch of environment variables that you can use to tweak behavior. See [the original commit comment](/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
+* There are a bunch of environment variables that you can use to tweak behavior. See [the original commit comment](https://github.com/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
 * xsos can update itself via the internet in 10 seconds if run with `--update` or `-U`.
   * Set environment variable `XSOS_UPDATE_CONFIRM` to "`n`" if you don't want `--update` to prompt for confirmation.
 * There's a bash autocompletion function defition available for xsos. Use it.
