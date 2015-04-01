@@ -2509,7 +2509,7 @@ SOFTIRQ() {
   
   echo -e "${c[H1]}SOFTIRQ${c[0]}"
   
-  awk '{if (strtonum("0x" $2) > 0) exit 177}' "$softirq_input_file"
+  gawk '{if (strtonum("0x" $2) > 0) exit 177}' "$softirq_input_file"
   
   if [[ $? -eq 177 ]]; then
     echo -e "${XSOS_INDENT_H1}${c[Warn1]}Backlog max has been reached, needs to be increased!${c[0]}$backlog"
@@ -2518,7 +2518,7 @@ SOFTIRQ() {
   fi
   
   
-  awk '{if (strtonum("0x" $3) > 0) exit 177}' "$softirq_input_file"
+  gawk '{if (strtonum("0x" $3) > 0) exit 177}' "$softirq_input_file"
   if [[ $? -eq 177 ]]; then
     echo -e "${XSOS_INDENT_H1}${c[Warn1]}Budget is not sufficient, needs to be increased!${c[0]}$budget"
   else
