@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.12 last mod 2015/02/26
+# xsos v0.5.13 last mod 2015/03/31
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -950,7 +950,7 @@ _CHECK_GRUB() {
 
 OSINFO() {
   # Local vars:
-  local distro_release kernel_build kernel_buildhost num_cpu btime hostname hntmp kernel serverURL sURLtmp uname systime boottime uptime_input runlevel initdefault timezone
+  local distro_release kernel_build kernel_buildhost num_cpu btime hostname hntmp kernel total_plugins yum_plugins num_enabled f rhn_serverURL sURLtmp a rhn_enableProxy rhn_httpProxy rhn_enableProxyAuth rhn_proxyUser rhn_proxyPassword rhnProxyStuff rhsm_hostname rhsm_proxy_hostname rhsm_proxy_port rhsm_proxy_user rhsm_proxy_password rhsmProxyStuff uname systime boottime uptime_input runlevel initdefault timezone
   
   # These functions populate variables for later use
   _CHECK_DISTRO "$1"
@@ -967,11 +967,88 @@ OSINFO() {
   hostname=$(cat "$1/proc/sys/kernel/hostname" 2>/dev/null)
   kernel=$(cat "$1/proc/sys/kernel/osrelease" 2>/dev/null)
   
-  # Grab RHN serverURL
-  if serverURL=$(grep ^serverURL= "$1/etc/sysconfig/rhn/up2date" 2>/dev/null); then
-    sURLtmp=$(egrep --color=always -si 'oracle' <<<"$serverURL") && serverURL=$sURLtmp
+  # Grab yum plugin stuff
+  if total_plugins=$(ls "$1"/etc/yum/pluginconf.d/*.conf 2>/dev/null); then
+    total_plugins=$(wc -l <<<"$total_plugins")
+    yum_plugins=$(
+      cd "$1"/etc/yum/pluginconf.d/
+      gawk -F= '
+        /^enabled *= */ {
+          sub(" ", "")
+          if ($2==1) printf FILENAME" "
+        }
+      ' *.conf
+    )
+    if [[ -n $yum_plugins ]]; then
+      num_enabled=$(wc -w <<<"$yum_plugins")
+      yum_plugins=$(sed 's/\.conf /, /g' <<<"$yum_plugins")
+      yum_plugins=${yum_plugins%, }
+      yum_plugins="$num_enabled enabled plugins: $yum_plugins"
+    else
+      yum_plugins="0 enabled plugins"
+    fi
   else
-    serverURL="${c[red]}(missing)${c[0]}"
+    yum_plugins="${c[Warn1]}No yum plugin info (missing etc/yum/pluginconf.d/*.conf)${c[0]}"
+  fi
+  
+  # Grab RHN settings  
+  _get_rhn_cfg() {
+    local directive=$1 file="$2/etc/sysconfig/rhn/up2date" result=
+    result=$(gawk -F= "/^$directive *=/{print\$2}" "$file" 2>/dev/null)
+    result=${result/ /}
+    if [[ -n $result ]]; then
+      echo "$directive = $result"
+    else
+      return 1
+    fi
+  }
+  a="\n            "
+  if rhn_serverURL=$(_get_rhn_cfg serverURL "$1"); then
+    sURLtmp=$(egrep --color=always -si 'oracle' <<<"$serverURL") && rhn_serverURL=$sURLtmp
+    if rhn_enableProxy=$(_get_rhn_cfg enableProxy "$1") && [[ $rhn_enableProxy -eq 1 ]]; then
+      rhnProxyStuff="${a}$rhn_enableProxy"
+      if rhn_httpProxy=$(_get_rhn_cfg httpProxy "$1"); then
+        rhnProxyStuff+="${a}$rhn_httpProxy"
+        if rhn_enableProxyAuth=$(_get_rhn_cfg enableProxyAuth "$1") && [[ $rhn_enableProxyAuth -eq 1 ]]; then
+          rhnProxyStuff+="${a}$rhn_enableProxyAuth"
+          rhn_proxyUser=$(_get_rhn_cfg proxyUser "$1")         && rhnProxyStuff+="${a}$rhn_proxyUser"
+          rhn_proxyPassword=$(_get_rhn_cfg proxyPassword "$1") && rhnProxyStuff+="${a}$rhn_proxyPassword"
+        else
+          rhnProxyStuff+="${a}$rhn_enableProxyAuth"
+        fi
+      else
+        rhnProxyStuff+="${a}httpProxy ="
+      fi
+    else
+      rhnProxyStuff="${a}$rhn_enableProxy"
+    fi
+  else
+    rhn_serverURL="${c[red]}(missing)${c[0]}"
+  fi
+  
+  # Grab RHSM settings
+  _get_rhsm_cfg() {
+    local directive=$1 file="$2/etc/rhsm/rhsm.conf" result=
+    result=$(gawk -F= "/^$directive *=/{print\$2}" "$file" 2>/dev/null)
+    result=${result/ /}
+    if [[ -n $result ]]; then
+      echo "$directive = $result"
+    else
+      return 1
+    fi
+  }
+  a="\n            "
+  if rhsm_hostname=$(_get_rhsm_cfg hostname "$1"); then
+    if rhsm_proxy_hostname=$(_get_rhsm_cfg proxy_hostname "$1"); then
+      rhsmProxyStuff="${a}$rhsm_proxy_hostname"
+      rhsm_proxy_port=$(_get_rhsm_cfg proxy_port "$1")          && rhsmProxyStuff+="${a}$rhsm_proxy_port"
+      rhsm_proxy_user=$(_get_rhsm_cfg proxy_user "$1")          && rhsmProxyStuff+="${a}$rhsm_proxy_user"
+      rhsm_proxy_password=$(_get_rhsm_cfg proxy_password "$1")  && rhsmProxyStuff+="${a}$rhsm_proxy_password"
+    else
+      rhsmProxyStuff="${a}proxy_hostname ="
+    fi
+  else
+    rhsm_hostname="${c[red]}(missing)${c[0]}"
   fi
   
   # If running on localhost
@@ -1049,7 +1126,9 @@ OSINFO() {
   echo -e "${c[H1]}OS${c[0]}"
   echo -e "  ${c[H2]}Hostname:${c[0]} $hntmp"
   echo -e "  ${c[H2]}Distro:${c[0]}   $distro_release"
-  echo -e "  ${c[H2]}RHN:${c[0]}      $serverURL"
+  echo -e "  ${c[H2]}RHN:${c[0]}      $rhn_serverURL$rhnProxyStuff"
+  echo -e "  ${c[H2]}RHSM:${c[0]}     $rhsm_hostname$rhsmProxyStuff"
+  echo -e "  ${c[H2]}YUM:${c[0]}      $yum_plugins"
   [[ -n $runlevel ]] &&
   echo -e "  ${c[H2]}Runlevel:${c[0]} $runlevel  (default $initdefault)"
   echo -e "  ${c[H2]}SELinux:${c[0]}  $(_CHECK_SELINUX "$1")"
