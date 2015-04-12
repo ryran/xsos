@@ -37,7 +37,7 @@ _xsos()  {
             -x -y -z"
             
   longopts="--help --version --update
-            --all --bios --os --kdump --cpu --inter --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps
+            --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps
             --B --C --F --M --D --T --L --R --N --G --I --P
             --scrub-ip --scrub-mac --ipv6 --wwid --unit --verbose --width
             --nocolor --less --more"
