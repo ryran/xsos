@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.16 last mod 2015/04/12
+# xsos v0.5.17 last mod 2015/04/12
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1601,10 +1601,10 @@ MEMINFO() {
     function memgraph_special(PercentA, PercentB, Color, PrettyName) {
       PercentTotal = PercentA + PercentB
       printf "    %s%s ", Color, PrettyName
-      for (i=0; i <    round(PercentA/2, 0); i++) printf "◆"
-      for (i=0; i <    round(PercentB/2, 0); i++) printf "◇"
+      for (i=0; i <    round(PercentA/2, 0); i++) printf "▊"
+      for (i=0; i <    round(PercentB/2, 0); i++) printf "."
       printf H0
-      for (i=0; i < 50-round(PercentTotal/2, 0); i++) printf "◇"
+      for (i=0; i < 50-round(PercentTotal/2, 0); i++) printf "."
       if      (round(PercentTotal,1) > 99.9) j=" "
       else if (round(PercentTotal,1) > 9)    j="  "
       else                                   j="   "
@@ -1613,9 +1613,9 @@ MEMINFO() {
     
     function memgraph(Percent, Color, PrettyName) {
       printf "    %s%s ", Color, PrettyName
-      for (i=0; i <    round(Percent/2, 0); i++) printf "◆"
+      for (i=0; i <    round(Percent/2, 0); i++) printf "▊"
       printf H0
-      for (i=0; i < 50-round(Percent/2, 0); i++) printf "◇"
+      for (i=0; i < 50-round(Percent/2, 0); i++) printf "."
       if      (round(Percent,1) > 99.9) j=" "
       else if (round(Percent,1) > 9)    j="  "
       else                          j="   "
