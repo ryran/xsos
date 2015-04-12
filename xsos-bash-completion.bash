@@ -1,7 +1,7 @@
 # This file is part of xsos, providing intelligent xsos tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2015/04/09 matching up with xsos v0.5.14
+# Revision date:  2015/04/12 matching up with xsos v0.5.15
 # Latest version: <http://github.com/ryran/xsos>
 # 
 # Copyright 2013, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
