@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.15 last mod 2015/04/12
+# xsos v0.5.16 last mod 2015/04/12
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1275,10 +1275,10 @@ KDUMP() {
     }
     __svc_check_kdump() {
       if command -v systemctl >/dev/null; then
-        if systemctl list-units --all | grep -qs kdump.service; then
-          systemctl list-units --all | gawk 'NR==1 || /kdump.service/ { print $1, $2, $3, $4 }' | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
-            { gsub("not-found|failed", warn "&" H0)
-              gsub("active", green "&" H0)
+        if systemctl list-unit-files | grep -qs kdump.service; then
+          systemctl list-unit-files | gawk '/kdump.service/ { printf "UNIT STATE\n" $0 }' | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+            { gsub(".*disabled", warn "&" H0)
+              gsub(".*enabled", green "&" H0)
               print
             }'
         else
@@ -1320,11 +1320,11 @@ KDUMP() {
       fi
     }
     __svc_check_kdump() {
-      if [[ -r "$sosroot"/sos_commands/systemd/systemctl_list-units_--all ]]; then
-        if grep -qs kdump.service "$sosroot"/sos_commands/systemd/systemctl_list-units_--all; then
-          gawk 'NR==1 || /kdump.service/ { print $1, $2, $3, $4 }' "$sosroot"/sos_commands/systemd/systemctl_list-units_--all | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
-            { gsub("not-found|failed", warn "&" H0)
-              gsub("active", green "&" H0)
+      if [[ -r "$sosroot"/sos_commands/systemd/systemctl_list-unit-files ]]; then
+        if grep -qs kdump.service "$sosroot"/sos_commands/systemd/systemctl_list-unit-files; then
+          gawk '/kdump.service/ { printf "UNIT STATE\n" $0 }' "$sosroot"/sos_commands/systemd/systemctl_list-unit-files | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+            { gsub(".*disabled", warn "&" H0)
+              gsub(".*enabled", green "&" H0)
               print
             }'
         else
