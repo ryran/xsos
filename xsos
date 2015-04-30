@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.17 last mod 2015/04/12
+# xsos v0.5.18 last mod 2015/04/30
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2413,7 +2413,7 @@ ETHTOOL() {
   else
     changedir=1
     pushd "$1"/sos_commands/networking &>/dev/null
-    ethdevs=$(ls ethtool_[[:alpha:]]* | cut -d_ -f2)
+    ethdevs=$(ls ethtool_[[:alpha:]]* | cut -d_ -f2-)
     # Setup local functions for ethtool & ethtool -i & ethtool -S
     __ethtool()   { cat ethtool_$1; }
     __ethtool_i() { [[ -r ethtool_-i_$1 ]] && cat ethtool_-i_$1; }
