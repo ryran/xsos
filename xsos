@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.18 last mod 2015/04/30
+# xsos v0.5.19 last mod 2015/04/30
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -783,12 +783,12 @@ _CHECK_KERNELBUILD() {
     kernel_build=$(<"$1/proc/version")
   
   # sosreport: if find it via `dmesg` output file, great
-  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -s 'Linux version' "$1/sos_commands/general/dmesg"); then
+  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -as 'Linux version' "$1/sos_commands/general/dmesg"); then
     :
     
   # sosreport: if find it in var/log/dmesg, woo hoo
   elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
-    kernel_build=$(grep 'Linux version' "$1/var/log/dmesg" | tail -n1)
+    kernel_build=$(grep -a 'Linux version' "$1/var/log/dmesg" | tail -n1)
   
   # sosreport: if find it in var/log/messages, lovely
   elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
