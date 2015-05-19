@@ -370,7 +370,7 @@ UPDATE() {
     echo -e "${c[RED]}Need either wget or curl in PATH to download the latest version${c[reset]}"
     exit 72
   fi
-  
+
   # Save version string
   latest_version=$(sed '2q;d' "$latest_version_file")
 
@@ -461,28 +461,28 @@ _OPT_CHECK() {
       *)
        echo "$pzero: option '$option' expects other input, i.e., matching regex '$valid_opts'"=
     esac
-  
+
   elif [[ $check_type == range ]]; then
     for n in $(seq $valid_opts); do
       [[ $n == $chosen_opt ]] && return
     done
     echo "$pzero: option '$option' expects number from range: { ${valid_opts// /-} }"
-    
+
   elif [[ $check_type == naturalnumber ]]; then
     egrep -qs '^[0-9]+$' <<<"$chosen_opt" && return
     echo "$pzero: option '$option' expects any natural number, including zero"
-    
+
   elif [[ $check_type == string ]]; then
     for s in $valid_opts; do
       [[ $s == $chosen_opt ]] && return
     done
     echo "$pzero: option '$option' expects one of: { $valid_opts } "
-  
+
   elif [[ $check_type == anystring ]]; then
     [[ -n $2 ]] && return
     echo "$pzero: option '$option' expects a non-null string value"
   fi
-  
+
   exit 64
 }
 
@@ -529,7 +529,7 @@ PARSE() {
       -s|--sysctl)  shift; opts=y; sysctl=y  ;;
       -p|--ps)      shift; opts=y; ps=y      ;;
       --net)        shift; opts=y; lspci=y; ethtool=y; softirq=y; netdev=y; ip=y; bonding=y ;;
-      
+
       --B)  sfile[B]=$2; shift 2 ;;
       --F)  sfile[F]=$2; shift 2 ;;
       --C)  sfile[C]=$2; shift 2 ;;
@@ -610,7 +610,7 @@ fi
 DMIDECODE() {
   # Local vars:
   local dmidecode_input
-  
+
   if [[ -z $1 ]]; then
     dmidecode_input=$(dmidecode 2>/dev/null)
   elif [[ -f $1 ]]; then
@@ -620,16 +620,16 @@ DMIDECODE() {
   elif [[ -r $1/sos_commands/kernel.dmidecode ]]; then
     dmidecode_input=$(<"$1/sos_commands/kernel.dmidecode")
   fi
-  
+
   # If bad dmidecode input, return
   if head -n3 <<<"$dmidecode_input" | egrep -qs 'No such file or directory|No SMBIOS nor DMI entry point found'; then
     echo -e "${c[Warn2]}Warning:${c[Warn1]} dmidecode input invalid; skipping bios check${c[0]}" >&2
     echo -en $XSOS_HEADING_SEPARATOR >&2
     return 1
   fi
-  
+
   echo -e "${c[H1]}DMIDECODE${c[0]}"
-  
+
   # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
   echo -e "${c[H2]}  BIOS:${c[0]}"
   gawk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode_input" |
@@ -707,12 +707,12 @@ DMIDECODE() {
 _CHECK_DISTRO() {
   # Local vars:
   local OS_INDENT files file
-  
+
   OS_INDENT="            "
   # Parse redhat-release if we have it
   if [[ ! -r $1/etc/redhat-release ]]; then
     distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
-    
+
   else
     # If release is RHEL 4,5,6,7 in standard expected format ...
     if egrep -e 'Red Hat Enterprise Linux (AS|ES|Desktop|WS) release 4 \((Nahant|Nahant Update [1-9])\)' \
@@ -720,26 +720,26 @@ _CHECK_DISTRO() {
              -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 6\.?[0-9]* \(Santiago\)' \
              -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 7\.[0-9] \(Maipo\)' \
              -qs "$1/etc/redhat-release"; then
-    
+
       # ... And if redhat-release file has more than 1 line ...
       [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
-      
+
         # ... Then print it in orange
         distro_release=${c[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
-        
+
           # Otherwise, if only 1 line, all is well -- print it normally
           distro_release=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
-          
+
     # If release is not RHEL 4,5,6,7 in standard expected format, freak out
     else
       distro_release=$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
-      
+
       if grep -qi fedora <<<"$distro_release"; then
         distro_release=${c[bg_BLUE]}$distro_release
-      
+
       elif egrep -qi 'alpha|beta' <<<"$distro_release"; then
         distro_release=${c[bg_RED]}${c[ORANGE]}$distro_release
-        
+
       else
         distro_release=${c[bg_DGREY]}${c[RED]}$distro_release
       fi
@@ -761,7 +761,7 @@ _CHECK_DISTRO() {
       fi
     done
   fi
-  
+
   # I don't like blindly sourcing a file -- that provides a vector to screw with this script...
   # But in modern Linux boxen this file is standard
   # If able to source the new standard /etc/os-release, list it out
@@ -773,27 +773,27 @@ _CHECK_DISTRO() {
 
 _CHECK_KERNELBUILD() {
   # Get kernel build version somehow or another, making sure not to use build offered by rescue mode kernel
-  
+
   # if localhost: get it from the best place, yay
   if [[ $1 == / ]]; then
     kernel_build=$(</proc/version)
-  
+
   # sosreport: sosreports don't normally contain this.. yet
   elif [[ -r "$1/proc/version" ]] && ! grep -qsw rescue "$1/proc/cmdline"; then
     kernel_build=$(<"$1/proc/version")
-  
+
   # sosreport: if find it via `dmesg` output file, great
   elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -as 'Linux version' "$1/sos_commands/general/dmesg"); then
     :
-    
+
   # sosreport: if find it in var/log/dmesg, woo hoo
   elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
     kernel_build=$(grep -a 'Linux version' "$1/var/log/dmesg" | tail -n1)
-  
+
   # sosreport: if find it in var/log/messages, lovely
   elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
     kernel_build=$(grep 'kernel: Linux version' "$1/var/log/messages" | tail -n1)
-  
+
   # sosreport: final option: search in all old messages files -- this might be a bad idea
   else
     # To explain this last one: The goal is to find the most recent instance of "Linux version"
@@ -801,7 +801,7 @@ _CHECK_KERNELBUILD() {
     # This is obviously not very efficient, but it's the only way I've thought of to do it so far
     kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep -sh 'kernel: Linux version' 2>/dev/null | tail -n1)
   fi
-  
+
   # Fix format if necessary
   if [[ -n $kernel_build ]]; then
     kernel_build=$(sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build")
@@ -813,16 +813,16 @@ _CHECK_KERNELBUILD() {
 _CHECK_SELINUX() {
   # Local vars:
   local input_sestatus have_dmesg input_seconfig selinux enforcing selinux_dmesg sestatus_status sestatus_mode sestatus_cfgmode sestatus_policy seconfig_cfgmode seconfig_policy
-  
+
   __cond_print_cfgmode() {
     [[ -n $seconfig_cfgmode ]] &&
       printf "  (default $seconfig_cfgmode)" || printf "  (default unknown)"
   }
-  
+
   # Grab input from sestatus command if localhost
   if [[ $1 == / ]]; then
     input_sestatus=$(sestatus 2>/dev/null)
-    
+
   # Else, from $sosroot/sestatus & dmesg
   else
     input_sestatus=$(gawk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null)
@@ -830,13 +830,13 @@ _CHECK_SELINUX() {
     # Could also check /var/log/messages, but it would be too expensive and complicated
     # to ensure any hits were for the current boot-cycle
   fi
-  
+
   # Read in /etc/selinux/config from sosroot or localhost
   input_seconfig=$(cat "$1"/etc/selinux/config 2>/dev/null)
-  
+
   # Set "selinux" and "enforcing" variables per kernel args
   eval $(egrep -ios 'selinux=.|enforcing=.' "$1"/proc/cmdline | tr '[:upper:]' '[:lower:]')
-  
+
   # Check /etc/selinux/config input
   if [[ -n $input_seconfig ]]; then
     eval $(gawk -F= '
@@ -847,7 +847,7 @@ _CHECK_SELINUX() {
       }
     ' <<<"$input_seconfig")
   fi
-  
+
   # Check sestatus input
   if [[ -n $input_sestatus ]]; then
     eval $(gawk '
@@ -860,7 +860,7 @@ _CHECK_SELINUX() {
           status, mode, cfgmode, policy
       }
     ' <<<"$input_sestatus")
-    
+
     # Since we have sestatus input, primarily rely on that
     if [[ $sestatus_status == disabled ]]; then
       # If sestatus says disabled, need to rely on config file for default mode
@@ -869,10 +869,10 @@ _CHECK_SELINUX() {
       # Otherwise, just use sestatus output 
       printf "$sestatus_mode  (default $sestatus_cfgmode)"
     fi
-  
+
   # If we don't have sestatus input, things are more complicated...
   else
-  
+
     # If we have selinux/enforcing kernel args, use those for current status
     if [[ -n $selinux || -n $enforcing ]]; then
       case $selinux in
@@ -884,19 +884,19 @@ _CHECK_SELINUX() {
         1)  printf "enforcing"  ;;
       esac
       __cond_print_cfgmode
-      
+
     # If dmesg from sosreport says disabled, print it out
     elif [[ $selinux_dmesg == disabled ]]; then
       printf "dmesg says disabled"; __cond_print_cfgmode
-      
+
     # If we only have stuff from /etc/selinux/config
     elif [[ -n $seconfig_cfgmode ]]; then
       printf "${c[Warn1]}status unknown${c[0]} (default $seconfig_cfgmode)"
-    
+
     # Otherwise, we have no clue ... :(
     else
       printf "${c[Warn1]}status unknown (default unknown)${c[0]}"
-    fi    
+    fi
   fi
 }
 
@@ -904,10 +904,10 @@ _CHECK_SELINUX() {
 _CHECK_GRUB() {
   # Local vars:
   local grubcfg default
-  
+
   # Other vars that we want to be global, so no local here and no local in modules that call them:
   ## bad_grubcfg default_missing grub_kernel grub_cmdline
-  
+
   # Find the grub config file
   if [[ -f $1/boot/grub/grub.conf ]]; then
     # Set grubcfg for grub1
@@ -923,14 +923,14 @@ _CHECK_GRUB() {
     bad_grubcfg="${c[Warn1]}unknown  (no grub config file)${c[0]}"
     return 1
   fi
-  
+
   # Check for read permission
   if [[ ! -r $grubcfg ]]; then
     # Set a message for later and stop here
     bad_grubcfg="${c[Warn1]}unknown (no read permission on ${grubcfg##*/})${c[0]}"
     return 1
   fi
-  
+
   case "${grubcfg##*/}" in
     grub.conf)
       # If we have grub.conf, use that
@@ -946,7 +946,7 @@ _CHECK_GRUB() {
       default=$(gawk -F\" '/^set default=/{print$2}' "$grubcfg")
       grub_cmdline=$(gawk '/^menuentry.*{/,/^}/' "$grubcfg" | gawk -vRS="\n}\n" -vDEFAULT="$((default+1))" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
   esac
-  
+
   grub_kernel=$(gawk {print\$1} <<<"${grub_cmdline#/vmlinuz-}" 2>/dev/null)
   grub_cmdline=$(cut -d' ' -f2- <<<"$grub_cmdline")
 }
@@ -955,22 +955,22 @@ _CHECK_GRUB() {
 OSINFO() {
   # Local vars:
   local distro_release kernel_build kernel_buildhost num_cpu btime hostname hntmp kernel total_plugins yum_plugins num_enabled f rhn_serverURL sURLtmp a rhn_enableProxy rhn_httpProxy rhn_enableProxyAuth rhn_proxyUser rhn_proxyPassword rhnProxyStuff rhsm_hostname rhsm_proxy_hostname rhsm_proxy_port rhsm_proxy_user rhsm_proxy_password rhsmProxyStuff uname systime boottime uptime_input runlevel initdefault timezone
-  
+
   # These functions populate variables for later use
   _CHECK_DISTRO "$1"
   _CHECK_KERNELBUILD "$1"
   _CHECK_GRUB "$1"
-  
+
   # Grab number of cpus from proc/stat
   num_cpu=$(gawk '/^cpu[[:graph:]]+/{n++} END{print n}' "$1/proc/stat" 2>/dev/null)
-  
+
   # Grab btime (in seconds since U.Epoch) from proc/stat
   btime=$(gawk '/^btime/{print $2}' "$1/proc/stat" 2>/dev/null)
-  
+
   # Grab system hostname & kernel version from /proc first
   hostname=$(cat "$1/proc/sys/kernel/hostname" 2>/dev/null)
   kernel=$(cat "$1/proc/sys/kernel/osrelease" 2>/dev/null)
-  
+
   # Grab yum plugin stuff
   if total_plugins=$(ls "$1"/etc/yum/pluginconf.d/*.conf 2>/dev/null); then
     total_plugins=$(wc -l <<<"$total_plugins")
@@ -994,8 +994,8 @@ OSINFO() {
   else
     yum_plugins="${c[Warn1]}No yum plugin info (missing etc/yum/pluginconf.d/*.conf)${c[0]}"
   fi
-  
-  # Grab RHN settings  
+
+  # Grab RHN settings
   _get_rhn_cfg() {
     local directive=$1 file="$2/etc/sysconfig/rhn/up2date" result=
     result=$(gawk -F= "/^$directive *=/{print\$2}" "$file" 2>/dev/null)
@@ -1029,7 +1029,7 @@ OSINFO() {
   else
     rhn_serverURL="${c[red]}(missing)${c[0]}"
   fi
-  
+
   # Grab RHSM settings
   _get_rhsm_cfg() {
     local directive=$1 file="$2/etc/rhsm/rhsm.conf" result=
@@ -1054,7 +1054,7 @@ OSINFO() {
   else
     rhsm_hostname="${c[red]}(missing)${c[0]}"
   fi
-  
+
   # If running on localhost
   if [[ $1 == / ]]; then
     uname=$(uname -a | gawk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
@@ -1069,7 +1069,7 @@ OSINFO() {
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
       initdefault=${initdefault%.target} ||
         initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
-    
+
   # Otherwise, running on sosreport
   else
     # If sosreport ran in rescue mode, try to get good hostname
@@ -1099,33 +1099,33 @@ OSINFO() {
     # Check kernel for uek
     grep -qsi uek <<<"$kernel" && kernel=$(grep --color=always -i uek <<<"$kernel")
     grep -qsi uek <<<"$grub_kernel" && grub_kernel=$(grep --color=always -i uek <<<"$grub_kernel")
-    
+
     systime=$(gawk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null) 
     [[ $(wc -w <<<"$systime") == 6 ]] &&
       systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
-    
+
     timezone=$(gawk -F= '/^ZONE=/{print $2}' "$1/etc/sysconfig/clock" 2>/dev/null | tr -d \")
     [[ -n $timezone && -f /usr/share/zoneinfo/$timezone ]] &&
       boottime=$(echo -n $(TZ=$timezone date --date=@$btime 2>/dev/null)) ||
         boottime=$(echo -n $(TZ= date --date=@$btime 2>/dev/null))
-    
+
     [[ $(wc -w <<<"$boottime") == 6 ]] &&
       boottime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
-    
+
     uptime_input=$(gawk '!/\/.*bin/ && NF!=0' "$1/uptime")
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] &&
       initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab") ||
         initdefault=unknown
   fi
-  
+
   if [[ $XSOS_SCRUB_IP_HN == y ]]; then
     hntmp="${c[Warn2]}HOSTNAME SCRUBBED${c[0]}"
     [[ $serverURL == "serverURL=https://xmlrpc.rhn.redhat.com/XMLRPC" ]] || serverURL="${c[Warn2]}SATELLITE URL SCRUBBED${c[0]}"
   else
     hntmp=$hostname
   fi
-  
+
   # Start printing stuff
   echo -e "${c[H1]}OS${c[0]}"
   echo -e "  ${c[H2]}Hostname:${c[0]} $hntmp"
@@ -1140,7 +1140,7 @@ OSINFO() {
   echo -e "  ${c[H2]}Kernel:${c[0]}"
   echo -e "    ${c[H3]}Booted kernel:${c[0]}  $kernel"
   echo -e "    ${c[H3]}GRUB default:${c[0]}   $bad_grubcfg$grub_kernel  $default_missing"
-  
+
   # Print and format kernel version
   echo -e "    ${c[H3]}Build version:${c[0]}"
   # If kernel build was detected ...
@@ -1157,7 +1157,7 @@ OSINFO() {
   else
     echo -e "$XSOS_INDENT_H3${c[Warn1]}unknown${c[0]}"
   fi
-  
+
   # Print kernel cmdline from proc/cmdline
   echo -e "    ${c[H3]}Booted kernel cmdline:${c[0]}"
   # If rescue mode detected, print a warning
@@ -1182,26 +1182,26 @@ OSINFO() {
       fold -sw$XSOS_FOLD_WIDTH <<<"$grub_cmdline" 2>/dev/null | sed -e "s,^,$XSOS_INDENT_H3,"
     fi
   fi
-    
+
   # Print kernel tainted-status
   echo -e "    ${c[H3]}Taint-check:${c[0]} $(CHECK_TAINTED --noquote "$1" H3)"
   # End the kernel section
   echo -e "    ${c[DGREY]}- - - - - - - - - - - - - - - - - - -${c[0]}"
-  
+
   ##echo -e "  ${c[H2]}Supportability:${c[0]}"
-  
+
   [[ -n $systime ]] &&
   echo -e "  ${c[H2]}Sys time:${c[0]}  $systime"
-  
+
   # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
   [[ -n $uptime_input && -n $num_cpu ]] &&
   gawk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDBOLD="${c[RED]}" -vRED="${c[red]}" -vORANGE="${c[orange]}" -vGREEN="${c[green]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       !/load average/ { next }
       {
       Time = $1
-      
+
       Uptime = gensub(/^ *[[:graph:]]+ up +(.+users?),.+/, "\\1", 1)
-      
+
       Load[15] = $(NF)
       Load[5]  = $(NF-1)
       Load[1]  = $(NF-2)
@@ -1215,7 +1215,7 @@ OSINFO() {
         if (LP[i] > 89) Color[i] = RED
         if (LP[i] > 99) Color[i] = REDBOLD
       }
-      
+
       if (SYSTIME == "")
         printf "  %sSys time:%s  %s\n", H2, H0, Time
       printf   "  %sBoot time:%s %s\n", H2, H0, BTIME
@@ -1223,7 +1223,7 @@ OSINFO() {
       printf   "  %sLoadAvg:%s   %s[%d CPU]%s %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
         H2, H0, H_IMP, NUM_CPU, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
     }' <<<"$uptime_input"
-    
+
   # Print info from proc/stat
   [[ -n $btime ]] &&
   gawk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
@@ -1244,7 +1244,7 @@ OSINFO() {
     /procs_running/    { procs_running = $2 }
     /procs_blocked/    { procs_blocked = $2 }
     /processes/        { processes = $2 }
-    
+
     END {
       printf "  %s/proc/stat:%s\n",
         H2, H0
@@ -1254,7 +1254,7 @@ OSINFO() {
         H3, H0, user, nice, sys, idle, iowait, irq, softirq, steal
     }
   ' <"$1/proc/stat"
-  
+
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
@@ -1262,10 +1262,10 @@ OSINFO() {
 KDUMP() {
   # Local vars
   local kexec_tools_vers kdump_initrd path kdump_cfg target MemTotal PathAvailableSpace ColorAvailable lsbootfile
-  
+
   # If the os module was called, grub config was already inspected; otherwise, we need to do it
   [[ -n $os ]] || _CHECK_GRUB "$1"
-        
+
   # If running on localhost ....
   if [[ $1 == / ]]; then
     __rpm_check_kexec() {
@@ -1306,8 +1306,8 @@ KDUMP() {
     __get_df_for_parent_fs_of_path() {
       df_output=$(df "$path" | gawk '{if (NF==1) {dev=$1; getline; print dev $0} else if (NR==2) print}')
     }
-    
-      
+
+
   # If running on sosreport ....
   else
     __rpm_check_kexec() {
@@ -1376,7 +1376,7 @@ KDUMP() {
       df_output=$(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | gawk -vP=$dfpath '{if (NF==6 && $6==P) print; else if (NF==1) {dev=$1; getline; if ($5==P) print dev $0} }')
     }
   fi
-  
+
   # A couple functions that work regardless of localhost/sosreport
   __get_crashkernel_proc_cmdline() {
     local out
@@ -1402,7 +1402,7 @@ KDUMP() {
   __Pa() {
     echo -e "$XSOS_INDENT_H2${c[H3]}${1} ${c[H4]}$2${c[H3]}=  $(gawk -vW="${c[Warn1]}" -vG="${c[green]}" -vH0="${c[0]}" "$3" "$4" "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
   }
-  
+
   echo -e "${c[H1]}KDUMP CONFIG${c[0]}"
   echo -e "$XSOS_INDENT_H1${c[H2]}kexec-tools rpm version:${c[0]}"
     __rpm_check_kexec | sed "s,^,$XSOS_INDENT_H2,"
@@ -1416,26 +1416,26 @@ KDUMP() {
     echo -e "$XSOS_INDENT_H2${c[H3]}/proc/cmdline {${c[0]} $(__get_crashkernel_proc_cmdline) ${c[H3]}}${c[0]}"
     echo -e "$XSOS_INDENT_H2${c[H3]}GRUB default  {${c[0]} $(__get_crashkernel_grub_cmdline) ${c[H3]}}${c[0]}"
   echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf:${c[0]}"
-  
+
     if [[ -r "$sosroot"/etc/kdump.conf ]]; then
       kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$sosroot"/etc/kdump.conf)
       if [[ -n $kdump_cfg ]]; then
         sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg"
         path=$(gawk '/^path / {print$2}' <<<"$kdump_cfg" | tail -n1)
         [[ -z $path ]] && path=/var/crash
-        
+
         for target in raw net nfs nfs4 ssh minix ext2 ext3 ext4 btrfs xfs; do
           if grep -q ^$target <<<"$kdump_cfg"; then
             path=
             break
           fi
         done
-        
+
       else
         echo -e "$XSOS_INDENT_H2${c[DGREY]}[All commented]${c[0]}"
         path=/var/crash
       fi
-      
+
       if [[ -n $path ]]; then
         __get_df_for_parent_fs_of_path
         if [[ -n $df_output ]]; then
@@ -1451,7 +1451,7 @@ KDUMP() {
           echo "DEBUG: no df_output .. shouldn't happen"
         fi
       fi
-      
+
     else
       echo -e "$XSOS_INDENT_H2${c[Warn1]}missing '$1/etc/kdump.conf'${c[0]}"
     fi
@@ -1471,7 +1471,7 @@ KDUMP() {
   __P kernel.unknown_nmi_panic
   __P kernel.nmi_watchdog
   __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "%s0%s  (no panic)", W, H0; else if ($1==1) printf "%s1%s  (no panic if OOM-triggering task limited by mbind/cpuset)", G, H0; else if ($1==2) printf "%s2%s  (always panic)", G, H0}'
-  
+
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
@@ -1479,52 +1479,52 @@ KDUMP() {
 CPUINFO() {
   # Local vars:
   local cpuinfo_input model_cpu vendor family num_cpu num_cpu_phys num_threads_per_cpu cpu_cores core_id num_cores_per_cpu cores1 cores2 coresNthreads cpu_flags
-  
+
   [[ -f $1 ]] && cpuinfo_input=$1 || cpuinfo_input=$1/proc/cpuinfo
-  
+
   # Get model of cpu
   model_cpu=$(gawk -F: '/^model name/{print $2; exit}' <"$cpuinfo_input")
-  
+
   # If no model detected (e.g. on Itanium), try to use vendor+family
   [[ -z $model_cpu ]] && {
     vendor=$(gawk -F: '/^vendor /{print $2; exit}' <"$cpuinfo_input")
     family=$(gawk -F: '/^family /{print $2; exit}' <"$cpuinfo_input")
     model_cpu="$vendor$family"
   }
-  
+
   # Clean up cpu model string
   model_cpu=$(sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g' -e 's,^ ,,' <<<"$model_cpu")
-  
+
   # Get number of logical processors
   num_cpu=$(gawk '/^processor/{n++} END{print n}' <"$cpuinfo_input")
-  
+
   # Get number of physical processors
   num_cpu_phys=$(grep '^physical id' <"$cpuinfo_input" | sort -u | wc -l)
-  
+
   # If "physical id" not found, we cannot make any assumptions (Virtualization--)
   # But still, multiplying by 0 in some crazy corner case is bad, so set it to 1
   # If num of physical *was* detected, add it to the beginning of the model string
   [[ $num_cpu_phys == 0 ]] && num_cpu_phys=1 || model_cpu="$num_cpu_phys $model_cpu"
-  
+
   # If number of logical != number of physical, try to get info on cores & threads
   if [[ $num_cpu != $num_cpu_phys ]]; then
-    
+
     # Detect number of threads (logical) per cpu
     num_threads_per_cpu=$(gawk '/^siblings/{print $3; exit}' <"$cpuinfo_input")
-    
+
     # Two possibile ways to detect number of cores
     cpu_cores=$(gawk '/^cpu cores/{print $4; exit}' <"$cpuinfo_input")
     core_id=$(grep '^core id' <"$cpuinfo_input" | sort -u | wc -l)
-    
+
     # The first is the most accurate, if it works
     if [[ -n $cpu_cores ]]; then
       num_cores_per_cpu=$cpu_cores
-    
+
     # If "cpu cores" doesn't work, "core id" method might (e.g. Itanium)
     elif [[ $core_id -gt 0 ]]; then
       num_cores_per_cpu=$core_id
     fi
-    
+
     # If found info on cores, setup core variables for printing
     if [[ -n $num_cores_per_cpu ]]; then
       cores1="($((num_cpu_phys*num_cores_per_cpu)) CPU cores)"
@@ -1533,18 +1533,18 @@ CPUINFO() {
     else
       cores2=" / 1 core"
     fi
-    
+
     # If found siblings (threads), setup the variable for the final line
     [[ -n $num_threads_per_cpu ]] &&
       coresNthreads="\n  └─$num_threads_per_cpu threads${cores2} each"
   fi
-  
+
   # Check important cpu flags
   # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
   # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
   cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc|rdrand" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
-  
+
   # Print it all out
   echo -e "${c[H1]}CPU${c[0]}"
   echo -e "  ${c[Imp]}${num_cpu} logical processors${c[0]} ${cores1}"
@@ -1581,23 +1581,23 @@ INTERRUPT() {
 MEMINFO() {
   # Local vars:
   local meminfo_input
-  
+
   [[ -f $1 ]] && meminfo_input=$1 || meminfo_input=$1/proc/meminfo
-  
+
   echo -e "${c[H1]}MEMORY${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
     echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
     echo -e "${c[Warn1]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c[0]}"
   fi
-  
+
   gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_MEM_UNIT) -vcolor_MemUsed="${c[MemUsed]}" -vcolor_HugePages="${c[HugePages]}" -vcolor_Buffers="${c[Buffers]}" -vcolor_Cached="${c[Cached]}" -vcolor_Dirty="${c[Dirty]}" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
     # These will come in handy
-    
+
     function round(num, places) {
       places = 10 ^ places
       return int(num * places + .5) / places
     }
-          
+
     function memgraph_special(PercentA, PercentB, Color, PrettyName) {
       PercentTotal = PercentA + PercentB
       printf "    %s%s ", Color, PrettyName
@@ -1610,7 +1610,7 @@ MEMINFO() {
       else                                   j="   "
       printf "%s%s%.1f%%%s\n", j, Color, PercentTotal, H0
     }
-    
+
     function memgraph(Percent, Color, PrettyName) {
       printf "    %s%s ", Color, PrettyName
       for (i=0; i <    round(Percent/2, 0); i++) printf "▊"
@@ -1621,9 +1621,9 @@ MEMINFO() {
       else                          j="   "
       printf "%s%s%.1f%%%s\n", j, Color, Percent, H0
     }
-        
+
     # Grab variables from meminfo
-    
+
     /^MemTotal:/        { MemTotal  = $2 }
     /^MemFree:/         { MemFree   = $2 }
     /^Buffers:/         { Buffers   = $2 }
@@ -1640,11 +1640,11 @@ MEMINFO() {
     /^Hugepagesize:/    { Hugepagesize   = $2 }
     /^HugePages_Total:/ { HugepagesTotal = $2 }
     /^HugePages_Free:/  { HugepagesFree  = $2 }
-    
+
     END {
-      
+
       # Compute additional variables
-      
+
       MemUsed         = MemTotal - MemFree
       Mem_Percent     = MemUsed * 100 / MemTotal
       Buffers_Percent = Buffers * 100 / MemTotal
@@ -1657,61 +1657,61 @@ MEMINFO() {
       PT_Percent      = PageTables * 100 / MemTotal
       HP              = Hugepagesize * HugepagesTotal
       HP_PercentRam   = HP * 100 / MemTotal
-      
+
       # If have hugepages, calculate in-use
-      
+
       if (HugepagesTotal > 0) {
         HP_Used         = (HugepagesTotal - HugepagesFree) * Hugepagesize
         HP_Used_Percent = (HugepagesTotal - HugepagesFree) * 100 / HugepagesTotal
       }
-      
+
       # Else, need to avoid divide-by-zero errors
-      
+
       else {
         HP_Used         = 0
         HP_Used_Percent = 0
       }
-      
+
       # If meminfo has LowTotal (modern x86_64 boxes do not)...
-      
+
       if (LowTotal ~ /[0-9]+/) {
         SHOW_Lowmem=1
         LowUsed         = LowTotal - LowFree
         LowUsed_Percent = LowUsed * 100 / LowTotal
       }
-      
+
       # Else, avoid divide-by-zero and hide it
-      
+
       else {
         SHOW_Lowmem=0
         LowTotal        = 0
         LowUsed         = 0
         LowUsed_Percent = 0
       }
-      
+
       # If have swap-space...
-      
+
       if (SwapTotal > 0) {
         SwapUsed      = SwapTotal - SwapFree
         Swap_Percent  = SwapUsed * 100 / SwapTotal
       }
-      
+
       # Else, avoid divide-by-zero errors
-      
+
       else {
         SwapUsed      = 0
         Swap_Percent  = 0
       }
-      
+
       # If meminfo has Shmem, we show it; otherwise not
-      
+
       if (Shmem ~ /[0-9]+/)
         SHOW_Shmem=1
       else
         SHOW_Shmem=0
-      
+
       # If unit is set to B, convert native KiB to bytes
-      
+
       if (u == "B") {
         MemUsed     *= 1024
         MemTotal    *= 1024
@@ -1725,15 +1725,15 @@ MEMINFO() {
         if (LowTotal > 0) { LowUsed *= 1024; LowTotal *= 1024 }
         if (SwapTotal > 0) { SwapUsed *= 1024; SwapTotal *= 1024 }
       }
-      
+
       # Figure out what number to divide by to end up with MiB, GiB, or TiB
-      
+
       if      (u == "M") divisor = 1024
       else if (u == "G") divisor = 1024 ** 2
       else if (u == "T") divisor = 1024 ** 3
-      
+
       # If unit is set to M or G or T, do the division to convert from native KiB
-      
+
       if (u == "M" || u == "G" || u == "T") {
         MemUsed     /= divisor
         MemTotal    /= divisor
@@ -1747,17 +1747,17 @@ MEMINFO() {
         if (LowTotal > 0)  { LowUsed  /= divisor; LowTotal  /= divisor }
         if (SwapTotal > 0) { SwapUsed /= divisor; SwapTotal /= divisor }
       }
-      
+
       # The unit string used just for printing
-      
+
       if (u == "B")
         Unit = " "u
       else
         Unit = " "u"iB"
-      
-      
+
+
       # ASCII-ART fun
-      
+
       printf "  %sStats graphed as percent of MemTotal:%s\n", H2, H0
       # The following line is disabled because it would kinda suck for people that run with NOCOLOR
       # Or people that run with color and then copy the output to text -- uncomment it to see what I mean
@@ -1768,33 +1768,33 @@ MEMINFO() {
       memgraph(HP_PercentRam,   color_HugePages, "HugePages ")
       memgraph(Dirty_Percent,   color_Dirty,     "Dirty     ")
 
-      
+
       # If unit is T, print percentages with no decimal & byteunits with 2-3 decimal-points of precision
-      
+
       if (u == "T") {
         Prec_Percent = 0
         Prec_BytesLo = 2
         Prec_BytesHi = 3
       }
-      
+
       # If unit is G, print percentages with no decimal & byteunits with 1-2 decimal-points of precision
-      
+
       else if (u == "G") {
         Prec_Percent = 0
         Prec_BytesLo = 1
         Prec_BytesHi = 2
       }
-      
+
       # If unit is B or K or M, print percentages with 1 decimal-point of precision & byteunits with no decimal
-      
+
       else {
         Prec_Percent = 1
         Prec_BytesLo = 0
         Prec_BytesHi = 0
       }
-      
+
       # Now time to round off the numbers
-      
+
       Mem_Percent     = round(Mem_Percent,     Prec_Percent)
       MemNoBC_Percent = round(MemNoBC_Percent, Prec_Percent)
       Dirty_Percent   = round(Dirty_Percent,   Prec_Percent)
@@ -1805,7 +1805,7 @@ MEMINFO() {
       PT_Percent      = round(PT_Percent,      Prec_Percent)
       Shmem_Percent   = round(Shmem_Percent,   Prec_Percent)
       Swap_Percent    = round(Swap_Percent,    Prec_Percent)
-      
+
       MemTotal    = round(MemTotal,    Prec_BytesLo)
       MemUsed     = round(MemUsed,     Prec_BytesLo)
       MemUsedNoBC = round(MemUsedNoBC, Prec_BytesLo)
@@ -1819,7 +1819,7 @@ MEMINFO() {
       Shmem       = round(Shmem,       Prec_BytesHi)
       SwapUsed    = round(SwapUsed,    Prec_BytesLo)
       SwapTotal   = round(SwapTotal,   Prec_BytesLo)
-              
+
       printf    "  %sRAM:%s\n", H2, H0
       printf    "    %s%s%s total ram%s\n", H_IMP, MemTotal, Unit, H0
       printf    "    %s%s (%s%%) used\n", MemUsed, Unit, Mem_Percent
@@ -1828,7 +1828,7 @@ MEMINFO() {
         printf  "    %s%s%s (%s%%) dirty%s\n", color_warn, Dirty, Unit, Dirty_Percent, H0
       else
         printf  "    %s%s (%s%%) dirty\n", Dirty, Unit, Dirty_Percent
-      
+
       printf    "  %sHugePages:%s\n", H2, H0
       if (HugepagesTotal == 0)
         printf  "    No ram pre-allocated to HugePages\n"
@@ -1836,7 +1836,7 @@ MEMINFO() {
         printf  "    %s%s%s pre-allocated to HugePages (%s%% of total ram)%s\n", H_IMP, HP, Unit, HP_PercentRam, H0
         printf  "    %s%s of HugePages (%s%%) in-use by applications\n", HP_Used, Unit, HP_Used_Percent
       }
-      
+
       printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
       if (SHOW_Lowmem == 1)
         printf  "    %s%s (%s%%) of %s%s LowMem in-use\n", LowUsed, Unit, LowUsed_Percent, LowTotal, Unit
@@ -1844,13 +1844,13 @@ MEMINFO() {
       printf    "    %s%s (%s%%) of total ram used for PageTables\n", PageTables, Unit, PT_Percent
       if (SHOW_Shmem == 1)
         printf  "    %s%s (%s%%) of total ram used for Shmem\n", Shmem, Unit, Shmem_Percent
-      
+
       printf    "  %sSwap:%s\n", H2, H0
       if (SwapTotal == 0)
         printf  "    %sNo system swap space configured%s\n", color_warn, H0
       else
         printf  "    %s%s (%s%%) used of %s%s total\n", SwapUsed, Unit, Swap_Percent, SwapTotal, Unit
-     
+
     }
   ' <"$meminfo_input"
   echo -en $XSOS_HEADING_SEPARATOR
@@ -1860,9 +1860,9 @@ MEMINFO() {
 STORAGE() {
   # Local vars:
   local mpath_input scsi_blacklist bl partitions_input
-  
+
   echo -e "${c[H1]}STORAGE${c[0]}"
-  
+
   # Get mpath input if necessary
   if [[ $2 != --no-mpath ]]; then
     if [[ $1 == / && $UID -eq 0 ]]; then
@@ -1872,12 +1872,12 @@ STORAGE() {
       # Get multipath input from sosreport file, if present
       mpath_input=$(<"$1/sos_commands/devicemapper/multipath_-v4_-ll")
     fi
-  fi 
-  
+  fi
+
   # If have good mpath data ..
   if [[ -n $mpath_input ]] && ! egrep -q 'no.paths|multipath.conf.*not.exist' <<<"$mpath_input"; then
     echo -e "${c[H2]}  Multipath:${c[0]}"
-    
+
     # Print out names & sizes of each multipath map
     egrep -B1 '^\[?size=' <<<"$mpath_input" |
       gawk -vRS="--" '
@@ -1886,25 +1886,25 @@ STORAGE() {
             $1, gensub(/.*size=([0-9]+\.?[0-9]*) ?([MGT]).*/, "\\1  \\2iB", 1)
         }
       ' | sort | column -ts\;
-    
+
     # Also, create a blacklist containing all paths to LUNS used for multipath
     # This will be used to hide certain devices in the plain "whole disk" output
     scsi_blacklist=$(gawk '
       # The beginning of this regex is quite odd .. we are matching lines starting with:
       #   \_  OR  |-  OR  `-
-      
+
       /(\\_|\|-|`-) [0-9]+:[0-9]+:[0-9]+:[0-9]+ +[[:graph:]]+ +[0-9]+:/ {
         printf gensub(/.*:[0-9]+ +([[:graph:]]+) +[0-9].*/, "\\1|", 1)
       }
     ' <<<"$mpath_input")
   fi
-  
+
   # If we have linux swraid info, let's use it to expand our blacklist
   if [[ -r $1/proc/mdstat ]]; then
     # Append software raid component disks to the blacklist
     scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | gawk '{printf "%s|", $1}')
   fi
-  
+
   # Yay, let's go.
   [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
   [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
@@ -1913,32 +1913,32 @@ STORAGE() {
     gawk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
       # For starters, we search /proc/partitions for certain types of devices
       # (These partition types are from devices.txt in the linux kernel documentation)
-      
+
       $4 ~ /^hd.$|^sd[[:alpha:]]+$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]+$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd[[:alpha:]]+$|^vd[[:alpha:]]+$|^dasd[[:alpha:]]+$/ {
-        
+
         # For each thing found, increment the total number of disks
         numdisks ++
-        
+
         # Name a key in the array after the disk and then store its size in GiB there
         disk[$4] = $3/1024/1024
-        
+
         # Also, add to the total sum of disk-storage
         sum_gb  += disk[$4]
       }
-      
+
       END {
         # All done with the data-gathering; so print out a summary
         printf   "    %s%d disks, totaling %.0f GiB (%.2f TiB)%s\n", H_IMP, numdisks, sum_gb, sum_gb/1024, H0
-        
+
         # Print a notice if devices were hidden due to blacklist
         if (blacklisted == "y")
           printf "    %s(%d multipath/mdraid components hidden)%s\n", H_IMP, blacklist_devcount, H0
-        
+
         # Some pretty header-fun
         printf   "    %s- - - - - - - - - - - - - - - - - - - - -%s\n", color_grey, H0
         printf   "    %sDisk \tSize in GiB\n", H3
         printf   "    ----\t-----------%s\n", H0
-        
+
         # Finally, print all the disks & their sizes
         n = asorti(disk, disk_sorted)
         for (i = 1; i <= n; i++)
@@ -1952,7 +1952,7 @@ STORAGE() {
 MULTIPATH() {
   # Local vars:
   local mpath_input search_cmd mpath_output
-  
+
   # If localhost, grab output from multipath
   if [[ -z $1 ]]; then
     mpath_input=$(multipath -v4 -ll 2>/dev/null)
@@ -1967,7 +1967,7 @@ MULTIPATH() {
   fi
 
   echo -e "${c[H1]}DM-MULTIPATH${c[0]}"
-  
+
   # If we have a specific query, we'll use gawk for post-processing
   # Otherwise simply use cat
   if [[ -n $XSOS_MULTIPATH_QUERY ]]; then
@@ -1975,7 +1975,7 @@ MULTIPATH() {
   else
     search_cmd=cat
   fi
-  
+
   # Need to parse through `multipath -v4 -ll` output from multiple version of rhel
   mpath_output=$(gawk '
     /^[[:graph:]]+ \([[:alnum:][:punct:]]+\) *dm-/
@@ -1983,13 +1983,13 @@ MULTIPATH() {
     /^\[?size=/
     /(\\_|\|-|`-)/
   ' <<<"$mpath_input")
-  
+
   if [[ -n $mpath_output ]]; then
     sed '1!s,^[[:alnum:]].*dm-,\n&,' <<<"$mpath_output" | $search_cmd | sed "s/^/$XSOS_INDENT_H1/"
   else
     echo -e "${XSOS_INDENT_H1}${c[DGREY]}[No paths detected]${c[0]}"
   fi
-  
+
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
@@ -1997,7 +1997,7 @@ MULTIPATH() {
 LSPCI() {
   # Local vars:
   local lspci_input
-  
+
   if [[ -z $1 ]]; then
     lspci_input=$(lspci)
   elif [[ -f $1 ]]; then
@@ -2005,7 +2005,7 @@ LSPCI() {
   else
     lspci_input=$(gawk '{print} /^lspci -n/{exit}' "$1/lspci" 2>/dev/null)
   fi
-  
+
   _parse_periphs() {
     local regex=${1}
     gawk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" "
@@ -2039,15 +2039,15 @@ LSPCI() {
       }
     ' <<<"$lspci_input"
   }
-  
+
   echo -e "${c[H1]}LSPCI${c[0]}"
-  
+
   echo -e "${c[H2]}  Net:${c[0]}"
   _parse_periphs "${XSOS_LSPCI_NET_REGEX}"
-  
+
   echo -e "${c[H2]}  Storage:${c[0]}"
   _parse_periphs "${XSOS_LSPCI_STORAGE_REGEX}"
-  
+
   echo -e "${c[H2]}  VGA:${c[0]}"
   gawk '/VGA compatible controller:/ {$1=$2=$3=$4=""; print}' <<<"$lspci_input"
   echo -en $XSOS_HEADING_SEPARATOR
@@ -2057,7 +2057,7 @@ LSPCI() {
 BONDING() {
   # Local vars:
   local files netscriptsdir bond_input f mode bonding_opts active slaves slave s
-  
+
   # If passed a file (i.e. xsos --G <file>), use that
   if [[ -f $1 ]]; then
     files=($1)
@@ -2071,60 +2071,60 @@ BONDING() {
     fi
     [[ -d "$1"/etc/sysconfig/network-scripts ]] && netscriptsdir="$1"/etc/sysconfig/network-scripts
   fi
-  
+
   __transform_mode() {
     # Could be vastly improved by using bashV4 associative array, but KISS for rhel5 peeps
     if grep -q "load balancing (round-robin)" <<<"$1"; then
       mode="0 (balance-rr)"
-    
+
     elif grep -q "fault-tolerance (active-backup)" <<<"$1"; then
       mode="1 (active-backup)"
-    
+
     elif grep -q "load balancing (xor)" <<<"$1"; then
       mode="2 (balance-xor)"
-    
+
     elif grep -q "fault-tolerance (broadcast)" <<<"$1"; then
       mode="3 (broadcast)"
-    
+
     elif grep -q "IEEE 802.3ad Dynamic link aggregation" <<<"$1"; then
       mode="4 (802.3ad)"
-    
+
     elif grep -q "transmit load balancing" <<<"$1"; then
       mode="5 (balance-tlb)"
-    
+
     elif grep -q "adaptive load balancing" <<<"$1"; then
       mode="6 (balance-alb)"
-    
+
     else
       mode="unrecognized: $1"
     fi
   }
-  
+
   if [[ $XSOS_SCRUB_MACADDR == y ]]; then
     __scrub_mac() { sed -r 's/[0-9abcdef]/⣿/g' ; }
   else
     __scrub_mac() { cat ; }
   fi
-  
+
   echo -e "${c[H1]}BONDING${c[0]}"
-    
+
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
-  { 
+  {
     # Header info ("❚" is used later by `column` to columnize the output)
     echo "  Device❚Mode❚ifcfg-File BONDING_OPTS❚Partner MAC Addr❚Slaves (*=active; [n]=AggID)"
     echo "  ========❚=================❚========================❚==================❚==============================="
-    
+
     f=0; for bond_input in ${files[@]}; do
-      
+
       echo -n "  ${bond_input##*/}❚"
-      
+
       __transform_mode "$(gawk -F: '/Bonding Mode/ {printf $2}' $bond_input | sed -e 's/^ //')"
       echo -n "$mode❚"
-      
+
       bonding_opts=$(gawk '/^BONDING_OPTS=/' "$netscriptsdir/ifcfg-${bond_input##*/}" 2>/dev/null | tail -n1 | sed s/BONDING_OPTS=// | tr -d \"\')
       [[ -z $bonding_opts ]] && bonding_opts=-
       echo -n "$bonding_opts❚"
-      
+
       if [[ ${mode::1} == 4 ]]; then
         active_agg_info=$(gawk 'BEGIN{RS="\n\n"} /Active Aggregator Info:/ {print}' $bond_input)
         partner_mac=$(gawk '/Partner Mac Address:/ {print $4}' <<<"$active_agg_info" | __scrub_mac)
@@ -2134,11 +2134,11 @@ BONDING() {
         echo -n "-❚"
         active=$(gawk '/Active Slave/ {printf $4}' $bond_input)
       fi
-      
+
       slaves=( $(gawk '/^Slave Interface:/ {print $3}' $bond_input) )
-      
+
       [[ ${#slaves[@]} -eq 0 ]] && echo "[None]"
-      
+
       s=0; until [[ $s -eq ${#slaves[@]} ]]; do
         if [[ ${mode::1} == 4 ]]; then
           agg_id=$(gawk 'BEGIN{RS="\n\n"} /Slave Interface: '"${slaves[s]}/" $bond_input | gawk '/Aggregator ID:/ {print $3}')
@@ -2170,7 +2170,7 @@ BONDING() {
             echo -n " ❚ ❚ ❚ ❚  ${slaves[s]}"
           fi
         fi
-        
+
         gawk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}'\>/' $bond_input | 
           gawk '/Permanent HW addr/ {printf " (%s)", $4}' | __scrub_mac
         s=$((s+1))
@@ -2178,10 +2178,10 @@ BONDING() {
       done
     f=$((f+1))
     [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚ ❚ ❚- - - - - - - - - - - - - - - -"
-    done 
+    done
   } |
     column -ts❚ |
-    
+
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
       gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
@@ -2195,7 +2195,7 @@ BONDING() {
               else if ($1 == "-") print grey $0 H0
               else printf gensub(/( \*.*)/,   U"\\1"H0, 1)"\n"
             }'
-        
+
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
@@ -2214,13 +2214,13 @@ IPADDR() {
     echo -en ${XSOS_HEADING_SEPARATOR} >&2
     return
   fi
-  
+
   # Local vars:
   local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr scope alias
-  
+
   # Declare our 7 associative arrays:
   local -A lookup_bridge iface_input slaveof state ipv4 ipv4_alias mtu mac 
-  
+
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
     ip_a_input=$(ip a)
@@ -2233,26 +2233,26 @@ IPADDR() {
     ip_a_input=$(<"${1}/sos_commands/networking/ip_address")
     brctl_show_input=$(cat "${1}/sos_commands/networking/brctl_show" 2>/dev/null)
   fi
-  
+
   # Prepare ip addr input for gawk by separating each interface block
   ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"${ip_a_input}")
-  
+
   # Grab a list of the interface names
   ipdevs=$(gawk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"${ip_a_input}" | egrep -v 'sit0')
-  
+
   # Prepare brctl input for gawk by separating each bridge block & filling in empty columns
   brctl_show_input=$(sed -e 1d -e 's,^[[:graph:]],\n&,' <<<"${brctl_show_input}" | sed -r 's,^[[:space:]]+[[:graph:]]+,1 2 3&,')
-  
+
   # Populate a dict where each slave interface is key & value is the controlling bridge
   for bridge in $(gawk 'BEGIN {RS="\n\n"} {print $1}' <<<"${brctl_show_input}"); do
     for interface in $(gawk 'BEGIN {RS="\n\n"} $1=="'${bridge}'"' <<<"${brctl_show_input}" | gawk  '{print $4}'); do
       lookup_bridge[$interface]=${bridge}
     done
   done
-    
+
   # Begin ...
   echo -e "${c[H1]}IP${c[0]}"
-  
+
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
   {
     # Header info ("❚" is used later by `column` to columnize the output)
@@ -2263,10 +2263,10 @@ IPADDR() {
       echo "  Interface❚Master IF❚MAC Address❚MTU❚State❚IPv4 Address"
       echo "  =========❚=========❚=================❚======❚=====❚=================="
     fi
-    
+
     # For each interface ($i) found in ip addr output
     for i in ${ipdevs}; do
-      
+
       # Pull out input for specific interface and save to interface key in array
       iface_input[$i]=$(gawk "BEGIN {RS=\"\n\n\"} /^[0-9]+: ${i}:/" <<<"${ip_a_input}")
 
@@ -2280,13 +2280,13 @@ IPADDR() {
           echo "-"
         fi
       )
-      
+
       # Get MTU for $i
       mtu[$i]=$(egrep -o 'mtu [0-9]+' <<<"${iface_input[$i]}" | gawk '{print $2}')
-      
+
       # Get up/down state for $i
       state[$i]=$(grep -q "${i}: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
-      
+
       # Get macaddr for $i (don't show if all zeros)
       mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" &&
                 gawk -v scrub="${XSOS_SCRUB_MACADDR}" '
@@ -2296,12 +2296,12 @@ IPADDR() {
                         else print $2
                     }
                 ' <<<"${iface_input[$i]}" || echo "-")
-      
+
       if [[ ${XSOS_IP_VERSION} -eq 6 ]]; then
-        
+
         # If $i has an ipv6 address, time to figure out what it is
         if grep -q "inet6" <<<"${iface_input[$i]}"; then
-          
+
           # We could have more than one ipv6addr...
           # So we need to set up a counter and do a loop
           n=0; while read ipaddr scope; do
@@ -2317,17 +2317,17 @@ IPADDR() {
                            else print $2,$4
                        }
                    ' <<<"${iface_input[$i]}")
-        
+
         # Otherwise, print out all info with ipaddr set to "-"
         else
           echo "  ${i}❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚-❚-"
-        fi        
-        
+        fi
+
       else
-      
+
         # If $i has an ipv4 address, time to figure out what it is
         if grep -q "inet .* ${i%@*}\$" <<<"${iface_input[$i]}"; then
-          
+
           # We could have more than one non-alias ip4addr...
           # So we need to set up a counter and do a loop
           n=0; while read ipaddr; do
@@ -2343,7 +2343,7 @@ IPADDR() {
                             else print \$2
                         }
                    " <<<"${iface_input[$i]}")
-        
+
         # Otherwise, print out all info with ipaddr set to "-"
         else
           echo "  ${i}❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚-"
@@ -2353,7 +2353,7 @@ IPADDR() {
 
         # If $i had an ipv4 addr, it's ALIAS time!
         if grep -q "inet .* ${i}:" <<<"${iface_input[$i]}"; then
-        
+
           # For each "alias" (additional address) found ...
           for alias in $(gawk "/inet .* ${i}:/ {print \$NF}" <<<"${iface_input[$i]}" | sort -u); do
             ipv4_alias[$alias]=$(gawk -v scrub="${XSOS_SCRUB_IP_HN}" "
@@ -2370,15 +2370,15 @@ IPADDR() {
             echo "  ${alias}❚ ❚ ❚ ❚ ❚${ipv4_alias[$alias]}"
           done
         fi
-      
+
       fi
-      
+
     done
   } |
-  
+
     # All output from above needs to be columnized
     column -ts❚ |
-    
+
       # And then we need to do some color funness!
       # This colorizes the first 2 lines with the H2 color and the interfaces with H3
       # Plus DOWN interfaces with Down color and up interfaces with Up color
@@ -2399,7 +2399,7 @@ IPADDR() {
 ETHTOOL() {
   # Local vars:
   local changedir ethdevs i errsfound count ethindent multiqueue_header
-  
+
   # If localhost, grab interfaces from /sys
   if [[ -z $1 ]]; then
     ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0|bonding_masters')
@@ -2408,7 +2408,7 @@ ETHTOOL() {
     __ethtool_i() { ethtool -i $1; }
     __ethtool_S() { ethtool -S $1 2>&1; }
     __ethtool_g() { ethtool -g $1 2>&1; }
-    
+
   # If sosreport, determine interfaces from ethtool_<iface> files
   else
     changedir=1
@@ -2420,7 +2420,7 @@ ETHTOOL() {
     __ethtool_S() { [[ -r ethtool_-S_$1 ]] && cat ethtool_-S_$1; }
     __ethtool_g() { [[ -r ethtool_-g_$1 ]] && cat ethtool_-g_$1; }
   fi
-  
+
   # If have ethdevs to work on ...
   if [[ -n $ethdevs ]]; then
     echo -e "${c[H1]}ETHTOOL${c[0]}"
@@ -2477,7 +2477,7 @@ ETHTOOL() {
         /link=up/       { print U $0 H0 }
         /link=UNKNOWN/  { print E $0 H0 }
       '
-      
+
     echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Errors:${c[0]}"
     echo -en "${c[Warn1]}"
     multiqueue_header='^[[:space:]]+[RT]x.Queue#:'
@@ -2489,7 +2489,7 @@ ETHTOOL() {
         echo -en "${c[Warn1]}"
         errsfound=$(__ethtool_S $i |
           tac |
-            gawk "          
+            gawk "
               BEGIN { found = 0 }
               /$XSOS_ETHTOOL_ERR_REGEX/ {
                 print ; found = 1
@@ -2508,7 +2508,7 @@ ETHTOOL() {
     done
     [[ -z $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}[None]"
     echo -en "${c[0]}"
-    
+
     [[ -n $changedir ]] && popd &>/dev/null
   fi
   echo -en $XSOS_HEADING_SEPARATOR
@@ -2518,7 +2518,7 @@ ETHTOOL() {
 SOFTIRQ() {
   # Local vars:
   local softirq_input_file suffix= backlog= budget=
-  
+
   if [[ -f $1 ]]; then
     softirq_input_file=$1
   else
@@ -2535,18 +2535,18 @@ SOFTIRQ() {
       && budget=" (Current value: net.core.netdev_budget = $budget)" \
       || budget=" (However, proc/sys/net/core/netdev_budget is missing)"
   fi
-  
+
   echo -e "${c[H1]}SOFTIRQ${c[0]}"
-  
+
   gawk '{if (strtonum("0x" $2) > 0) exit 177}' "$softirq_input_file"
-  
+
   if [[ $? -eq 177 ]]; then
     echo -e "${XSOS_INDENT_H1}${c[Warn1]}Backlog max has been reached, needs to be increased!${c[0]}$backlog"
   else
     echo -e "${XSOS_INDENT_H1}Backlog max is sufficient${c[0]}$backlog"
   fi
-  
-  
+
+
   gawk '{if (strtonum("0x" $3) > 0) exit 177}' "$softirq_input_file"
   if [[ $? -eq 177 ]]; then
     echo -e "${XSOS_INDENT_H1}${c[Warn1]}Budget is not sufficient, needs to be increased!${c[0]}$budget"
@@ -2560,20 +2560,20 @@ SOFTIRQ() {
 NETDEV() {
   # Local vars:
   local netdev_input_file
-  
+
   [[ -f $1 ]] && netdev_input_file=$1 || netdev_input_file=$1/proc/net/dev
-  
+
   echo -e "${c[H1]}NETDEV${c[0]}"
   tail -n+3 "$netdev_input_file" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
     gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_NET_UNIT) '
       function round(num, places) {
         places = 10 ^ places
         return int(num * places + .5) / places
-      } 
+      }
 
       {
         # Set variables based on fields
-        
+
         Interface[$1] = $1
         RxBytes[$1]   = $2
         RxPackets[$1] = $3
@@ -2584,9 +2584,9 @@ NETDEV() {
         TxErrs[$1]    = $12
         TxDrop[$1]    = $13
         TxCols[$1]    = $15
-        
+
         # Calculate percentages only if rx/tx packets gt 0
-        
+
         if  ($3 > 0) {
           if  ($4 > 0) RxErrsPercent[$1] = "(" round($4  * 100 / $3,  0) "%)"
           if  ($5 > 0) RxDropPercent[$1] = "(" round($5  * 100 / $3,  0) "%)"
@@ -2596,59 +2596,59 @@ NETDEV() {
           if ($13 > 0) TxDropPercent[$1] = "(" round($13 * 100 / $11, 0) "%)"
           if ($15 > 0) TxColsPercent[$1] = "(" round($15 * 100 / $11, 0) "%)"
         }
-        
+
         # Figure out what number to divide by to end up with KiB, MiB, GiB, or TiB
-        
+
         if      (u == "K") { bytes_divisor = 1024 }
         else if (u == "M") { bytes_divisor = 1024 ** 2 ; packets_divisor = 1000      ; Packets_Unit = " k" }
         else if (u == "G") { bytes_divisor = 1024 ** 3 ; packets_divisor = 1000 ** 2 ; Packets_Unit = " M" }
         else if (u == "T") { bytes_divisor = 1024 ** 4 ; packets_divisor = 1000 ** 2 ; Packets_Unit = " M" }
-        
+
         # Figure out decimal precision
-        
+
         if (u == "T")
           # For T, round Bytes field to nearest hundredth (.nn)
           Precision_Bytes = 2
-          
+
         else if (u == "G")
           # For G, round Bytes field to nearest tenth (.n)
           Precision_Bytes = 1
-          
+
         else
           # For K/M, keep Bytes as whole numbers
           Precision_Bytes = 0
-        
+
         # Never show decimal for Packets
         Precision_Pckts = 0
-        
+
         # If unit is anything but bytes, perform the necessary division
-        
+
         if (u == "K" || u == "M" || u == "G" || u == "T") {
           U = u"iB"
           RxBytes[$1] /= bytes_divisor
           TxBytes[$1] /= bytes_divisor
         }
-        
+
         # If unit is MiB, GiB, or TiB, perform division on packets as well
-        
+
         if (u == "M" || u == "G" || u == "T") {
           RxPackets[$1] /= packets_divisor
           TxPackets[$1] /= packets_divisor
         }
-        
+
         # Now that we have our numbers, time to do rounding
-                
+
         RxBytes[$1]   = round(RxBytes[$1],   Precision_Bytes)
         TxBytes[$1]   = round(TxBytes[$1],   Precision_Bytes)
         RxPackets[$1] = round(RxPackets[$1], Precision_Pckts)
         TxPackets[$1] = round(TxPackets[$1], Precision_Pckts)
-                  
+
         # If U (pretty printing unit) was never set, it should be bytes
-        
+
         if (U == "")
           U = "B"
       }
-      
+
       END {
         print "  Interface❚Rx"U"ytes❚RxPackets❚RxErrs❚RxDrop❚Tx"U"ytes❚TxPackets❚TxErrs❚TxDrop❚TxColls"
         print "  =========❚=========❚=========❚======❚======❚=========❚=========❚======❚======❚======="
@@ -2680,11 +2680,11 @@ NETDEV() {
 CHECK_TAINTED() {
   # Local vars:
   local quote sys_tainted_status taintvals taint indent t n
-  
+
   [[ $1 == --quote ]] && quote=1 || quote=
-  
+
   sys_tainted_status=$(<"$2/proc/sys/kernel/tainted")
-  
+
   if [[ -n $quote ]]; then
     echo -en "\"$sys_tainted_status\"${c[0]}"
   else
@@ -2697,26 +2697,26 @@ CHECK_TAINTED() {
   else
     echo
   fi
-    
+
   case $3 in
     H0) indent=                ;;
     H1) indent=$XSOS_INDENT_H1 ;;
     H2) indent=$XSOS_INDENT_H2 ;;
     H3) indent=$XSOS_INDENT_H3
   esac
-  
+
   taintvals=$(
     for taint in 536870912 268435456 4096 2048 1024 512 256 128 64 32 16 8 4 2 1; do
       if [[ $sys_tainted_status -gt $taint ]]; then
         printf "$taint "
         sys_tainted_status=$((sys_tainted_status-taint))
       elif [[ $sys_tainted_status == $taint ]]; then
-        printf "$taint "                                                                                     
+        printf "$taint "
         break
       fi
     done
   )
-  
+
   # See /usr/share/doc/kernel-doc*/Documentation/sysctl/kernel.txt
   # Or linux/kernel/panic.c
   t[1]="Proprietary module has been loaded"
@@ -2743,27 +2743,27 @@ CHECK_TAINTED() {
 SYSCTL() {
   # Local vars:
   local pgsz hpgsz
-  
+
   # VM PageSize (don't know how to find this from a sosreport, but I doubt that will often be a problem)
   [[ $1 == / ]] && pgsz=$(($(getconf PAGESIZE)/1024)) || pgsz=4     # Saved as KiB
-  
+
   # HugePage size
   hpgsz=$(gawk '/Hugepagesize:/{print $2/1024}' <"$1/proc/meminfo")  # Saved as MiB
-  
+
   __P() {
     echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || echo \"$(<"$sosroot"/proc/sys/${1//.//})\" )${c[0]}"
   }
-  
+
   __Pa() {
     echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || gawk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//} )${c[0]}"
   }
-  
+
   echo -e "${c[H1]}SYSCTLS${c[0]}"
   if grep -qsw rescue "$1/proc/cmdline"; then
     echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
     echo -e "${c[Warn1]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c[0]}"
   fi
-  
+
   echo -e "$XSOS_INDENT_H1${c[H2]}kernel.${c[0]}"
   [[ $XSOS_SCRUB_IP_HN == y ]] \
     && echo -e "$XSOS_INDENT_H2${c[H3]}hostname =  ${c[Warn2]}HOSTNAME SCRUBBED${c[0]}" \
@@ -2842,7 +2842,7 @@ SYSCTL() {
 PSCHECK() {
   # Local vars:
   local ps_input ps_header num_top_users num_comm_args num_process_lines process_line_length Dsleepers Zombies top_users top_users_header
-  
+
   # Get input from proper place dependent on what was passed
   if [[ -z $1 ]]; then
     ps_input=$(ps aux | sed '1!s/%/%%/g')
@@ -2851,7 +2851,7 @@ PSCHECK() {
   else
     ps_input=$(sed '1!s/%/%%/g' "$1/ps")
   fi
-  
+
   # Verbosity? We den need no stinkin' verbosity!
   if [[ $XSOS_PS_LEVEL == 0 ]]; then
     # V-level 0: Less than default
@@ -2884,13 +2884,13 @@ PSCHECK() {
     num_process_lines=
     process_line_length=2047  # This is the max that `column` can handle
   fi
-  
+
   __conditional_head() {
   [[ -n $1 ]] &&
     echo head -n$1 ||
-    echo cat  
+    echo cat
   }
-  
+
   # First, we need to convert VSZ & RSS in the ps input to MiB or GiB (if necessary)
   # We also need to perfectly columnize the input and chop off extra command args based on above options
   ps_input=$(gawk -vMAX_fields=$((num_comm_args+12)) -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
@@ -2900,45 +2900,45 @@ PSCHECK() {
       else if (u == "T") u = "G"
       else if (u == "K" || u == "G") u = u
       else u = "M"
-      
+
       # Figure out what number to divide by to end up with KiB or MiB or GiB
       if      (u == "K") divisor = 1
       else if (u == "M") divisor = 1024
       else if (u == "G") divisor = 1024 ** 2
-      
+
       # Set pretty printing unit
       U = u"iB"
     }
     {
       # Print first 4 fields
       for (i=1; i<5; i++) printf $i"❚"
-      
+
       # Print field 5 & 6 (VSZ & RSS)
       for (i=5; i<7; i++) {
         if      (NR == 1)  printf "%s-%s❚", $i, U
         else if (u == "G") printf "%.1f❚", $i/divisor
         else               printf "%.0f❚", $i/divisor
       }
-      
+
       # Print fields 7-10
       for (i=7; i<11; i++) printf $i"❚"
-      
+
       # For the last field (command) we need to chop things up
       for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "
       printf "\n"
     }' <<<"$ps_input" | cut -c-$process_line_length | column -ts❚ | sed "s,^,$XSOS_INDENT_H2,")
-    
+
   # Deal with header
   ps_header=$(head -n1 <<<"$ps_input")
   ps_input=$(tail -n+2 <<<"$ps_input")
-  
+
   # Format and prepare sleeping/zombie processes
   Dsleepers=$(gawk -vcolor_warn="${c[Warn1]}" -vc_0="${c[0]}" '$8~/D/ {print color_warn $0 c_0}' <<<"$ps_input")
   Zombies=$(gawk -vc_grey="${c[DGREY]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
   [[ -n $Dsleepers ]] && Dsleepers="\n$Dsleepers"
   [[ -n $Zombies ]] && Zombies="\n$Zombies"
   [[ -z $Dsleepers && -z $Zombies ]] && Dsleepers="\n$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}"
-  
+
   # Calculte top cpu-using & mem-using users
   if [[ $XSOS_PS_LEVEL < 3 ]]; then  # If verbosity level 0-2, restrict number of users shown
     # Process ps input to generate summary user-list of top-users
@@ -2959,7 +2959,7 @@ PSCHECK() {
       ' <<<"$ps_input" | column -ts❚ | sed "s,^,$XSOS_INDENT_H2,")
     # Grab header from the top
     top_users_header=$(head -n1 <<<"$top_users")
-  
+
   else  # If verbosity level 3-4, show all users
     # Process ps input to generate summary user-list of top-users
     top_users=$(
@@ -2978,10 +2978,10 @@ PSCHECK() {
     # Grab header from the top
     top_users_header=$(head -n1 <<<"$top_users")
   fi
-  
+
   # Remove header from the top and sort everything else by %CPU, potentially trimming down list
   top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2 | $(__conditional_head $num_top_users))
-  
+
   # Print!
   echo -e "${c[H1]}PS CHECK${c[0]}
 $XSOS_INDENT_H1${c[H2]}Total number of processes:${c[0]} \n$XSOS_INDENT_H2${c[Imp]}$(wc -l <<<"$ps_input")${c[0]}
@@ -3054,7 +3054,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
 {
   # Redirect stderr to temp file
   exec 7>&2 2>$stderr_file
-  
+
   # If special options and files were provided ....
   if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
     [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
@@ -3089,14 +3089,14 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && IPADDR    "$sosroot"
     SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
     SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
-    
+
   # If no SOSREPORT-ROOT provided, run checks against local system
   else
     [[ -n $bios ]]    && COND_RUN dmidecode --require_root
     [[ -n $os ]]      && OSINFO /
     [[ -n $kdump ]]   && KDUMP /
     [[ -n $cpu ]]     && CPUINFO /
-    [[ -n $intrupt ]] && INTERRUPT /    
+    [[ -n $intrupt ]] && INTERRUPT /
     [[ -n $mem ]]     && MEMINFO /
     [[ -n $disks ]]   && STORAGE /
     [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
@@ -3110,7 +3110,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $ps ]]      && PSCHECK
 
   fi
-  
+
   # If sending output to less or more, let's just append stderr to stdout
   # If just outputting to term (cat), redirect fd2 to tty
   case $XSOS_OUTPUT_HANDLER in
