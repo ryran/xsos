@@ -2679,7 +2679,7 @@ NETDEV() {
 
 CHECK_TAINTED() {
   # Local vars:
-  local quote sys_tainted_status sys_kernel_version taint_states taintbit taintval indent t n
+  local quote sys_tainted_status sys_kernel_version taint_states taintbit taintval indent t
   
   [[ $1 == --quote ]] && quote=1 || quote=
   
