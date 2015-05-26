@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.20 last mod 2015/05/26
+# xsos v0.5.21 last mod 2015/05/26
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1385,7 +1385,7 @@ KDUMP() {
     else
       out="${c[Warn1]}file missing${c[0]}"
     fi
-    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}not present${c[0]}"
+    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}crashkernel param not present${c[0]}"
   }
   __get_crashkernel_grub_cmdline() {
     local out
@@ -1394,13 +1394,25 @@ KDUMP() {
     else
       out=$(egrep -o 'crashkernel=[[:graph:]]+' <<<"$grub_cmdline")
     fi
-    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}not present${c[0]}"
+    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}crashkernel param not present${c[0]}"
   }
   __P() {
     echo -e "$XSOS_INDENT_H2${c[H3]}${1} =  $(gawk -vW="${c[Warn1]}" -vG="${c[green]}" '{ if ($1==0) print W 0; else print G $1 }' "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
   }
   __Pa() {
     echo -e "$XSOS_INDENT_H2${c[H3]}${1} ${c[H4]}$2${c[H3]}=  $(gawk -vW="${c[Warn1]}" -vG="${c[green]}" -vH0="${c[0]}" "$3" "$4" "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
+  }
+  __get_proc_iomem() {
+    local out
+    if [[ ! -r "$sosroot"/proc/iomem ]]; then
+      echo -e "$XSOS_INDENT_H2${c[Warn1]}Missing $sosroot/proc/iomem${c[0]}"
+      return
+    fi
+    if out=$(grep Crash.kernel "$sosroot"/proc/iomem); then
+      echo -e "$XSOS_INDENT_H2${c[green]}${out}${c[0]}"
+    else
+      echo -e "$XSOS_INDENT_H2${c[Warn1]}Memory IS NOT reserved, according to $sosroot/proc/iomem${c[0]}"
+    fi
   }
   
   echo -e "${c[H1]}KDUMP CONFIG${c[0]}"
@@ -1411,10 +1423,12 @@ KDUMP() {
   echo -e "$XSOS_INDENT_H1${c[H2]}kdump initrd/initramfs:${c[0]}"
     __initrd_file_check | gawk '{ print gensub(/^([0-9]+) *([[:upper:]][[:lower:]]+) *([0-9]{1,2}) *([0-9]{4}) *(initrd.*)$/, "\\1  \\2 \\3 \\4  \\5", 1) }' | sed "s,^,$XSOS_INDENT_H2,"
     # The extra gawk command above reformats spacing in the ls -l output
-  echo -e "$XSOS_INDENT_H1${c[H2]}Memory reservation:${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Memory reservation config:${c[0]}"
     grep -qsw rescue "$1/proc/cmdline" && echo -e "$XSOS_INDENT_H1 ${c[Warn2]}(Rescue mode detected)${c[0]}"
     echo -e "$XSOS_INDENT_H2${c[H3]}/proc/cmdline {${c[0]} $(__get_crashkernel_proc_cmdline) ${c[H3]}}${c[0]}"
     echo -e "$XSOS_INDENT_H2${c[H3]}GRUB default  {${c[0]} $(__get_crashkernel_grub_cmdline) ${c[H3]}}${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Actual memory reservation per /proc/iomem:${c[0]}"
+    __get_proc_iomem
   echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf:${c[0]}"
   
     if [[ -r "$sosroot"/etc/kdump.conf ]]; then
