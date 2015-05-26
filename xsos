@@ -33,7 +33,7 @@ if [[ $BASH_VERSINFO -ge 4 ]]; then
   c[orange]='\033[0;33m'; c[ORANGE]='\033[1;33m'; c[bg_ORANGE]='\033[43m'
   c[blue]='\033[0;34m';   c[BLUE]='\033[1;34m';   c[bg_BLUE]='\033[44m'
   c[purple]='\033[0;35m'; c[PURPLE]='\033[1;35m'; c[bg_PURPLE]='\033[45m'
-  c[cyan]='\033[0;36m';   c[CYAtN]='\033[1;36m';   c[bg_CYAN]='\033[46m'
+  c[cyan]='\033[0;36m';   c[CYAN]='\033[1;36m';   c[bg_CYAN]='\033[46m'
   c[lgrey]='\033[0;37m';  c[LGREY]='\033[1;37m';  c[bg_LGREY]='\033[47m'
 fi
 
@@ -2711,42 +2711,42 @@ CHECK_TAINTED() {
   #     kernel source: include/linux/kernel.h
   #     https://access.redhat.com/solutions/40594
 
-  t[0]="TAINT_PROPRIETARY_MODULE: Proprietary module has been loaded"
-  t[1]="TAINT_FORCED_MODULE: Module has been forcibly loaded"
-  t[2]="TAINT_UNSAFE_SMP: SMP with CPUs not designed for SMP"
-  t[3]="TAINT_FORCED_RMMOD: User forced a module unload"
-  t[4]="TAINT_MACHINE_CHECK: System experienced a machine check exception"
-  t[5]="TAINT_BAD_PAGE: System has hit bad_page"
+  t[0]="PROPRIETARY_MODULE: Proprietary module has been loaded"
+  t[1]="FORCED_MODULE: Module has been forcibly loaded"
+  t[2]="UNSAFE_SMP: SMP with CPUs not designed for SMP"
+  t[3]="FORCED_RMMOD: User forced a module unload"
+  t[4]="MACHINE_CHECK: System experienced a machine check exception"
+  t[5]="BAD_PAGE: System has hit bad_page"
   if grep -qs '^2\.6\.18-.*el5' <<<"$sys_kernel_version"; then
-    t[6]="TAINT_UNSIGNED_MODULE: Unsigned module has been loaded (RHEL5-specific)"
+    t[6]="UNSIGNED_MODULE: Unsigned module has been loaded (RHEL5-specific)"
   else
-    t[6]="TAINT_USER: Userspace-defined naughtiness (RHEL6+)"
+    t[6]="USER: Userspace-defined naughtiness (RHEL6+)"
   fi
-  t[7]="TAINT_DIE: Kernel has oopsed before"
-  t[8]="TAINT_OVERRIDDEN_ACPI_TABLE: ACPI table overridden"
-  t[9]="TAINT_WARN: Taint on warning"
-  t[10]="TAINT_CRAP: Modules from drivers/staging are loaded"
-  t[11]="TAINT_FIRMWARE_WORKAROUND: Working around severe firmware bug"
-  t[12]="TAINT_OOT_MODULE: Out-of-tree module has been loaded"
-  t[13]="TAINT_UNSIGNED_MODULE: Unsigned module has been loaded"
-  t[14]="TAINT_SOFTLOCKUP: A soft lockup has previously occurred"
-  t[15]="TAINT_LIVEPATCH: Kernel has been live patched"
-  t[16]="TAINT_16: undefined"
-  t[17]="TAINT_17: undefined"
-  t[18]="TAINT_18: undefined"
-  t[19]="TAINT_19: undefined"
-  t[20]="TAINT_20: undefined"
-  t[21]="TAINT_21: undefined"
-  t[22]="TAINT_22: undefined"
-  t[23]="TAINT_23: undefined"
-  t[24]="TAINT_24: undefined"
-  t[25]="TAINT_25: undefined"
-  t[26]="TAINT_26: undefined"
-  t[27]="TAINT_BIT_BY_ZOMBIE: Kernel booted with OMGZOMBIES param"
-  t[28]="TAINT_HARDWARE_UNSUPPORTED: Hardware is unsupported"
-  t[29]="TAINT_TECH_PREVIEW: Technology Preview code is loaded"
-  t[30]="TAINT_RESERVED30: undefined"
-  t[31]="TAINT_RESERVED31: undefined"
+  t[7]="DIE: Kernel has oopsed before"
+  t[8]="OVERRIDDEN_ACPI_TABLE: ACPI table overridden"
+  t[9]="WARN: Taint on warning"
+  t[10]="CRAP: Modules from drivers/staging are loaded"
+  t[11]="FIRMWARE_WORKAROUND: Working around severe firmware bug"
+  t[12]="OOT_MODULE: Out-of-tree module has been loaded"
+  t[13]="UNSIGNED_MODULE: Unsigned module has been loaded"
+  t[14]="SOFTLOCKUP: A soft lockup has previously occurred"
+  t[15]="LIVEPATCH: Kernel has been live patched"
+  t[16]="16: undefined"
+  t[17]="17: undefined"
+  t[18]="18: undefined"
+  t[19]="19: undefined"
+  t[20]="20: undefined"
+  t[21]="21: undefined"
+  t[22]="22: undefined"
+  t[23]="23: undefined"
+  t[24]="24: undefined"
+  t[25]="25: undefined"
+  t[26]="26: undefined"
+  t[27]="BIT_BY_ZOMBIE: Kernel booted with OMGZOMBIES param"
+  t[28]="HARDWARE_UNSUPPORTED: Hardware is unsupported"
+  t[29]="TECH_PREVIEW: Technology Preview code is loaded"
+  t[30]="RESERVED30: undefined"
+  t[31]="RESERVED31: undefined"
   
   taint_states=$(
     for taintbit in $(awk '{n=split($0,F); for(i in F) $i=F[n-i+1]}1' <<<"${!t[@]}"); do
@@ -2761,8 +2761,8 @@ CHECK_TAINTED() {
     done
   )
   
-  for n in $(tac <<<"$taint_states"); do
-    printf "$indent%2s  ${t[$n]}\n" $n
+  for taintbit in $(tac <<<"$taint_states"); do
+    printf "$indent%2s  ${t[$taintbit]}\n" $taintbit
   done
 }
 
