@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.19 last mod 2015/04/30
+# xsos v0.5.20 last mod 2015/05/26
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2679,11 +2679,12 @@ NETDEV() {
 
 CHECK_TAINTED() {
   # Local vars:
-  local quote sys_tainted_status taintvals taint indent t n
+  local quote sys_tainted_status sys_kernel_version taint_states taintbit taintval indent t
   
   [[ $1 == --quote ]] && quote=1 || quote=
   
   sys_tainted_status=$(<"$2/proc/sys/kernel/tainted")
+  sys_kernel_version=$(<"$2/proc/sys/kernel/osrelease")
   
   if [[ -n $quote ]]; then
     echo -en "\"$sys_tainted_status\"${c[0]}"
@@ -2695,7 +2696,7 @@ CHECK_TAINTED() {
     echo "  (kernel untainted)"
     return
   else
-    echo
+    echo "  (see https://access.redhat.com/solutions/40594)"
   fi
     
   case $3 in
@@ -2705,37 +2706,63 @@ CHECK_TAINTED() {
     H3) indent=$XSOS_INDENT_H3
   esac
   
-  taintvals=$(
-    for taint in 536870912 268435456 4096 2048 1024 512 256 128 64 32 16 8 4 2 1; do
-      if [[ $sys_tainted_status -gt $taint ]]; then
-        printf "$taint "
-        sys_tainted_status=$((sys_tainted_status-taint))
-      elif [[ $sys_tainted_status == $taint ]]; then
-        printf "$taint "                                                                                     
+  # See /usr/share/doc/kernel-doc*/Documentation/sysctl/kernel.txt
+  #     kernel source: linux/kernel/panic.c
+  #     kernel source: include/linux/kernel.h
+  #     https://access.redhat.com/solutions/40594
+
+  t[0]="PROPRIETARY_MODULE: Proprietary module has been loaded"
+  t[1]="FORCED_MODULE: Module has been forcibly loaded"
+  t[2]="UNSAFE_SMP: SMP with CPUs not designed for SMP"
+  t[3]="FORCED_RMMOD: User forced a module unload"
+  t[4]="MACHINE_CHECK: System experienced a machine check exception"
+  t[5]="BAD_PAGE: System has hit bad_page"
+  if grep -qs '^2\.6\.18-.*el5' <<<"$sys_kernel_version"; then
+    t[6]="UNSIGNED_MODULE: Unsigned module has been loaded (RHEL5-specific)"
+  else
+    t[6]="USER: Userspace-defined naughtiness (RHEL6+)"
+  fi
+  t[7]="DIE: Kernel has oopsed before"
+  t[8]="OVERRIDDEN_ACPI_TABLE: ACPI table overridden"
+  t[9]="WARN: Taint on warning"
+  t[10]="CRAP: Modules from drivers/staging are loaded"
+  t[11]="FIRMWARE_WORKAROUND: Working around severe firmware bug"
+  t[12]="OOT_MODULE: Out-of-tree module has been loaded"
+  t[13]="UNSIGNED_MODULE: Unsigned module has been loaded"
+  t[14]="SOFTLOCKUP: A soft lockup has previously occurred"
+  t[15]="LIVEPATCH: Kernel has been live patched"
+  t[16]="16: undefined"
+  t[17]="17: undefined"
+  t[18]="18: undefined"
+  t[19]="19: undefined"
+  t[20]="20: undefined"
+  t[21]="21: undefined"
+  t[22]="22: undefined"
+  t[23]="23: undefined"
+  t[24]="24: undefined"
+  t[25]="25: undefined"
+  t[26]="26: undefined"
+  t[27]="BIT_BY_ZOMBIE: Kernel booted with OMGZOMBIES param"
+  t[28]="HARDWARE_UNSUPPORTED: Hardware is unsupported"
+  t[29]="TECH_PREVIEW: Technology Preview code is loaded"
+  t[30]="RESERVED30: undefined"
+  t[31]="RESERVED31: undefined"
+  
+  taint_states=$(
+    for taintbit in $(awk '{n=split($0,F); for(i in F) $i=F[n-i+1]}1' <<<"${!t[@]}"); do
+      taintval=$((2**taintbit))
+      if [[ $sys_tainted_status -gt $taintval ]]; then
+        echo $taintbit
+        sys_tainted_status=$((sys_tainted_status-taintval))
+      elif [[ $sys_tainted_status == $taintval ]]; then
+        echo $taintbit
         break
       fi
     done
   )
   
-  # See /usr/share/doc/kernel-doc*/Documentation/sysctl/kernel.txt
-  # Or linux/kernel/panic.c
-  t[1]="Proprietary module has been loaded"
-  t[2]="Module has been forcibly loaded"
-  t[4]="SMP with CPUs not designed for SMP"
-  t[8]="User forced a module unload"
-  t[16]="System experienced a machine check exception"
-  t[32]="System has hit bad_page"
-  t[64]="Userspace-defined naughtiness"
-  t[128]="Kernel has oopsed before"
-  t[256]="ACPI table overridden"
-  t[512]="Taint on warning"
-  t[1024]="Modules from drivers/staging are loaded"
-  t[2048]="Working around severe firmware bug"
-  t[4096]="Out-of-tree module has been loaded"
-  t[268435456]="Hardware is unsupported"
-  t[536870912]="Technology Preview code is loaded"
-  for n in $taintvals; do
-    echo "$indent$n  (${t[$n]})"
+  for taintbit in $(tac <<<"$taint_states"); do
+    printf "$indent%2s  ${t[$taintbit]}\n" $taintbit
   done
 }
 
