@@ -911,6 +911,9 @@ _CHECK_GRUB() {
   elif [[ -f $1/boot/grub2/grub.cfg ]]; then
     # Set grubcfg for rhel grub2
     grubcfg=$1/boot/grub2/grub.cfg
+  elif [[ -f $1/boot/efi/EFI/redhat/grub.conf ]]; then
+    # Set grubcfg for rhel grub2 EFI
+    grubcfg=$1/boot/efi/EFI/redhat/grub.conf
   elif [[ -f $1/boot/grub/grub.cfg ]]; then
     # Set grubcfg for debian grub2
     grubcfg=$1/boot/grub/grub.cfg
