@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.21 last mod 2015/05/26
+# xsos v0.5.22 last mod 2015/06/19
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -26,15 +26,15 @@ version=$(sed '2q;d' $0)
 # Colors and colors and colors oh my (but only for bash v4)
 if [[ $BASH_VERSINFO -ge 4 ]]; then
   declare -A c
-  c[reset]='\033[0;0m';   c[BOLD]='\033[0;0m\033[1;1m'
-  c[dgrey]='\033[0;30m';  c[DGREY]='\033[1;30m';  c[bg_DGREY]='\033[40m'
-  c[red]='\033[0;31m';    c[RED]='\033[1;31m';    c[bg_RED]='\033[41m'
-  c[green]='\033[0;32m';  c[GREEN]='\033[1;32m';  c[bg_GREEN]='\033[42m'
-  c[orange]='\033[0;33m'; c[ORANGE]='\033[1;33m'; c[bg_ORANGE]='\033[43m'
-  c[blue]='\033[0;34m';   c[BLUE]='\033[1;34m';   c[bg_BLUE]='\033[44m'
-  c[purple]='\033[0;35m'; c[PURPLE]='\033[1;35m'; c[bg_PURPLE]='\033[45m'
-  c[cyan]='\033[0;36m';   c[CYAN]='\033[1;36m';   c[bg_CYAN]='\033[46m'
-  c[lgrey]='\033[0;37m';  c[LGREY]='\033[1;37m';  c[bg_LGREY]='\033[47m'
+  c[reset]='\033[0;0m'   c[BOLD]='\033[0;0m\033[1;1m'
+  c[dgrey]='\033[0;30m'  c[DGREY]='\033[1;30m'  c[bg_DGREY]='\033[40m'
+  c[red]='\033[0;31m'    c[RED]='\033[1;31m'    c[bg_RED]='\033[41m'
+  c[green]='\033[0;32m'  c[GREEN]='\033[1;32m'  c[bg_GREEN]='\033[42m'
+  c[orange]='\033[0;33m' c[ORANGE]='\033[1;33m' c[bg_ORANGE]='\033[43m'
+  c[blue]='\033[0;34m'   c[BLUE]='\033[1;34m'   c[bg_BLUE]='\033[44m'
+  c[purple]='\033[0;35m' c[PURPLE]='\033[1;35m' c[bg_PURPLE]='\033[45m'
+  c[cyan]='\033[0;36m'   c[CYAN]='\033[1;36m'   c[bg_CYAN]='\033[46m'
+  c[lgrey]='\033[0;37m'  c[LGREY]='\033[1;37m'  c[bg_LGREY]='\033[47m'
 fi
 
 # ==============================================================================
@@ -45,7 +45,7 @@ fi
 #
 #   XSOS_COLORS (bool: y/n)
 #     Controls whether color is enabled or disabled by default
-#     Can also be controlled by cmdline arg 
+#     Can also be controlled by cmdline arg
       : ${XSOS_COLORS:="y"}
 #
 #   XSOS_COLOR_RESET -- color to reset terminal to after using other colors
@@ -136,6 +136,11 @@ fi
     : ${XSOS_DEFAULT_VIEW:="os"}
 #
 #
+# XSOS_PS_THREADS (bool: y/n)
+#   Controls whether PSCHECK() function parses `ps aux` or `ps auxm` output
+    : ${XSOS_PS_THREADS:="n"}
+#
+#
 # XSOS_PS_LEVEL (int: 0-4)
 #   Controls verbosity level (4 being highest) in PSCHECK() function
     : ${XSOS_PS_LEVEL:="1"}
@@ -147,7 +152,7 @@ fi
 #   Traditionally controled by -q/--wwid option
     : ${XSOS_MULTIPATH_QUERY:=""}
 #
-#   
+#
 # XSOS_MEM_UNIT (str: b, k, m, g, t)
 #   Sets unit used by MEMINFO() function for printing
 #   Can also be controlled by cmdline opt -u/--unit
@@ -260,6 +265,7 @@ Display options:"
               ❚where ID is a wwid, friendly name, or LUN identifier
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
+     --threads❚make ps take threads into account (via \`ps auxm\`)
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
  -w, --width=NUM❚change fold-width, in columns (positive number, e.g., 80)
                 ❚\"0\" disables wrapping, \"w\" autodetects width (default)
@@ -436,14 +442,14 @@ esac
 
 # GNU getopt short and long options:
 sopts='6q:u:v:w:xyzabokcfmdtlerngisp'
-lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
 
 # Setup assoc array for single-file options
 unset sfile
-[[ $BASH_VERSINFO -ge 4 ]] && declare -A sfile 
+[[ $BASH_VERSINFO -ge 4 ]] && declare -A sfile
 
 # Checker for cmdline options
 _OPT_CHECK() {
@@ -501,6 +507,7 @@ PARSE() {
       -u|--unit)    _OPT_CHECK "unit" "$2" string "b k m g t"
                       XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2
                     ;;
+      --threads)    shift; XSOS_PS_THREADS=y ;;
       -v|--verbose) _OPT_CHECK "verbose" "$2" range "0 4"
                       XSOS_PS_LEVEL=$2; shift 2
                     ;;
@@ -842,7 +849,7 @@ _CHECK_SELINUX() {
     eval $(gawk -F= '
       /^SELINUX=/     { cfgmode = $2 }
       /^SELINUXTYPE=/ { policy  = $2 }
-      END { 
+      END {
         printf "seconfig_cfgmode=%s; seconfig_policy=%s", cfgmode, policy
       }
     ' <<<"$input_seconfig")
@@ -855,7 +862,7 @@ _CHECK_SELINUX() {
       /Current mode/                      { mode    = $NF }
       /Mode from config file/             { cfgmode = $NF }
       /Loaded policy|Policy from config/  { policy  = $NF }
-      END { 
+      END {
         printf "sestatus_status=%s; sestatus_mode=%s; sestatus_cfgmode=%s; sestatus_policy=%s",
           status, mode, cfgmode, policy
       }
@@ -866,7 +873,7 @@ _CHECK_SELINUX() {
       # If sestatus says disabled, need to rely on config file for default mode
       printf "disabled"; __cond_print_cfgmode
     else
-      # Otherwise, just use sestatus output 
+      # Otherwise, just use sestatus output
       printf "$sestatus_mode  (default $sestatus_cfgmode)"
     fi
   
@@ -896,7 +903,7 @@ _CHECK_SELINUX() {
     # Otherwise, we have no clue ... :(
     else
       printf "${c[Warn1]}status unknown (default unknown)${c[0]}"
-    fi    
+    fi
   fi
 }
 
@@ -995,7 +1002,7 @@ OSINFO() {
     yum_plugins="${c[Warn1]}No yum plugin info (missing etc/yum/pluginconf.d/*.conf)${c[0]}"
   fi
   
-  # Grab RHN settings  
+  # Grab RHN settings
   _get_rhn_cfg() {
     local directive=$1 file="$2/etc/sysconfig/rhn/up2date" result=
     result=$(gawk -F= "/^$directive *=/{print\$2}" "$file" 2>/dev/null)
@@ -1100,7 +1107,7 @@ OSINFO() {
     grep -qsi uek <<<"$kernel" && kernel=$(grep --color=always -i uek <<<"$kernel")
     grep -qsi uek <<<"$grub_kernel" && grub_kernel=$(grep --color=always -i uek <<<"$grub_kernel")
     
-    systime=$(gawk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null) 
+    systime=$(gawk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null)
     [[ $(wc -w <<<"$systime") == 6 ]] &&
       systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
     
@@ -1481,7 +1488,7 @@ KDUMP() {
   __P kernel.panic_on_io_nmi
   __P kernel.panic_on_unrecovered_nmi
   __P kernel.panic_on_stackoverflow
-  __P kernel.softlockup_panic 
+  __P kernel.softlockup_panic
   __P kernel.unknown_nmi_panic
   __P kernel.nmi_watchdog
   __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "%s0%s  (no panic)", W, H0; else if ($1==1) printf "%s1%s  (no panic if OOM-triggering task limited by mbind/cpuset)", G, H0; else if ($1==2) printf "%s2%s  (always panic)", G, H0}'
@@ -1886,7 +1893,7 @@ STORAGE() {
       # Get multipath input from sosreport file, if present
       mpath_input=$(<"$1/sos_commands/devicemapper/multipath_-v4_-ll")
     fi
-  fi 
+  fi
   
   # If have good mpath data ..
   if [[ -n $mpath_input ]] && ! egrep -q 'no.paths|multipath.conf.*not.exist' <<<"$mpath_input"; then
@@ -2024,7 +2031,7 @@ LSPCI() {
     local regex=${1}
     gawk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" "
       /${regex}/"'{
-        # Save 
+        # Save
         split($1, slot, ":")
         $1 = ""
         sub(" ", "")
@@ -2123,7 +2130,7 @@ BONDING() {
   echo -e "${c[H1]}BONDING${c[0]}"
     
   # The bracket here is like using parens to make a subshell -- allows to capture all stdout
-  { 
+  {
     # Header info ("❚" is used later by `column` to columnize the output)
     echo "  Device❚Mode❚ifcfg-File BONDING_OPTS❚Partner MAC Addr❚Slaves (*=active; [n]=AggID)"
     echo "  ========❚=================❚========================❚==================❚==============================="
@@ -2185,14 +2192,14 @@ BONDING() {
           fi
         fi
         
-        gawk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}'\>/' $bond_input | 
+        gawk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}'\>/' $bond_input |
           gawk '/Permanent HW addr/ {printf " (%s)", $4}' | __scrub_mac
         s=$((s+1))
         echo
       done
     f=$((f+1))
     [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚ ❚ ❚- - - - - - - - - - - - - - - -"
-    done 
+    done
   } |
     column -ts❚ |
     
@@ -2233,7 +2240,7 @@ IPADDR() {
   local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr scope alias
   
   # Declare our 7 associative arrays:
-  local -A lookup_bridge iface_input slaveof state ipv4 ipv4_alias mtu mac 
+  local -A lookup_bridge iface_input slaveof state ipv4 ipv4_alias mtu mac
   
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
@@ -2335,7 +2342,7 @@ IPADDR() {
         # Otherwise, print out all info with ipaddr set to "-"
         else
           echo "  ${i}❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚-❚-"
-        fi        
+        fi
         
       else
       
@@ -2464,7 +2471,7 @@ ETHTOOL() {
       gawk '
         /Pre-set maximums:/          { getline; if ($1 == "RX:") rx_max=$2 }
         /Current hardware settings:/ { getline; if ($1 == "RX:") rx_now=$2 }
-        END { 
+        END {
           if (rx_now == "" && rx_max == "") {
             print "rx ring UNKNOWN"
             exit
@@ -2503,7 +2510,7 @@ ETHTOOL() {
         echo -en "${c[Warn1]}"
         errsfound=$(__ethtool_S $i |
           tac |
-            gawk "          
+            gawk "
               BEGIN { found = 0 }
               /$XSOS_ETHTOOL_ERR_REGEX/ {
                 print ; found = 1
@@ -2583,7 +2590,7 @@ NETDEV() {
       function round(num, places) {
         places = 10 ^ places
         return int(num * places + .5) / places
-      } 
+      }
 
       {
         # Set variables based on fields
@@ -2670,7 +2677,7 @@ NETDEV() {
         for (i = 1; i <= n; i++)
         # printf "  %s❚%.0f❚%.0f%s❚%d %s❚%d %s❚%.0f❚%.0f%s❚%d (%.0f%%)❚%d (%.0f%%)\n",
           printf "  %s❚%s❚%s%s❚%s %s❚%s %s❚%s❚%s%s❚%s %s❚%s %s❚%s %s\n",
-            IF[i], RxBytes[IF[i]], RxPackets[IF[i]], Packets_Unit, RxErrs[IF[i]], RxErrsPercent[IF[i]], RxDrop[IF[i]], RxDropPercent[IF[i]], 
+            IF[i], RxBytes[IF[i]], RxPackets[IF[i]], Packets_Unit, RxErrs[IF[i]], RxErrsPercent[IF[i]], RxDrop[IF[i]], RxDropPercent[IF[i]],
                    TxBytes[IF[i]], TxPackets[IF[i]], Packets_Unit, TxErrs[IF[i]], TxErrsPercent[IF[i]], TxDrop[IF[i]], TxDropPercent[IF[i]], TxCols[IF[i]], TxColsPercent[IF[i]]
       }
     ' | column -ts❚ |
@@ -2886,11 +2893,33 @@ PSCHECK() {
   
   # Get input from proper place dependent on what was passed
   if [[ -z $1 ]]; then
-    ps_input=$(ps aux | sed '1!s/%/%%/g')
+    if [[ $XSOS_PS_THREADS == y ]]; then
+      ps_input=$(ps auxm)
+    else
+      ps_input=$(ps aux)
+    fi
   elif [[ -f $1 ]]; then
-    ps_input=$(sed '1!s/%/%%/g' "$1")
+    ps_input=$(<"$1")
   else
-    ps_input=$(sed '1!s/%/%%/g' "$1/ps")
+    if [[ $XSOS_PS_THREADS == y ]]; then
+      ps_input=$(<"$1/sos_commands/process/ps_auxwwwm")
+    else
+      ps_input=$(<"$1/ps")
+    fi
+  fi
+  ps_input=$(sed '1!s/%/%%/g' <<<"$ps_input")
+  if [[ $XSOS_PS_THREADS == y ]]; then
+    ps_input=$(
+      gawk '
+        {
+          if ($2=="-") {
+            $2 = pid; $11 = "[thread_of_pid_"pid"]"
+          }
+          else pid = $2
+          print
+        }
+      ' <<<"$ps_input"
+    )
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
@@ -2929,7 +2958,7 @@ PSCHECK() {
   __conditional_head() {
   [[ -n $1 ]] &&
     echo head -n$1 ||
-    echo cat  
+    echo cat
   }
   
   # First, we need to convert VSZ & RSS in the ps input to MiB or GiB (if necessary)
@@ -3137,7 +3166,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $os ]]      && OSINFO /
     [[ -n $kdump ]]   && KDUMP /
     [[ -n $cpu ]]     && CPUINFO /
-    [[ -n $intrupt ]] && INTERRUPT /    
+    [[ -n $intrupt ]] && INTERRUPT /
     [[ -n $mem ]]     && MEMINFO /
     [[ -n $disks ]]   && STORAGE /
     [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
