@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.21 last mod 2015/05/26
+# xsos v0.5.22 last mod 2015/06/19
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -136,6 +136,11 @@ fi
     : ${XSOS_DEFAULT_VIEW:="os"}
 #
 #
+# XSOS_PS_THREADS (bool: y/n)
+#   Controls whether PSCHECK() function parses `ps aux` or `ps auxm` output
+    : ${XSOS_PS_THREADS:="n"}
+#
+#
 # XSOS_PS_LEVEL (int: 0-4)
 #   Controls verbosity level (4 being highest) in PSCHECK() function
     : ${XSOS_PS_LEVEL:="1"}
@@ -260,6 +265,7 @@ Display options:"
               ❚where ID is a wwid, friendly name, or LUN identifier
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
+     --threads❚make ps take threads into account (via \`ps auxm\`)
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
  -w, --width=NUM❚change fold-width, in columns (positive number, e.g., 80)
                 ❚\"0\" disables wrapping, \"w\" autodetects width (default)
@@ -436,7 +442,7 @@ esac
 
 # GNU getopt short and long options:
 sopts='6q:u:v:w:xyzabokcfmdtlerngisp'
-lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -501,6 +507,7 @@ PARSE() {
       -u|--unit)    _OPT_CHECK "unit" "$2" string "b k m g t"
                       XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2
                     ;;
+      --threads)    shift; XSOS_PS_THREADS=y ;;
       -v|--verbose) _OPT_CHECK "verbose" "$2" range "0 4"
                       XSOS_PS_LEVEL=$2; shift 2
                     ;;
@@ -2886,11 +2893,33 @@ PSCHECK() {
   
   # Get input from proper place dependent on what was passed
   if [[ -z $1 ]]; then
-    ps_input=$(ps aux | sed '1!s/%/%%/g')
+    if [[ $XSOS_PS_THREADS == y ]]; then
+      ps_input=$(ps auxm)
+    else
+      ps_input=$(ps aux)
+    fi
   elif [[ -f $1 ]]; then
-    ps_input=$(sed '1!s/%/%%/g' "$1")
+    ps_input=$(<"$1")
   else
-    ps_input=$(sed '1!s/%/%%/g' "$1/ps")
+    if [[ $XSOS_PS_THREADS == y ]]; then
+      ps_input=$(<"$1/sos_commands/process/ps_auxwwwm")
+    else
+      ps_input=$(<"$1/ps")
+    fi
+  fi
+  ps_input=$(sed '1!s/%/%%/g' <<<"$ps_input")
+  if [[ $XSOS_PS_THREADS == y ]]; then
+    ps_input=$(
+      gawk '
+        {
+          if ($2=="-") {
+            $2 = pid; $11 = "[thread_of_pid_"pid"]"
+          }
+          else pid = $2
+          print
+        }
+      ' <<<"$ps_input"
+    )
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
