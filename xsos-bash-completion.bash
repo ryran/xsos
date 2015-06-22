@@ -1,11 +1,11 @@
 # This file is part of xsos, providing intelligent xsos tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2015/04/12 matching up with xsos v0.5.15
+# Revision date:  2015/06/22 matching up with xsos v0.5.22
 # Latest version: <http://github.com/ryran/xsos>
-# 
+#
 # Copyright 2013, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
-# 
+#
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
@@ -39,7 +39,7 @@ _xsos()  {
   longopts="--help --version --update
             --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps
             --B --C --F --M --D --T --L --R --N --G --I --P
-            --scrub-ip --scrub-mac --ipv6 --wwid --unit --verbose --width
+            --scrub-ip --scrub-mac --ipv6 --wwid --unit --threads --verbose --width
             --nocolor --less --more"
   
   # Check previous arg to see if we need to do anything special
@@ -94,4 +94,3 @@ _xsos()  {
 # Add the names of any xsos aliases (or alternate file-names) to the end of the following line
 # (And remove "x" if you have an "x" command that *isn't* an alias for xsos)
 complete -F _xsos xsos x
-

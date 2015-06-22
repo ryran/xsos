@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.22 last mod 2015/06/22
+# xsos v0.5.23 last mod 2015/06/22
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -136,6 +136,11 @@ fi
     : ${XSOS_DEFAULT_VIEW:="os"}
 #
 #
+# XSOS_PS_THREADS (bool: y/n)
+#   Controls whether PSCHECK() function parses `ps aux` or `ps auxm` output
+    : ${XSOS_PS_THREADS:="n"}
+#
+#
 # XSOS_PS_LEVEL (int: 0-4)
 #   Controls verbosity level (4 being highest) in PSCHECK() function
     : ${XSOS_PS_LEVEL:="1"}
@@ -260,6 +265,7 @@ Display options:"
               ❚where ID is a wwid, friendly name, or LUN identifier
  -u, --unit=P❚change byte display for /proc/meminfo & /proc/net/dev,
              ❚where P is \"b\" for byte, or else \"k\", \"m\", \"g\", or \"t\"
+     --threads❚make ps take threads into account (via \`ps auxm\`)
  -v, --verbose=NUM❚specify ps verbosity level (0-4, default: 1)
  -w, --width=NUM❚change fold-width, in columns (positive number, e.g., 80)
                 ❚\"0\" disables wrapping, \"w\" autodetects width (default)
@@ -436,7 +442,7 @@ esac
 
 # GNU getopt short and long options:
 sopts='6q:u:v:w:xyzabokcfmdtlerngisp'
-lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -501,6 +507,7 @@ PARSE() {
       -u|--unit)    _OPT_CHECK "unit" "$2" string "b k m g t"
                       XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2
                     ;;
+      --threads)    shift; XSOS_PS_THREADS=y ;;
       -v|--verbose) _OPT_CHECK "verbose" "$2" range "0 4"
                       XSOS_PS_LEVEL=$2; shift 2
                     ;;
@@ -2882,15 +2889,57 @@ SYSCTL() {
 
 PSCHECK() {
   # Local vars:
-  local ps_input ps_header num_top_users num_comm_args num_process_lines process_line_length Dsleepers Zombies top_users top_users_header
+  local ps_input_procs ps_input_thrds_raw ps_input_thrds num_sleepers_procs=? num_zombies_procs=? num_sleepers_thrds=? num_zombies_thrds=? ps_input noun top_threads_ps_header top_threads ps_header num_top_users num_comm_args num_process_lines process_line_length Dsleepers Zombies msg_sleepers_thrds msg_zombies_thrds top_users top_users_header
   
   # Get input from proper place dependent on what was passed
   if [[ -z $1 ]]; then
-    ps_input=$(ps aux | sed '1!s/%/%%/g')
+    ps_input_thrds_raw=$(ps auxm)
+    ps_input_procs=$(ps aux)
   elif [[ -f $1 ]]; then
-    ps_input=$(sed '1!s/%/%%/g' "$1")
+    # If passed a single file
+    if [[ $XSOS_PS_THREADS == y ]]; then
+      ps_input_thrds_raw=$(<"$1")
+    else
+      ps_input_procs=$(<"$1")
+    fi
   else
-    ps_input=$(sed '1!s/%/%%/g' "$1/ps")
+    ps_input_thrds_raw=$(<"$1/sos_commands/process/ps_auxwwwm")
+    ps_input_procs=$(<"$1/ps")
+  fi
+  # Need to protect any percent signs by doubling them up
+  if [[ -n $ps_input_procs ]]; then
+    ps_input_procs=$(sed '1!s/%/%%/g' <<<"$ps_input_procs")
+    num_sleepers_procs=$(gawk 'BEGIN{n=0} $8~/D/{n++} END{print n}' <<<"$ps_input_procs")
+    num_zombies_procs=$(gawk 'BEGIN{n=0} $8~/Z/{n++} END{print n}' <<<"$ps_input_procs")
+  fi
+  if [[ -n $ps_input_thrds_raw ]]; then
+    ps_input_thrds_raw=$(sed '1!s/%/%%/g' <<<"$ps_input_thrds_raw")
+    num_sleepers_thrds=$(gawk 'BEGIN{n=0} $8~/D/{n++} END{print n}' <<<"$ps_input_thrds_raw")
+    num_zombies_thrds=$(gawk 'BEGIN{n=0} $8~/Z/{n++} END{print n}' <<<"$ps_input_thrds_raw")
+    if [[ $XSOS_PS_THREADS != y ]]; then
+      [[ $num_sleepers_thrds -gt $num_sleepers_procs ]] && msg_sleepers_thrds="\n$XSOS_INDENT_H2${c[Warn1]}Blocked threads detected; run with --threads option for full detail${c[0]}"
+      [[ $num_zombies_thrds -gt $num_zombies_procs ]] && msg_zombies_thrds="\n$XSOS_INDENT_H2${c[Warn1]}Defunct threads detected; run with --threads option for full detail${c[0]}"
+    fi
+    # Threads in ps m output show with "-" for PID ($2) and COMMAND ($11), so let's fix that
+    ps_input_thrds=$(
+      gawk '
+        {
+          if ($2=="-") {
+            $2 = pid; $11 = "[thread_of_pid_"pid"]"
+          }
+          else pid = $2
+          print
+        }
+      ' <<<"$ps_input_thrds_raw"
+    )
+  fi
+  
+  if [[ $XSOS_PS_THREADS == y ]]; then
+    noun="threads"
+    ps_input=$ps_input_thrds
+  else
+    noun="processes"
+    ps_input=$ps_input_procs
   fi
   
   # Verbosity? We den need no stinkin' verbosity!
@@ -2934,53 +2983,111 @@ PSCHECK() {
   
   # First, we need to convert VSZ & RSS in the ps input to MiB or GiB (if necessary)
   # We also need to perfectly columnize the input and chop off extra command args based on above options
-  ps_input=$(gawk -vMAX_fields=$((num_comm_args+12)) -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
-    BEGIN {
-      # Not going to worry about down-converting to bytes or up-converting to TiB
-      if      (u == "B") u = "K"
-      else if (u == "T") u = "G"
-      else if (u == "K" || u == "G") u = u
-      else u = "M"
-      
-      # Figure out what number to divide by to end up with KiB or MiB or GiB
-      if      (u == "K") divisor = 1
-      else if (u == "M") divisor = 1024
-      else if (u == "G") divisor = 1024 ** 2
-      
-      # Set pretty printing unit
-      U = u"iB"
-    }
-    {
-      # Print first 4 fields
-      for (i=1; i<5; i++) printf $i"❚"
-      
-      # Print field 5 & 6 (VSZ & RSS)
-      for (i=5; i<7; i++) {
-        if      (NR == 1)  printf "%s-%s❚", $i, U
-        else if (u == "G") printf "%.1f❚", $i/divisor
-        else               printf "%.0f❚", $i/divisor
+  _convert_and_columize() {
+    gawk -vMAX_fields=$((num_comm_args+12)) -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
+      BEGIN {
+        # Not going to worry about down-converting to bytes or up-converting to TiB
+        if      (u == "B") u = "K"
+        else if (u == "T") u = "G"
+        else if (u == "K" || u == "G") u = u
+        else u = "M"
+        
+        # Figure out what number to divide by to end up with KiB or MiB or GiB
+        if      (u == "K") divisor = 1
+        else if (u == "M") divisor = 1024
+        else if (u == "G") divisor = 1024 ** 2
+        
+        # Set pretty printing unit
+        U = u"iB"
       }
-      
-      # Print fields 7-10
-      for (i=7; i<11; i++) printf $i"❚"
-      
-      # For the last field (command) we need to chop things up
-      for (i=11; i<=NF && i<MAX_fields; i++) printf $i" "
-      printf "\n"
-    }' <<<"$ps_input" | cut -c-$process_line_length | column -ts❚ | sed "s,^,$XSOS_INDENT_H2,")
-    
+      NR==1 {
+        if ($1=="USER")
+          j = 0
+        else if ($1=="#") {
+          j = 1
+          MAX_fields ++
+        }
+        fieldvsz = j + 5
+        fieldrss = j + 6
+        fieldtty = j + 7
+        fieldcmd = j + 11
+      }
+      {
+        # Print fields up through %MEM
+        for (i=1; i<fieldvsz; i++)
+          printf $i"❚"
+        
+        # Print fields VSZ & RSS
+        for (i=fieldvsz; i<fieldtty; i++) {
+          if      (NR == 1)  printf "%s-%s❚", $i, U
+          else if (u == "G") printf "%.1f❚", $i/divisor
+          else               printf "%.0f❚", $i/divisor
+        }
+        
+        # Print fields up through TIME
+        for (i=fieldtty; i<fieldcmd; i++)
+          printf $i"❚"
+        
+        # For the last field (command) we need to chop things up
+        for (i=fieldcmd; i<=NF && i<MAX_fields; i++)
+          printf $i" "
+        printf "\n"
+      }
+    ' <<<"$1" | cut -c-$process_line_length | column -ts❚ | sed "s,^,$XSOS_INDENT_H2,"
+  }
+  
+  ps_input=$(_convert_and_columize "$ps_input")
   # Deal with header
   ps_header=$(head -n1 <<<"$ps_input")
   ps_input=$(tail -n+2 <<<"$ps_input")
   
+  if [[ -n $ps_input_thrds_raw ]]; then
+    # Let's get a count of how many threads each PID has
+    top_threads=$(
+      gawk '
+        NR==1 {
+          printf "# %s\n", $0
+        }
+        NR>1 {
+          if ($2 ~ /^[0-9]+$/) {
+            pid = $2
+            line[pid] = $0
+          }
+          else if ($2 == "-") {
+            nthreads[pid] ++
+          }
+          else
+            pid = "NULL"
+        }
+        END {
+          for (pid in line)
+            printf ("%d %s\n", nthreads[pid], line[pid]) | "sort -rn"
+        }
+      ' <<<"$ps_input_thrds_raw"
+    )
+    echo -e "${top_threads}" >/tmp/thread.debug
+    top_threads=$(_convert_and_columize "$top_threads")
+    top_threads_ps_header=$(head -n1 <<<"$top_threads")
+    top_threads="${c[H3]}$top_threads_ps_header${c[0]}\n$(tail -n+2 <<<"$top_threads" | $(__conditional_head $num_process_lines))"
+  else
+    top_threads="$XSOS_INDENT_H2${c[DGREY]}[No thread info]${c[0]}"
+  fi
+  
   # Format and prepare sleeping/zombie processes
   Dsleepers=$(gawk -vcolor_warn="${c[Warn1]}" -vc_0="${c[0]}" '$8~/D/ {print color_warn $0 c_0}' <<<"$ps_input")
   Zombies=$(gawk -vc_grey="${c[DGREY]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
-  [[ -n $Dsleepers ]] && Dsleepers="\n$Dsleepers"
-  [[ -n $Zombies ]] && Zombies="\n$Zombies"
-  [[ -z $Dsleepers && -z $Zombies ]] && Dsleepers="\n$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}"
+  if [[ -n $Dsleepers ]]; then
+    Dsleepers="${c[H3]}$ps_header${c[0]}\n$Dsleepers$msg_sleepers_thrds"
+  else
+    Dsleepers="$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}$msg_sleepers_thrds"
+  fi
+  if [[ -n $Zombies ]]; then
+    Zombies="${c[H3]}$ps_header${c[0]}\n$Zombies$msg_zombies_thrds"
+  else
+    Zombies="$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}$msg_zombies_thrds"
+  fi
   
-  # Calculte top cpu-using & mem-using users
+  # Calculate top cpu-using & mem-using users
   if [[ $XSOS_PS_LEVEL < 3 ]]; then  # If verbosity level 0-2, restrict number of users shown
     # Process ps input to generate summary user-list of top-users
     top_users=$(
@@ -3022,14 +3129,17 @@ PSCHECK() {
   
   # Remove header from the top and sort everything else by %CPU, potentially trimming down list
   top_users=$(tail -n+2 <<<"$top_users" | sort -rnk2 | $(__conditional_head $num_top_users))
+    ps_input=$(tail -n+2 <<<"$ps_input")
   
   # Print!
   echo -e "${c[H1]}PS CHECK${c[0]}
-$XSOS_INDENT_H1${c[H2]}Total number of processes:${c[0]} \n$XSOS_INDENT_H2${c[Imp]}$(wc -l <<<"$ps_input")${c[0]}
+$XSOS_INDENT_H1${c[H2]}Total number of threads/processes:${c[0]} \n$XSOS_INDENT_H2${c[Imp]}$(tail -n+2 <<<"$ps_input_thrds" | wc -l) / $(tail -n+2 <<<"$ps_input_procs" | wc -l)${c[0]}
 $XSOS_INDENT_H1${c[H2]}Top users of CPU & MEM:${c[0]} \n${c[H3]}$top_users_header${c[0]} \n$top_users
-$XSOS_INDENT_H1${c[H2]}Uninteruptible sleep & Defunct processes:${c[0]} \n${c[H3]}$ps_header${c[0]} $Dsleepers $Zombies
-$XSOS_INDENT_H1${c[H2]}Top CPU-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk3 <<<"$ps_input" | $(__conditional_head $num_process_lines))
-$XSOS_INDENT_H1${c[H2]}Top MEM-using processes:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk6 <<<"$ps_input" | $(__conditional_head $num_process_lines))"
+$XSOS_INDENT_H1${c[H2]}Uninteruptible sleep threads/processes ($num_sleepers_thrds/$num_sleepers_procs):${c[0]} \n$Dsleepers
+$XSOS_INDENT_H1${c[H2]}Defunct zombie threads/processes ($num_zombies_thrds/$num_zombies_procs):${c[0]} \n$Zombies
+$XSOS_INDENT_H1${c[H2]}Top CPU-using ${noun}:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk3 <<<"$ps_input" | $(__conditional_head $num_process_lines))
+$XSOS_INDENT_H1${c[H2]}Top MEM-using ${noun}:${c[0]} \n${c[H3]}$ps_header${c[0]} \n$(sort -rnk6 <<<"$ps_input" | $(__conditional_head $num_process_lines))
+$XSOS_INDENT_H1${c[H2]}Top thread-spawning processes:${c[0]} \n$top_threads"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
