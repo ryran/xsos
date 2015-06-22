@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.24 last mod 2015/06/22
+# xsos v0.5.25 last mod 2015/06/22
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2849,6 +2849,8 @@ SYSCTL() {
   __Pa fs.inode-nr "[inodes] "  '{printf "\"%s  %s\"%s  (nr_inodes allocated, nr_free_inodes)", $1,$2,H0}'
   
   echo -e "$XSOS_INDENT_H1${c[H2]}net.${c[0]}"
+  __P net.core.busy_read "[microsec] "
+  __P net.core.busy_poll "[microsec] "
   __P net.core.netdev_budget "[packets] "
   __P net.core.netdev_max_backlog "[packets] "
   __Pa net.core.rmem_default "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
@@ -2869,6 +2871,7 @@ SYSCTL() {
   __Pa net.ipv4.udp_wmem_min "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
   __P net.ipv4.tcp_sack "[bool] "
   __P net.ipv4.tcp_timestamps "[bool] "
+  __Pa net.ipv4.tcp_fastopen "[bitmap] " '{printf "\"%s\"%s  (", $1, H0; if ($1==0) printf "disabled"; else if ($1==1) printf "enable send"; else if ($1==2) printf "enable receive"; else if ($1==3 || $1==7) printf "enable send/receive"; else if ($1==4) printf "invalid value"; else printf "no logic for higher values"; if ($1==7) printf " + send regardless of cookies"; printf "; see ip-sysctl.txt)"}'
 
   echo -e "$XSOS_INDENT_H1${c[H2]}vm.${c[0]}"
   __Pa vm.dirty_ratio ""  '{if ($1>0) printf "\"%s\"%s  (%% of total system memory)", $1, H0; else printf "\"0\"%s  (disabled -- check dirty_bytes)", H0}'
@@ -2878,6 +2881,7 @@ SYSCTL() {
   __P vm.dirty_expire_centisecs
   __P vm.dirty_writeback_centisecs
   __Pa vm.nr_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
+  __Pa vm.nr_overcommit_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
   __Pa vm.overcommit_memory "[0-2] "   '{if ($1==0) printf "\"0\"%s  (heuristic overcommit)", H0; else if ($1==1) printf "\"1\"%s  (always overcommit, never check)", H0; else if ($1==2) print "\"2\"%s  (always check, never overcommit)", H0}'
   __P vm.overcommit_ratio
   __Pa vm.oom_kill_allocating_task "[bool] "  '{if ($1==0) printf "\"0\"%s  (scan tasklist)", H0; else printf "\"1\"%s  (kill OOM-triggering task)", H0}'
