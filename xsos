@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.23 last mod 2015/06/22
+# xsos v0.5.24 last mod 2015/06/22
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2770,7 +2770,7 @@ CHECK_TAINTED() {
   t[31]="RESERVED31: undefined"
   
   taint_states=$(
-    for taintbit in $(awk '{n=split($0,F); for(i in F) $i=F[n-i+1]}1' <<<"${!t[@]}"); do
+    for taintbit in $(sed 's, ,\n,g' <<<"${!t[@]}" | tac); do
       taintval=$((2**taintbit))
       if [[ $sys_tainted_status -gt $taintval ]]; then
         echo $taintbit
