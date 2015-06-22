@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.5.25 last mod 2015/06/22
+# xsos v0.5.26 last mod 2015/06/22
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -3278,4 +3278,4 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
 } | $XSOS_OUTPUT_HANDLER
 
 # If output going to term (cat), print stderr tmp file contents to stderr
-[[ $XSOS_OUTPUT_HANDLER == cat ]] && cat $stderr_file >&2
+[[ $XSOS_OUTPUT_HANDLER == cat ]] && cat $stderr_file >&2 || :
