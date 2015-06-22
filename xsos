@@ -2841,7 +2841,9 @@ SYSCTL() {
   __Pa kernel.shmmax "[bytes] "  '{printf "\"%s\"%s  (%.2f GiB max segment size)", $1, H0, $1/1024/1024/1024}'
   __Pa kernel.shmmni "[segments] "  '{printf "\"%s\"%s  (max number of segs)", $1, H0}'
   __Pa kernel.sysrq "[bitmask] "  '{if ($1==0) printf "\"0\"%s  (disallowed)", H0; else if ($1==1) printf "\"1\"%s  (all SysRqs allowed)", H0; else printf "\"%s\"%s  (see proc man page)", $1, H0}'
-
+  __Pa kernel.sched_min_granularity_ns "[nanosecs] "  '{printf "\"%s\"%s  (%.5f sec)\n", $1, H0, $1*10^-9}'
+  __Pa kernel.sched_latency_ns "[nanosecs] "  '{printf "\"%s\"%s  (%.5f sec)", $1, H0, $1*10^-9}'
+  
   echo -e "$XSOS_INDENT_H1${c[H2]}fs.${c[0]}"
   __Pa fs.file-max "[fds] "  '{printf "\"%s\"%s  (system-wide limit for num open files [file descriptors])", $1,H0}'
   __Pa fs.nr_open  "[fds] "  '{printf "\"%s\"%s  (per-process limit for num open files [see also RLIMIT_NOFILE])", $1,H0}'
@@ -2849,8 +2851,8 @@ SYSCTL() {
   __Pa fs.inode-nr "[inodes] "  '{printf "\"%s  %s\"%s  (nr_inodes allocated, nr_free_inodes)", $1,$2,H0}'
   
   echo -e "$XSOS_INDENT_H1${c[H2]}net.${c[0]}"
-  __P net.core.busy_read "[microsec] "
-  __P net.core.busy_poll "[microsec] "
+  __Pa net.core.busy_read "[microsec] "  '{printf "\"%s\"%s  ", $1, H0; if ($1==0) printf "(off)"}'
+  __Pa net.core.busy_poll "[microsec] "  '{printf "\"%s\"%s  ", $1, H0; if ($1==0) printf "(off)"}'
   __P net.core.netdev_budget "[packets] "
   __P net.core.netdev_max_backlog "[packets] "
   __Pa net.core.rmem_default "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
