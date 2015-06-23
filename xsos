@@ -1,8 +1,8 @@
 #!/bin/bash
-# xsos v0.5.26 last mod 2015/06/22
+# xsos v0.6.0dev last mod 2015/06/23
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
-# Copyright 2012, 2013, 2014, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
+# Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -115,11 +115,6 @@ fi
     : ${XSOS_FOLD_WIDTH:="w"}
 #
 #
-# XSOS_UPDATE_CONFIRM (bool: y/n)
-#   Controls whether built-in update function prompts for confirmation
-    : ${XSOS_UPDATE_CONFIRM:="y"}
-#
-#
 # XSOS_HEADING_SEPARATOR (str)
 #   Acts as a separator between content modules
 #   Should include at least 1 trailing new-line
@@ -223,7 +218,6 @@ HELP_USAGE() {
   echo "Usage: $pzero [DISPLAY OPTIONS] [-6abokcfmdtlerngisp] [SOSREPORT ROOT]
   or:  $pzero [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
   or:  $pzero [-?|-h|--help]
-  or:  $pzero [-U|--update]
 
 Display system info from localhost or extracted sosreport"
 }
@@ -344,100 +338,17 @@ Environment variables:
  source. There are vars to change default colors as well as other settings.
  Each variable name is prefixed with \"XSOS_\" and the important ones follow.
   COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR  IP_VERSION
-  MEM_UNIT  NET_UNIT  PS_UNIT  PS_LEVEL  UPDATE_CONFIRM  OUTPUT_HANDLER
+  MEM_UNIT  NET_UNIT  PS_UNIT  PS_LEVEL  PS_THREADS  OUTPUT_HANDLER
   SCRUB_IP_HN  SCRUB_MACADDR  ETHTOOL_ERR_REGEX
 "
   VERSINFO
 }
 
-
-UPDATE() {
-  echo -e "${c[blue]}Checking $0 against latest version at github.com/ryran/xsos ...${c[DGREY]}\n"
-  latest_version_file=$(mktemp --tmpdir xsos_latest.XXXXX) || {
-    echo -e "${c[RED]}Unable to create temporary file with mktemp${c[reset]}"
-    exit 73
-  }
-  trap "rm -f '$latest_version_file' 2>/dev/null" EXIT
-
-  # Download latest version of xsos with wget or curl
-  if command -v wget >/dev/null; then
-    wget https://raw.github.com/ryran/xsos/master/xsos -O "$latest_version_file" || {
-      ret=$?
-      echo -e "${c[RED]}Exiting due to wget error${c[reset]}"
-      exit $ret
-    }
-  elif command -v curl >/dev/null; then
-    curl https://raw.github.com/ryran/xsos/master/xsos -o "$latest_version_file" && echo || {
-      ret=$?
-      echo -e "${c[RED]}Exiting due to curl error${c[reset]}"
-      exit $ret
-    }
-  else
-    echo -e "${c[RED]}Need either wget or curl in PATH to download the latest version${c[reset]}"
-    exit 72
-  fi
-  
-  # Save version string
-  latest_version=$(sed '2q;d' "$latest_version_file")
-
-  # Compare currently running xsos with downloaded file
-  if ! diff "$0" "$latest_version_file" >/dev/null; then
-    echo -e "${c[blue]}The version you are running reports as:\n\t${c[orange]}${version:2}${c[blue]}\nThe version on github appears to be different and reports as:\n\t${c[ORANGE]}${latest_version:2}${c[blue]}"
-    if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
-      echo -e "Want to inspect differences between them? [${c[green]}y${c[blue]}/${c[green]}n${c[blue]}]${c[reset]}"
-      read -p "> "
-      if [[ $REPLY == y ]]; then
-        if [[ -n $DISPLAY ]] && command -v meld >/dev/null; then
-          meld "$0" "$latest_version_file" 2>/dev/null
-        elif [[ -n $DISPLAY ]] && command -v gvimdiff >/dev/null; then
-          gvimdiff "$0" "$latest_version_file" 2>/dev/null
-        elif command -v vimdiff; then
-          vimdiff "$0" "$latest_version_file"
-        else
-          # set name of tmp diff file
-          diff_file=$latest_version_file.patch; trap "rm -f '$diff_file' 2>/dev/null" EXIT;
-          # create a diff file
-          diff -u "$0" "$latest_version_file" > "$diff_file"
-          if [[ -n $DISPLAY ]] && command -v gedit >/dev/null; then
-            gedit "$diff_file" 2>/dev/null
-          else
-            less "$diff_file"
-          fi
-        fi
-      fi
-    fi
-    [[ -w $0 ]] || {
-      echo -e "${c[RED]}You do not have write permission to modify '$0'${c[reset]}"
-      exit 77
-    }
-    if [[ $XSOS_UPDATE_CONFIRM != n ]]; then
-      echo -e "${c[blue]}Replace $0 with the latest downloaded version?\nAny key but ${c[green]}y${c[blue]} to cancel${c[reset]}"
-      read -p "> "
-    else
-      REPLY=y
-    fi
-    if [[ $REPLY == y ]]; then
-      echo -e "${c[blue]}Backing up current version and replacing it with downloaded version ...${c[cyan]}"
-      cp -v "$0" "$(mktemp --tmpdir xsos-$(gawk {print\$3} <<<"$version").XXX)"
-      cp -v "$latest_version_file" "$0"
-      chmod +x "$0"
-      echo -e "${c[reset]}"
-    else
-      echo -e "${c[cyan]}Not performing update${c[reset]}\n"
-    fi
-  else
-    echo -e "${c[blue]}$0 is the same version as what is on github, i.e.,\n\t${c[BLUE]}${version:2}${c[reset]}\n"
-  fi
-  exit
-}
-
-
-# Help? Version? Update?
+# Help? Version?
 case $1 in
   -V|--vers|--version)  echo "Version info: ${version:2}"; exit ;;
   -\?|-h)               HELP_SHORT ;;
   --help|help)          HELP_EXTENDED ;;
-  -U|--update)          UPDATE ;;
 esac
 
 # GNU getopt short and long options:
