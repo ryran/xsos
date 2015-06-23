@@ -1,0 +1,146 @@
+#!/bin/bash
+
+BONDING() {
+  # Local vars:
+  local files netscriptsdir bond_input f mode bonding_opts active slaves slave s
+  
+  # If passed a file (i.e. xsos --G <file>), use that
+  if [[ -f $1 ]]; then
+    files=($1)
+  # If localhost or sosreport, use that
+  else
+    files=("$1"/proc/net/bonding/*)
+    if [[ ! -r ${files[0]} ]]; then
+      echo -e "${c[Warn2]}Warning:${c[Warn1]} '/proc/net/bonding/' files unreadable; skipping bonding check${c[0]}" >&2
+      echo -en $XSOS_HEADING_SEPARATOR >&2
+      return
+    fi
+    [[ -d "$1"/etc/sysconfig/network-scripts ]] && netscriptsdir="$1"/etc/sysconfig/network-scripts
+  fi
+  
+  __transform_mode() {
+    # Could be vastly improved by using bashV4 associative array, but KISS for rhel5 peeps
+    if grep -q "load balancing (round-robin)" <<<"$1"; then
+      mode="0 (balance-rr)"
+    
+    elif grep -q "fault-tolerance (active-backup)" <<<"$1"; then
+      mode="1 (active-backup)"
+    
+    elif grep -q "load balancing (xor)" <<<"$1"; then
+      mode="2 (balance-xor)"
+    
+    elif grep -q "fault-tolerance (broadcast)" <<<"$1"; then
+      mode="3 (broadcast)"
+    
+    elif grep -q "IEEE 802.3ad Dynamic link aggregation" <<<"$1"; then
+      mode="4 (802.3ad)"
+    
+    elif grep -q "transmit load balancing" <<<"$1"; then
+      mode="5 (balance-tlb)"
+    
+    elif grep -q "adaptive load balancing" <<<"$1"; then
+      mode="6 (balance-alb)"
+    
+    else
+      mode="unrecognized: $1"
+    fi
+  }
+  
+  if [[ $XSOS_SCRUB_MACADDR == y ]]; then
+    __scrub_mac() { sed -r 's/[0-9abcdef]/⣿/g' ; }
+  else
+    __scrub_mac() { cat ; }
+  fi
+  
+  echo -e "${c[H1]}BONDING${c[0]}"
+    
+  # The bracket here is like using parens to make a subshell -- allows to capture all stdout
+  {
+    # Header info ("❚" is used later by `column` to columnize the output)
+    echo "  Device❚Mode❚ifcfg-File BONDING_OPTS❚Partner MAC Addr❚Slaves (*=active; [n]=AggID)"
+    echo "  ========❚=================❚========================❚==================❚==============================="
+    
+    f=0; for bond_input in ${files[@]}; do
+      
+      echo -n "  ${bond_input##*/}❚"
+      
+      __transform_mode "$(gawk -F: '/Bonding Mode/ {printf $2}' $bond_input | sed -e 's/^ //')"
+      echo -n "$mode❚"
+      
+      bonding_opts=$(gawk '/^BONDING_OPTS=/' "$netscriptsdir/ifcfg-${bond_input##*/}" 2>/dev/null | tail -n1 | sed s/BONDING_OPTS=// | tr -d \"\')
+      [[ -z $bonding_opts ]] && bonding_opts=-
+      echo -n "$bonding_opts❚"
+      
+      if [[ ${mode::1} == 4 ]]; then
+        active_agg_info=$(gawk 'BEGIN{RS="\n\n"} /Active Aggregator Info:/ {print}' $bond_input)
+        partner_mac=$(gawk '/Partner Mac Address:/ {print $4}' <<<"$active_agg_info" | __scrub_mac)
+        echo -n "${partner_mac:--}❚"
+        active=$(gawk '/Aggregator ID:/ {print $3}' <<<"$active_agg_info")
+      else
+        echo -n "-❚"
+        active=$(gawk '/Active Slave/ {printf $4}' $bond_input)
+      fi
+      
+      slaves=( $(gawk '/^Slave Interface:/ {print $3}' $bond_input) )
+      
+      [[ ${#slaves[@]} -eq 0 ]] && echo "[None]"
+      
+      s=0; until [[ $s -eq ${#slaves[@]} ]]; do
+        if [[ ${mode::1} == 4 ]]; then
+          agg_id=$(gawk 'BEGIN{RS="\n\n"} /Slave Interface: '"${slaves[s]}/" $bond_input | gawk '/Aggregator ID:/ {print $3}')
+        fi
+        # First line
+        if [[ $s -eq 0 ]]; then
+          if [[ ${mode::1} == 4 ]]; then
+            if [[ $active == $agg_id ]]; then
+              echo -n "* [$agg_id] ${slaves[s]}"
+            else
+              echo -n "  [$agg_id] ${slaves[s]}"
+            fi
+          elif [[ $active == ${slaves[s]} ]]; then
+            echo -n "* ${slaves[s]}"
+          else
+            echo -n "  ${slaves[s]}"
+          fi
+        # Not first line
+        else
+          if [[ ${mode::1} == 4 ]]; then
+            if [[ $active == $agg_id ]]; then
+              echo -n " ❚ ❚ ❚ ❚* [$agg_id] ${slaves[s]}"
+            else
+              echo -n " ❚ ❚ ❚ ❚  [$agg_id] ${slaves[s]}"
+            fi
+          elif [[ $active == ${slaves[s]} ]]; then
+            echo -n " ❚ ❚ ❚ ❚* ${slaves[s]}"
+          else
+            echo -n " ❚ ❚ ❚ ❚  ${slaves[s]}"
+          fi
+        fi
+        
+        gawk 'BEGIN { RS="\n\n" } /Slave Interface: '${slaves[s]}'\>/' $bond_input |
+          gawk '/Permanent HW addr/ {printf " (%s)", $4}' | __scrub_mac
+        s=$((s+1))
+        echo
+      done
+    f=$((f+1))
+    [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚ ❚ ❚- - - - - - - - - - - - - - - -"
+    done
+  } |
+    column -ts❚ |
+    
+      # And then we need to do some color funness!
+      # This colorizes the first 2 lines with the H2 color and the interfaces with H3
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
+        {
+          if (NR <= 2) print H2 $0 H0
+          else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
+        }' |
+          gawk -vU="${c[Up]}" -vH0="${c[0]}" -vgrey="${c[DGREY]}" '
+            {
+              if (NR <= 2) print
+              else if ($1 == "-") print grey $0 H0
+              else printf gensub(/( \*.*)/,   U"\\1"H0, 1)"\n"
+            }'
+        
+  echo -en $XSOS_HEADING_SEPARATOR
+}

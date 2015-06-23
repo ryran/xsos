@@ -1,0 +1,97 @@
+#!/bin/bash
+
+BIOS() {
+  # Local vars:
+  local dmidecode_input
+  
+  if [[ -z $1 ]]; then
+    dmidecode_input=$(dmidecode 2>/dev/null)
+  elif [[ -f $1 ]]; then
+    dmidecode_input=$(<"$1")
+  elif [[ -r $1/dmidecode ]]; then
+    dmidecode_input=$(<"$1/dmidecode")
+  elif [[ -r $1/sos_commands/kernel.dmidecode ]]; then
+    dmidecode_input=$(<"$1/sos_commands/kernel.dmidecode")
+  fi
+  
+  # If bad dmidecode input, return
+  if head -n3 <<<"$dmidecode_input" | egrep -qs 'No such file or directory|No SMBIOS nor DMI entry point found'; then
+    echo -e "${c[Warn2]}Warning:${c[Warn1]} dmidecode input invalid; skipping bios check${c[0]}" >&2
+    echo -en $XSOS_HEADING_SEPARATOR >&2
+    return 1
+  fi
+  
+  echo -e "${c[H1]}DMIDECODE${c[0]}"
+  
+  # Prints "<BIOS Vendor>, <BIOS Version>, <BIOS Release Date>"
+  echo -e "${c[H2]}  BIOS:${c[0]}"
+  gawk 'BEGIN { RS="\nHandle" } /BIOS Information/' <<<"$dmidecode_input" |
+    gawk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+      /Vendor:/            { Vendor  = $2; gsub(/  */, " ", Vendor) }
+      /Version:/           { Version = $2; gsub(/  */, " ", Version) }
+      /Release Date:/      { RelDate = $2; gsub(/  */, " ", RelDate) }
+      /BIOS Revision:/     { BiosRev = $2; gsub(/  */, " ", BiosRev) }
+      /Firmware Revision:/ { FirmRev = $2; gsub(/  */, " ", FirmRev) }
+      END {
+        printf "    %sVend:%s%s\n", H3, H0, Vendor
+        printf "    %sVers:%s%s\n", H3, H0, Version
+        printf "    %sDate:%s%s\n", H3, H0, RelDate
+        printf "    %sBIOS Rev:%s%s\n", H3, H0, BiosRev
+        printf "    %sFW Rev:%s  %s\n", H3, H0, FirmRev
+      }
+    '
+  # Prints <SYSTEM Manufacturer>, <SYSTEM Product Name>, <SYSTEM Version>, <SYSTEM Serial Number>, <SYSTEM UUID>
+  echo -e "${c[H2]}  System:${c[0]}"
+  gawk 'BEGIN { RS="\nHandle" } /System Information/' <<<"$dmidecode_input" |
+    gawk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+      /Manufacturer:/ { Mfr     = $2; gsub(/  */, " ", Mfr) }
+      /Product Name:/ { Product = $2; gsub(/  */, " ", Product) }
+      /Version:/      { Version = $2; gsub(/  */, " ", Version) }
+      /Serial Number:/{ Serial  = $2 }
+      /UUID:/         { UUID    = $2 }
+      END {
+        printf "    %sMfr:%s %s\n", H3, H0, Mfr
+        printf "    %sProd:%s%s\n", H3, H0, Product
+        printf "    %sVers:%s%s\n", H3, H0, Version
+        printf "    %sSer:%s %s\n", H3, H0, Serial
+        printf "    %sUUID:%s%s\n", H3, H0, UUID
+      }
+    '
+  # Prints <CPU Manufacturer>, <CPU Family>, <CPU Current Speed>, <CPU Version>
+  # Prints "<N> of <N> CPU sockets populated, <N> cores/<N> threads per CPU"
+  # Prints "<N> total cores, <N> total threads"
+  echo -e "${c[H2]}  CPU:${c[0]}"
+  gawk 'BEGIN { RS="\nHandle" } /Processor Information/' <<<"$dmidecode_input" |
+    gawk -F: -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+      /Status:/       { SumSockets ++; if ($2 ~ /Populated/) PopulatedSockets ++ }
+      /Core Count:/   { SumCores   += $2; CoresPerCpu = $2 }
+      /Thread Count:/ { SumThreads += $2; ThreadsPerCpu = $2 }
+      /Manufacturer:/ { if ($2 ~ /^ *$/)         next; Mfr      = $2; gsub(/  */, " ", Mfr) }
+      /Family:/       { if ($2 ~ /^ *$|Other/)   next; Family   = $2; gsub(/  */, " ", Family) }
+      /Current Speed:/{ if ($2 ~ /^ *$|Unknown/) next; CpuFreq  = $2; gsub(/  */, " ", CpuFreq) }
+      /Version:/      { if ($2 ~ /^ *$/)         next; Version  = $2; gsub(/  */, " ", Version) }
+      END {
+        printf "    %s%d of %d CPU sockets populated, %d cores/%d threads per CPU\n",
+          H_IMP, PopulatedSockets, SumSockets, CoresPerCpu, ThreadsPerCpu
+        printf "    %d total cores, %d total threads\n", SumCores, SumThreads, H0
+        printf "    %sMfr:%s %s\n", H3, H0, Mfr
+        printf "    %sFam:%s %s\n", H3, H0, Family
+        printf "    %sFreq:%s%s\n", H3, H0, CpuFreq
+        printf "    %sVers:%s%s\n", H3, H0, Version
+      }
+    '
+  # Prints "<N> MB (<N> GB) total"
+  # Prints "<N> of <N> DIMMs populated (max capacity <N>)"
+  echo -e "${c[H2]}  Memory:${c[0]}"
+  gawk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode_input" |
+    gawk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+      /Size:/ { NumDimmSlots ++; if ($2 ~ /^[0-9]/) { NumDimms ++; SumRam+=$2 } }
+      /Maximum Capacity:/ { MaxRam = $3" "$4 }
+      END {
+        printf "    %d MB (%.0f GB) total\n", SumRam, SumRam/1024
+        printf "    %d of %d DIMMs populated (system max capacity %s)\n",
+          NumDimms, NumDimmSlots, MaxRam
+      }
+    '
+  echo -en $XSOS_HEADING_SEPARATOR
+}

@@ -1,0 +1,279 @@
+#!/bin/bash
+
+MEM() {
+  # Local vars:
+  local meminfo_input
+  
+  [[ -f $1 ]] && meminfo_input=$1 || meminfo_input=$1/proc/meminfo
+  
+  echo -e "${c[H1]}MEMORY${c[0]}"
+  if grep -qsw rescue "$1/proc/cmdline"; then
+    echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
+    echo -e "${c[Warn1]}  meminfo reflects rescue env; inspect sysctl.conf manually for HugePages${c[0]}"
+  fi
+  
+  gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_MEM_UNIT) -vcolor_MemUsed="${c[MemUsed]}" -vcolor_HugePages="${c[HugePages]}" -vcolor_Buffers="${c[Buffers]}" -vcolor_Cached="${c[Cached]}" -vcolor_Dirty="${c[Dirty]}" -vcolor_warn="${c[Warn1]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+    # These will come in handy
+    
+    function round(num, places) {
+      places = 10 ^ places
+      return int(num * places + .5) / places
+    }
+          
+    function memgraph_special(PercentA, PercentB, Color, PrettyName) {
+      PercentTotal = PercentA + PercentB
+      printf "    %s%s ", Color, PrettyName
+      for (i=0; i <    round(PercentA/2, 0); i++) printf "▊"
+      for (i=0; i <    round(PercentB/2, 0); i++) printf "."
+      printf H0
+      for (i=0; i < 50-round(PercentTotal/2, 0); i++) printf "."
+      if      (round(PercentTotal,1) > 99.9) j=" "
+      else if (round(PercentTotal,1) > 9)    j="  "
+      else                                   j="   "
+      printf "%s%s%.1f%%%s\n", j, Color, PercentTotal, H0
+    }
+    
+    function memgraph(Percent, Color, PrettyName) {
+      printf "    %s%s ", Color, PrettyName
+      for (i=0; i <    round(Percent/2, 0); i++) printf "▊"
+      printf H0
+      for (i=0; i < 50-round(Percent/2, 0); i++) printf "."
+      if      (round(Percent,1) > 99.9) j=" "
+      else if (round(Percent,1) > 9)    j="  "
+      else                          j="   "
+      printf "%s%s%.1f%%%s\n", j, Color, Percent, H0
+    }
+        
+    # Grab variables from meminfo
+    
+    /^MemTotal:/        { MemTotal  = $2 }
+    /^MemFree:/         { MemFree   = $2 }
+    /^Buffers:/         { Buffers   = $2 }
+    /^Cached:/          { Cached   += $2 }
+    /^SwapCached:/      { Cached   += $2 }
+    /^LowTotal:/        { LowTotal  = $2 }
+    /^LowFree:/         { LowFree   = $2 }
+    /^SwapTotal:/       { SwapTotal = $2 }
+    /^SwapFree:/        { SwapFree  = $2 }
+    /^Dirty:/           { Dirty     = $2 }
+    /^Shmem:/           { Shmem     = $2 }
+    /^Slab:/            { Slab      = $2 }
+    /^PageTables:/      { PageTables     = $2 }
+    /^Hugepagesize:/    { Hugepagesize   = $2 }
+    /^HugePages_Total:/ { HugepagesTotal = $2 }
+    /^HugePages_Free:/  { HugepagesFree  = $2 }
+    
+    END {
+      
+      # Compute additional variables
+      
+      MemUsed         = MemTotal - MemFree
+      Mem_Percent     = MemUsed * 100 / MemTotal
+      Buffers_Percent = Buffers * 100 / MemTotal
+      Cached_Percent  = Cached * 100 / MemTotal
+      MemUsedNoBC     = MemUsed - Buffers - Cached
+      MemNoBC_Percent = MemUsedNoBC * 100 / MemTotal
+      Dirty_Percent   = Dirty * 100 / MemTotal
+      Shmem_Percent   = Shmem * 100 / MemTotal
+      Slab_Percent    = Slab * 100 / MemTotal
+      PT_Percent      = PageTables * 100 / MemTotal
+      HP              = Hugepagesize * HugepagesTotal
+      HP_PercentRam   = HP * 100 / MemTotal
+      
+      # If have hugepages, calculate in-use
+      
+      if (HugepagesTotal > 0) {
+        HP_Used         = (HugepagesTotal - HugepagesFree) * Hugepagesize
+        HP_Used_Percent = (HugepagesTotal - HugepagesFree) * 100 / HugepagesTotal
+      }
+      
+      # Else, need to avoid divide-by-zero errors
+      
+      else {
+        HP_Used         = 0
+        HP_Used_Percent = 0
+      }
+      
+      # If meminfo has LowTotal (modern x86_64 boxes do not)...
+      
+      if (LowTotal ~ /[0-9]+/) {
+        SHOW_Lowmem=1
+        LowUsed         = LowTotal - LowFree
+        LowUsed_Percent = LowUsed * 100 / LowTotal
+      }
+      
+      # Else, avoid divide-by-zero and hide it
+      
+      else {
+        SHOW_Lowmem=0
+        LowTotal        = 0
+        LowUsed         = 0
+        LowUsed_Percent = 0
+      }
+      
+      # If have swap-space...
+      
+      if (SwapTotal > 0) {
+        SwapUsed      = SwapTotal - SwapFree
+        Swap_Percent  = SwapUsed * 100 / SwapTotal
+      }
+      
+      # Else, avoid divide-by-zero errors
+      
+      else {
+        SwapUsed      = 0
+        Swap_Percent  = 0
+      }
+      
+      # If meminfo has Shmem, we show it; otherwise not
+      
+      if (Shmem ~ /[0-9]+/)
+        SHOW_Shmem=1
+      else
+        SHOW_Shmem=0
+      
+      # If unit is set to B, convert native KiB to bytes
+      
+      if (u == "B") {
+        MemUsed     *= 1024
+        MemTotal    *= 1024
+        MemUsedNoBC *= 1024
+        Dirty       *= 1024
+        Shmem       *= 1024
+        Slab        *= 1024
+        PageTables  *= 1024
+        HP          *= 1024
+        if (HugepagesTotal > 0) HP_Used *= 1024
+        if (LowTotal > 0) { LowUsed *= 1024; LowTotal *= 1024 }
+        if (SwapTotal > 0) { SwapUsed *= 1024; SwapTotal *= 1024 }
+      }
+      
+      # Figure out what number to divide by to end up with MiB, GiB, or TiB
+      
+      if      (u == "M") divisor = 1024
+      else if (u == "G") divisor = 1024 ** 2
+      else if (u == "T") divisor = 1024 ** 3
+      
+      # If unit is set to M or G or T, do the division to convert from native KiB
+      
+      if (u == "M" || u == "G" || u == "T") {
+        MemUsed     /= divisor
+        MemTotal    /= divisor
+        MemUsedNoBC /= divisor
+        Dirty       /= divisor
+        Shmem       /= divisor
+        Slab        /= divisor
+        PageTables  /= divisor
+        HP          /= divisor
+        if (HugepagesTotal > 0) HP_Used /= divisor
+        if (LowTotal > 0)  { LowUsed  /= divisor; LowTotal  /= divisor }
+        if (SwapTotal > 0) { SwapUsed /= divisor; SwapTotal /= divisor }
+      }
+      
+      # The unit string used just for printing
+      
+      if (u == "B")
+        Unit = " "u
+      else
+        Unit = " "u"iB"
+      
+      
+      # ASCII-ART fun
+      
+      printf "  %sStats graphed as percent of MemTotal:%s\n", H2, H0
+      # The following line is disabled because it would kinda suck for people that run with NOCOLOR
+      # Or people that run with color and then copy the output to text -- uncomment it to see what I mean
+      #memgraph_special(MemNoBC_Percent, Buffers_Percent+Cached_Percent, color_MemUsed, "MemUsed   ")
+      memgraph(Mem_Percent,     color_MemUsed,   "MemUsed   ")
+      memgraph(Buffers_Percent, color_Buffers,   "Buffers   ")
+      memgraph(Cached_Percent,  color_Cached,    "Cached    ")
+      memgraph(HP_PercentRam,   color_HugePages, "HugePages ")
+      memgraph(Dirty_Percent,   color_Dirty,     "Dirty     ")
+
+      
+      # If unit is T, print percentages with no decimal & byteunits with 2-3 decimal-points of precision
+      
+      if (u == "T") {
+        Prec_Percent = 0
+        Prec_BytesLo = 2
+        Prec_BytesHi = 3
+      }
+      
+      # If unit is G, print percentages with no decimal & byteunits with 1-2 decimal-points of precision
+      
+      else if (u == "G") {
+        Prec_Percent = 0
+        Prec_BytesLo = 1
+        Prec_BytesHi = 2
+      }
+      
+      # If unit is B or K or M, print percentages with 1 decimal-point of precision & byteunits with no decimal
+      
+      else {
+        Prec_Percent = 1
+        Prec_BytesLo = 0
+        Prec_BytesHi = 0
+      }
+      
+      # Now time to round off the numbers
+      
+      Mem_Percent     = round(Mem_Percent,     Prec_Percent)
+      MemNoBC_Percent = round(MemNoBC_Percent, Prec_Percent)
+      Dirty_Percent   = round(Dirty_Percent,   Prec_Percent)
+      HP_PercentRam   = round(HP_PercentRam,   Prec_Percent)
+      HP_Used_Percent = round(HP_Used_Percent, Prec_Percent)
+      LowUsed_Percent = round(LowUsed_Percent, Prec_Percent)
+      Slab_Percent    = round(Slab_Percent,    Prec_Percent)
+      PT_Percent      = round(PT_Percent,      Prec_Percent)
+      Shmem_Percent   = round(Shmem_Percent,   Prec_Percent)
+      Swap_Percent    = round(Swap_Percent,    Prec_Percent)
+      
+      MemTotal    = round(MemTotal,    Prec_BytesLo)
+      MemUsed     = round(MemUsed,     Prec_BytesLo)
+      MemUsedNoBC = round(MemUsedNoBC, Prec_BytesLo)
+      Dirty       = round(Dirty,       Prec_BytesHi)
+      HP          = round(HP,          Prec_BytesLo)
+      HP_Used     = round(HP_Used,     Prec_BytesLo)
+      LowUsed     = round(LowUsed,     Prec_BytesLo)
+      LowTotal    = round(LowTotal,    Prec_BytesLo)
+      Slab        = round(Slab,        Prec_BytesHi)
+      PageTables  = round(PageTables,  Prec_BytesHi)
+      Shmem       = round(Shmem,       Prec_BytesHi)
+      SwapUsed    = round(SwapUsed,    Prec_BytesLo)
+      SwapTotal   = round(SwapTotal,   Prec_BytesLo)
+              
+      printf    "  %sRAM:%s\n", H2, H0
+      printf    "    %s%s%s total ram%s\n", H_IMP, MemTotal, Unit, H0
+      printf    "    %s%s (%s%%) used\n", MemUsed, Unit, Mem_Percent
+      printf    "    %s%s%s (%s%%) used excluding Buffers/Cached%s\n", H_IMP, MemUsedNoBC, Unit, MemNoBC_Percent, H0
+      if (Dirty_Percent > 10)
+        printf  "    %s%s%s (%s%%) dirty%s\n", color_warn, Dirty, Unit, Dirty_Percent, H0
+      else
+        printf  "    %s%s (%s%%) dirty\n", Dirty, Unit, Dirty_Percent
+      
+      printf    "  %sHugePages:%s\n", H2, H0
+      if (HugepagesTotal == 0)
+        printf  "    No ram pre-allocated to HugePages\n"
+      else {
+        printf  "    %s%s%s pre-allocated to HugePages (%s%% of total ram)%s\n", H_IMP, HP, Unit, HP_PercentRam, H0
+        printf  "    %s%s of HugePages (%s%%) in-use by applications\n", HP_Used, Unit, HP_Used_Percent
+      }
+      
+      printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
+      if (SHOW_Lowmem == 1)
+        printf  "    %s%s (%s%%) of %s%s LowMem in-use\n", LowUsed, Unit, LowUsed_Percent, LowTotal, Unit
+      printf    "    %s%s (%s%%) of total ram used for Slab\n", Slab, Unit, Slab_Percent
+      printf    "    %s%s (%s%%) of total ram used for PageTables\n", PageTables, Unit, PT_Percent
+      if (SHOW_Shmem == 1)
+        printf  "    %s%s (%s%%) of total ram used for Shmem\n", Shmem, Unit, Shmem_Percent
+      
+      printf    "  %sSwap:%s\n", H2, H0
+      if (SwapTotal == 0)
+        printf  "    %sNo system swap space configured%s\n", color_warn, H0
+      else
+        printf  "    %s%s (%s%%) used of %s%s total\n", SwapUsed, Unit, Swap_Percent, SwapTotal, Unit
+     
+    }
+  ' <"$meminfo_input"
+  echo -en $XSOS_HEADING_SEPARATOR
+}

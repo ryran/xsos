@@ -1,0 +1,42 @@
+#!/bin/bash
+
+SOFTIRQ() {
+  # Local vars:
+  local softirq_input_file suffix= backlog= budget=
+  
+  if [[ -f $1 ]]; then
+    softirq_input_file=$1
+  else
+    softirq_input_file=$1/proc/net/softnet_stat
+    if [[ ! -r $softirq_input_file ]]; then
+      echo -e "${c[Warn2]}Warning:${c[Warn1]} '/proc/net/softnet_stat' unreadable; skipping softirq check${c[0]}" >&2
+      echo -en $XSOS_HEADING_SEPARATOR >&2
+      return
+    fi
+    backlog=$(cat "$1"/proc/sys/net/core/netdev_max_backlog 2>/dev/null) \
+      && backlog=" (Current value: net.core.netdev_max_backlog = $backlog)" \
+      || backlog=" (However, proc/sys/net/core/netdev_max_backlog is missing)"
+    budget=$(cat "$1"/proc/sys/net/core/netdev_budget 2>/dev/null) \
+      && budget=" (Current value: net.core.netdev_budget = $budget)" \
+      || budget=" (However, proc/sys/net/core/netdev_budget is missing)"
+  fi
+  
+  echo -e "${c[H1]}SOFTIRQ${c[0]}"
+  
+  gawk '{if (strtonum("0x" $2) > 0) exit 177}' "$softirq_input_file"
+  
+  if [[ $? -eq 177 ]]; then
+    echo -e "${XSOS_INDENT_H1}${c[Warn1]}Backlog max has been reached, needs to be increased!${c[0]}$backlog"
+  else
+    echo -e "${XSOS_INDENT_H1}Backlog max is sufficient${c[0]}$backlog"
+  fi
+  
+  
+  gawk '{if (strtonum("0x" $3) > 0) exit 177}' "$softirq_input_file"
+  if [[ $? -eq 177 ]]; then
+    echo -e "${XSOS_INDENT_H1}${c[Warn1]}Budget is not sufficient, needs to be increased!${c[0]}$budget"
+  else
+    echo -e "${XSOS_INDENT_H1}Budget is sufficient${c[0]}$budget"
+  fi
+  echo -en $XSOS_HEADING_SEPARATOR
+}

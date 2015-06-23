@@ -1,0 +1,196 @@
+#!/bin/bash
+
+IP() {
+# I spent a long time wondering how I would end up implementing ip-addr functionality
+# I couldn't think of a lovely elegant gawk-way and in the end I wrote this in 2 hours
+# (And later added brctl, ipv6, scrubbing, MTU)
+# This is probably one of the most expensive of the functions and the one most ripe for
+# being rewritten in Python
+
+  # Require BASH v4
+  if [[ -z ${BASH_VERSINFO} || ${BASH_VERSINFO} -lt 4 ]]; then
+    echo "The -i/--ip option requires use of BASH associative arrays" >&2
+    echo "i.e., BASH v4.0 or higher (RHEL6/Fedora11 and above)" >&2
+    echo -en ${XSOS_HEADING_SEPARATOR} >&2
+    return
+  fi
+  
+  # Local vars:
+  local ip_a_input brctl_show_input ipdevs bridge interface i n ipaddr scope alias
+  
+  # Declare our 7 associative arrays:
+  local -A lookup_bridge iface_input slaveof state ipv4 ipv4_alias mtu mac
+  
+  # If localhost, use ip addr
+  if [[ -z $1 ]]; then
+    ip_a_input=$(ip a)
+    brctl_show_input=$(brctl show)
+  # If passed a file (i.e. xsos --I <file>), use that
+  elif [[ -f $1 ]]; then
+    ip_a_input=$(<"${1}")
+  # Otherwise, use file from $sosroot
+  else
+    ip_a_input=$(<"${1}/sos_commands/networking/ip_address")
+    brctl_show_input=$(cat "${1}/sos_commands/networking/brctl_show" 2>/dev/null)
+  fi
+  
+  # Prepare ip addr input for gawk by separating each interface block
+  ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"${ip_a_input}")
+  
+  # Grab a list of the interface names
+  ipdevs=$(gawk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"${ip_a_input}" | egrep -v 'sit0')
+  
+  # Prepare brctl input for gawk by separating each bridge block & filling in empty columns
+  brctl_show_input=$(sed -e 1d -e 's,^[[:graph:]],\n&,' <<<"${brctl_show_input}" | sed -r 's,^[[:space:]]+[[:graph:]]+,1 2 3&,')
+  
+  # Populate a dict where each slave interface is key & value is the controlling bridge
+  for bridge in $(gawk 'BEGIN {RS="\n\n"} {print $1}' <<<"${brctl_show_input}"); do
+    for interface in $(gawk 'BEGIN {RS="\n\n"} $1=="'${bridge}'"' <<<"${brctl_show_input}" | gawk  '{print $4}'); do
+      lookup_bridge[$interface]=${bridge}
+    done
+  done
+    
+  # Begin ...
+  echo -e "${c[H1]}IP${c[0]}"
+  
+  # The bracket here is like using parens to make a subshell -- allows to capture all stdout
+  {
+    # Header info ("❚" is used later by `column` to columnize the output)
+    if [[ $XSOS_IP_VERSION -eq 6 ]]; then
+      echo "  Interface❚Master IF❚MAC Address❚MTU❚State❚IPv6 Address❚Scope"
+      echo "  =========❚=========❚=================❚======❚=====❚===========================================❚====="
+    else
+      echo "  Interface❚Master IF❚MAC Address❚MTU❚State❚IPv4 Address"
+      echo "  =========❚=========❚=================❚======❚=====❚=================="
+    fi
+    
+    # For each interface ($i) found in ip addr output
+    for i in ${ipdevs}; do
+      
+      # Pull out input for specific interface and save to interface key in array
+      iface_input[$i]=$(gawk "BEGIN {RS=\"\n\n\"} /^[0-9]+: ${i}:/" <<<"${ip_a_input}")
+
+      # Figure out if $i is a slave of some bond / bridge device
+      slaveof[$i]=$(
+        if grep -q SLAVE <<<"${iface_input[$i]}"; then
+          egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | gawk '{print $2}'
+        elif [[ -n $brctl_show_input && -n ${lookup_bridge[$i]} ]]; then
+          echo ${lookup_bridge[$i]}
+        else
+          echo "-"
+        fi
+      )
+      
+      # Get MTU for $i
+      mtu[$i]=$(egrep -o 'mtu [0-9]+' <<<"${iface_input[$i]}" | gawk '{print $2}')
+      
+      # Get up/down state for $i
+      state[$i]=$(grep -q "${i}: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
+      
+      # Get macaddr for $i (don't show if all zeros)
+      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" &&
+                gawk -v scrub="${XSOS_SCRUB_MACADDR}" '
+                    /link\/[[:graph:]]+ ..:..:..:..:..:../ {
+                        if ($2 == "00:00:00:00:00:00") print "-"
+                        else if (scrub == "y") print "⣿⣿:⣿⣿:⣿⣿:⣿⣿:⣿⣿:⣿⣿"
+                        else print $2
+                    }
+                ' <<<"${iface_input[$i]}" || echo "-")
+      
+      if [[ ${XSOS_IP_VERSION} -eq 6 ]]; then
+        
+        # If $i has an ipv6 address, time to figure out what it is
+        if grep -q "inet6" <<<"${iface_input[$i]}"; then
+          
+          # We could have more than one ipv6addr...
+          # So we need to set up a counter and do a loop
+          n=0; while read ipaddr scope; do
+            if [[ $n -eq 0 ]]; then
+              echo "  ${i}❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚${ipaddr}❚${scope}"
+            else
+              echo "   ❚ ❚ ❚ ❚ ❚${ipaddr}❚${scope}"
+            fi
+            ((n++))
+          done < <(gawk -v scrub="${XSOS_SCRUB_IP_HN}" '
+                       /inet6/ {
+                           if (scrub == "y") print "⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿:⣿⣿⣿⣿/⣿⣿⣿ " $4
+                           else print $2,$4
+                       }
+                   ' <<<"${iface_input[$i]}")
+        
+        # Otherwise, print out all info with ipaddr set to "-"
+        else
+          echo "  ${i}❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚-❚-"
+        fi
+        
+      else
+      
+        # If $i has an ipv4 address, time to figure out what it is
+        if grep -q "inet .* ${i%@*}\$" <<<"${iface_input[$i]}"; then
+          
+          # We could have more than one non-alias ip4addr...
+          # So we need to set up a counter and do a loop
+          n=0; while read ipaddr; do
+            if [[ ${n} -eq 0 ]]; then
+              echo "  ${i}❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚${ipaddr}"
+            else
+              echo "   ❚ ❚ ❚ ❚ ❚${ipaddr}"
+            fi
+            ((n++))
+          done < <(gawk -v scrub="${XSOS_SCRUB_IP_HN}" "
+                        /inet .* ${i%@*}\$/ {
+                            if (scrub == \"y\") print \"⣿⣿⣿.⣿⣿⣿.⣿⣿⣿.⣿⣿⣿/⣿⣿\"
+                            else print \$2
+                        }
+                   " <<<"${iface_input[$i]}")
+        
+        # Otherwise, print out all info with ipaddr set to "-"
+        else
+          echo "  ${i}❚${slaveof[$i]}❚${mac[$i]}❚${mtu[$i]}❚${state[$i]}❚-"
+          # ... And Continue on to the next interface, i.e., skip looking for aliases
+          continue
+        fi
+
+        # If $i had an ipv4 addr, it's ALIAS time!
+        if grep -q "inet .* ${i}:" <<<"${iface_input[$i]}"; then
+        
+          # For each "alias" (additional address) found ...
+          for alias in $(gawk "/inet .* ${i}:/ {print \$NF}" <<<"${iface_input[$i]}" | sort -u); do
+            ipv4_alias[$alias]=$(gawk -v scrub="${XSOS_SCRUB_IP_HN}" "
+                                    /inet .* ${alias}\$/ {
+                                        if (scrub == \"y\") print \"⣿⣿⣿.⣿⣿⣿.⣿⣿⣿.⣿⣿⣿/⣿⣿\"
+                                        else print \$2
+                                    }
+                                 " <<<"${iface_input[$i]}" | sed -e '1!s/.*/   ❚ ❚ ❚ ❚ ❚&/')
+            # The sed nonsense at the end of the above line allows for multiple new-style global addresses on top of an old-style alias (https://github.com/ryran/xsos/issues/103)
+            # Thankfully we don't need to do a while loop like above because in the case of aliases we don't need to display mtu, state, mac
+
+            # ... Print out a new line with its ipv4 addr
+            # No extra columns at the end needed because they're added by sed in above line
+            echo "  ${alias}❚ ❚ ❚ ❚ ❚${ipv4_alias[$alias]}"
+          done
+        fi
+      
+      fi
+      
+    done
+  } |
+  
+    # All output from above needs to be columnized
+    column -ts❚ |
+    
+      # And then we need to do some color funness!
+      # This colorizes the first 2 lines with the H2 color and the interfaces with H3
+      # Plus DOWN interfaces with Down color and up interfaces with Up color
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" -vU="${c[Up]}" -vD="${c[Down]}" '
+        {
+          if (NR <= 2) printf H2 $0
+          else {
+            if ($5 == "DOWN") printf D $0
+            else if ($0 ~ /^  [[:graph:]]/) printf gensub(/(^  [[:graph:]]+ )/,  H3"\\1"U, 1)
+            else printf U $0
+          }
+          print H0
+        }'
+  echo -en ${XSOS_HEADING_SEPARATOR}
+}

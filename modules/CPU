@@ -1,0 +1,77 @@
+#!/bin/bash
+
+CPU() {
+  # Local vars:
+  local cpuinfo_input model_cpu vendor family num_cpu num_cpu_phys num_threads_per_cpu cpu_cores core_id num_cores_per_cpu cores1 cores2 coresNthreads cpu_flags
+  
+  [[ -f $1 ]] && cpuinfo_input=$1 || cpuinfo_input=$1/proc/cpuinfo
+  
+  # Get model of cpu
+  model_cpu=$(gawk -F: '/^model name/{print $2; exit}' <"$cpuinfo_input")
+  
+  # If no model detected (e.g. on Itanium), try to use vendor+family
+  [[ -z $model_cpu ]] && {
+    vendor=$(gawk -F: '/^vendor /{print $2; exit}' <"$cpuinfo_input")
+    family=$(gawk -F: '/^family /{print $2; exit}' <"$cpuinfo_input")
+    model_cpu="$vendor$family"
+  }
+  
+  # Clean up cpu model string
+  model_cpu=$(sed -e 's,(R),,g' -e 's,(TM),,g' -e 's,  *, ,g' -e 's,^ ,,' <<<"$model_cpu")
+  
+  # Get number of logical processors
+  num_cpu=$(gawk '/^processor/{n++} END{print n}' <"$cpuinfo_input")
+  
+  # Get number of physical processors
+  num_cpu_phys=$(grep '^physical id' <"$cpuinfo_input" | sort -u | wc -l)
+  
+  # If "physical id" not found, we cannot make any assumptions (Virtualization--)
+  # But still, multiplying by 0 in some crazy corner case is bad, so set it to 1
+  # If num of physical *was* detected, add it to the beginning of the model string
+  [[ $num_cpu_phys == 0 ]] && num_cpu_phys=1 || model_cpu="$num_cpu_phys $model_cpu"
+  
+  # If number of logical != number of physical, try to get info on cores & threads
+  if [[ $num_cpu != $num_cpu_phys ]]; then
+    
+    # Detect number of threads (logical) per cpu
+    num_threads_per_cpu=$(gawk '/^siblings/{print $3; exit}' <"$cpuinfo_input")
+    
+    # Two possibile ways to detect number of cores
+    cpu_cores=$(gawk '/^cpu cores/{print $4; exit}' <"$cpuinfo_input")
+    core_id=$(grep '^core id' <"$cpuinfo_input" | sort -u | wc -l)
+    
+    # The first is the most accurate, if it works
+    if [[ -n $cpu_cores ]]; then
+      num_cores_per_cpu=$cpu_cores
+    
+    # If "cpu cores" doesn't work, "core id" method might (e.g. Itanium)
+    elif [[ $core_id -gt 0 ]]; then
+      num_cores_per_cpu=$core_id
+    fi
+    
+    # If found info on cores, setup core variables for printing
+    if [[ -n $num_cores_per_cpu ]]; then
+      cores1="($((num_cpu_phys*num_cores_per_cpu)) CPU cores)"
+      cores2=" / $num_cores_per_cpu cores"
+    # If didn't find info on cores, assume single-core cpu(s)
+    else
+      cores2=" / 1 core"
+    fi
+    
+    # If found siblings (threads), setup the variable for the final line
+    [[ -n $num_threads_per_cpu ]] &&
+      coresNthreads="\n  └─$num_threads_per_cpu threads${cores2} each"
+  fi
+  
+  # Check important cpu flags
+  # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
+  # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
+  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc|rdrand" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
+  [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
+  
+  # Print it all out
+  echo -e "${c[H1]}CPU${c[0]}"
+  echo -e "  ${c[Imp]}${num_cpu} logical processors${c[0]} ${cores1}"
+  echo -e "  ${model_cpu} ${cpu_flags} ${coresNthreads}"
+  echo -en $XSOS_HEADING_SEPARATOR
+}

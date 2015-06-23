@@ -1,0 +1,51 @@
+#!/bin/bash
+
+CHECK_GRUB() {
+  # Local vars:
+  local grubcfg default
+  
+  # Other vars that we want to be global, so no local here and no local in modules that call them:
+  ## bad_grubcfg default_missing grub_kernel grub_cmdline
+  
+  # Find the grub config file
+  if [[ -f $1/boot/grub/grub.conf ]]; then
+    # Set grubcfg for grub1
+    grubcfg=$1/boot/grub/grub.conf
+  elif [[ -f $1/boot/grub2/grub.cfg ]]; then
+    # Set grubcfg for rhel grub2
+    grubcfg=$1/boot/grub2/grub.cfg
+  elif [[ -f $1/boot/grub/grub.cfg ]]; then
+    # Set grubcfg for debian grub2
+    grubcfg=$1/boot/grub/grub.cfg
+  else
+    # Else, we have nothing
+    bad_grubcfg="${c[Warn1]}unknown  (no grub config file)${c[0]}"
+    return 1
+  fi
+  
+  # Check for read permission
+  if [[ ! -r $grubcfg ]]; then
+    # Set a message for later and stop here
+    bad_grubcfg="${c[Warn1]}unknown (no read permission on ${grubcfg##*/})${c[0]}"
+    return 1
+  fi
+  
+  case "${grubcfg##*/}" in
+    grub.conf)
+      # If we have grub.conf, use that
+      default=$(gawk -F= '/^default=/{print$2}' "$grubcfg" 2>/dev/null)
+      [[ -z $default ]] && {
+        default=0; default_missing="${c[Warn1]}(Warning: grub.conf lacks \"default=\"; showing title 0)${c[0]}"
+      }
+      # Get the full kernel line for the default title statement
+      grub_cmdline=$(gawk /^title/,G "$grubcfg" | egrep -v '^#|^ *#' | sed '1!s/^title.*/\n&/' | gawk -vDEFAULT=$((default+1)) -vRS="\n\n" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
+      ;;
+    grub.cfg)
+      # Otherwise, if we have a grub2 config (grub.cfg), use that
+      default=$(gawk -F\" '/^set default=/{print$2}' "$grubcfg")
+      grub_cmdline=$(gawk '/^menuentry.*{/,/^}/' "$grubcfg" | gawk -vRS="\n}\n" -vDEFAULT="$((default+1))" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
+  esac
+  
+  grub_kernel=$(gawk {print\$1} <<<"${grub_cmdline#/vmlinuz-}" 2>/dev/null)
+  grub_cmdline=$(cut -d' ' -f2- <<<"$grub_cmdline")
+}

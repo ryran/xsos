@@ -1,0 +1,60 @@
+#!/bin/bash
+
+LSPCI() {
+  # Local vars:
+  local lspci_input
+  
+  if [[ -z $1 ]]; then
+    lspci_input=$(lspci)
+  elif [[ -f $1 ]]; then
+    lspci_input=$(gawk '{print} /^lspci -n/{exit}' "$1" 2>/dev/null)
+  else
+    lspci_input=$(gawk '{print} /^lspci -n/{exit}' "$1/lspci" 2>/dev/null)
+  fi
+  
+  _parse_periphs() {
+    local regex=${1}
+    gawk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" "
+      /${regex}/"'{
+        # Save
+        split($1, slot, ":")
+        $1 = ""
+        sub(" ", "")
+        split($0, type, ":")
+        dev[type[2]] ++
+        if (!(slot[1] SUBSEP type[2] in slots)) {
+          slots[slot[1], type[2]]
+          slotcount[type[2]] ++
+        }
+      }
+      END {
+        for (devtype in dev) {
+          slotc = slotcount[devtype]
+          typec = dev[devtype]
+          ports = ""
+          if (typec > 1) {
+            numports = typec/slotc
+            if      (numports == 1) numports = "single"
+            else if (numports == 2) numports = "dual"
+            else if (numports == 3) numports = "triple"
+            else if (numports == 4) numports = "quad"
+            ports = " "slotc " " numports "-port"
+          }
+          printf "   %s%s (%s)%s%s\n", H_IMP, ports, typec, H0, devtype
+        }
+      }
+    ' <<<"$lspci_input"
+  }
+  
+  echo -e "${c[H1]}LSPCI${c[0]}"
+  
+  echo -e "${c[H2]}  Net:${c[0]}"
+  _parse_periphs "${XSOS_LSPCI_NET_REGEX}"
+  
+  echo -e "${c[H2]}  Storage:${c[0]}"
+  _parse_periphs "${XSOS_LSPCI_STORAGE_REGEX}"
+  
+  echo -e "${c[H2]}  VGA:${c[0]}"
+  gawk '/VGA compatible controller:/ {$1=$2=$3=$4=""; print}' <<<"$lspci_input"
+  echo -en $XSOS_HEADING_SEPARATOR
+}
