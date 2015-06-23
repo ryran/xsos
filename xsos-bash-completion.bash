@@ -1,7 +1,7 @@
 # This file is part of xsos, providing intelligent xsos tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2015/06/22 matching up with xsos v0.5.22
+# Revision date:  2015/06/23 matching up with xsos v0.6.x
 # Latest version: <http://github.com/ryran/xsos>
 #
 # Copyright 2013, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -31,12 +31,12 @@ _xsos()  {
   prev=${COMP_WORDS[COMP_CWORD-1]}
   
   # Short and long options
-  shrtopts="-h -V -U
+  shrtopts="-h -V
             -a -b -o -k -c -f -m -d -t -l -e -r -n -g -i -s -p
             -6 -q -u -v -w
             -x -y -z"
             
-  longopts="--help --version --update
+  longopts="--help --version
             --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps
             --B --C --F --M --D --T --L --R --N --G --I --P
             --scrub-ip --scrub-mac --ipv6 --wwid --unit --threads --verbose --width
@@ -46,7 +46,7 @@ _xsos()  {
   case "$prev" in
   
       # Disable autocompletion for solo options that can only be run alone
-      -h|--help|-V|--version|-U|--update)
+      -h|--help|-V|--version)
           return 0
           ;;
           
