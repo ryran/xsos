@@ -4,6 +4,10 @@ In descending chronological order with most recent commits on top. See **[commit
 
 - - -
 
+**NOTE THAT I HAVEN'T TAKEN THE TIME TO KEEP THIS UP TO DATE IN THE LAST 6 MONTHS .... SEE COMMIT HISTORY OR RPM CHANGELOG**
+
+- - -
+
 **2015/01/01 xsos v0.5.5: #90, #108 (new module --softirq/-r), #110**
 
 - Implemented Jamie's [issue 108 - RFE: Alert on network SoftIRQ backlog or budget drops](https://github.com/ryran/xsos/issues/108)
@@ -73,7 +77,7 @@ In descending chronological order with most recent commits on top. See **[commit
 
 **2014/05/02 xsos v0.3.9: quick fix for issue94**
 
-- Fixed [issue 94 - xsos --bonding shows multiple MAC addrs on slave interface](https://github.com/ryran/xsos/issues/94) 
+- Fixed [issue 94 - xsos --bonding shows multiple MAC addrs on slave interface](https://github.com/ryran/xsos/issues/94)
 
 
 **2014/01/10 xsos v0.3.8: speed improvement for --lspci**
@@ -256,7 +260,7 @@ In descending chronological order with most recent commits on top. See **[commit
 **2013/02/08 xsos v0.1.7: added nmi sysctls & fixed multipath LUNzz bug**
 
 - Closed [issue 54 - RFE: add nmi sysctls](https://github.com/ryran/xsos/issues/54)
-- Closed [issue 57 - multipath component luns are not always hidden](https://github.com/ryran/xsos/issues/57) 
+- Closed [issue 57 - multipath component luns are not always hidden](https://github.com/ryran/xsos/issues/57)
 - Don't be surprised by a new `--rhsupport` option on the help page... it's not active yet. Still working on that but wanted to get the fixes for the above 2 issues out there.
 
 **2013/02/04 rsar v0.1.0rc5: added --hn option for trapier. good call.**
@@ -320,7 +324,7 @@ In descending chronological order with most recent commits on top. See **[commit
 
 **2013/01/13 rsar v0.0.5: added -S & -H; added bash autocompletion file**
 
-- Closed [issue 45 - rsar RFE: add -S and -H for swap and hugepages](https://github.com/ryran/xsos/issues/45). 
+- Closed [issue 45 - rsar RFE: add -S and -H for swap and hugepages](https://github.com/ryran/xsos/issues/45).
 - Also added an `rsar` bash autocompletion file like with xsos below.
 
 

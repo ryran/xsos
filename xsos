@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.6.0dev last mod 2015/06/23
+# xsos v0.6.0 last mod 2015/06/23
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -14,8 +14,6 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 #    General Public License <gnu.org/licenses/gpl.html> for more details.
 #-------------------------------------------------------------------------------
-
-# So much still to do ... Suggestions always welcome though.
 
 # To make it easy to rename the script filename
 pzero=xsos
@@ -40,171 +38,153 @@ fi
 # ==============================================================================
 # ENVIRONMENT VARIABLES -- Modify these by setting them in your shell
 # environment, e.g. ~/.bash_profile or /etc/profile.d/xsos.sh
-#
+
 # COLORS
-#
+# The following configure defaults for various colors to enhance output
+
 #   XSOS_COLORS (bool: y/n)
 #     Controls whether color is enabled or disabled by default
 #     Can also be controlled by cmdline arg
       : ${XSOS_COLORS:="y"}
-#
+
 #   XSOS_COLOR_RESET -- color to reset terminal to after using other colors
       : ${XSOS_COLOR_RESET:="reset"}
-#
+
 #   XSOS_COLOR_H1 -- color for content modules' primary header
       : ${XSOS_COLOR_H1:="RED"}
-#
+
 #   XSOS_COLOR_H2 -- color for content modules' secondary header
       : ${XSOS_COLOR_H2:="PURPLE"}
-#
+
 #   XSOS_COLOR_H3 -- color for content modules' tertiary header
       : ${XSOS_COLOR_H3:="BLUE"}
-#
+
 #   XSOS_COLOR_H4 -- color used only for SYSCTL() module
       : ${XSOS_COLOR_H4:="reset"}
-#
+
 #   XSOS_COLOR_IMPORTANT -- color for drawing attention to important data
       : ${XSOS_COLOR_IMPORTANT:="BOLD"}
-#
+
 #   XSOS_COLOR_WARN1 -- color for level-1 warnings
       : ${XSOS_COLOR_WARN1:="orange"}
-#
+
 #   XSOS_COLOR_WARN2 -- color for level-2 warnings
       : ${XSOS_COLOR_WARN2:="ORANGE"}
-#
+
 #   XSOS_COLOR_MEMGRAPH_MEMUSED -- color for MemUsed in MEMINFO() graph
       : ${XSOS_COLOR_MEMGRAPH_MEMUSED:="green"}
-#
+
 #   XSOS_COLOR_MEMGRAPH_HUGEPAGES -- color for HugePages in MEMINFO() graph
       : ${XSOS_COLOR_MEMGRAPH_HUGEPAGES:="cyan"}
-#
+
 #   XSOS_COLOR_MEMGRAPH_BUFFERS -- color for Buffers in MEMINFO() graph
       : ${XSOS_COLOR_MEMGRAPH_BUFFERS:="purple"}
-#
+
 #   XSOS_COLOR_MEMGRAPH_CACHED -- color for Cached in MEMINFO() graph
       : ${XSOS_COLOR_MEMGRAPH_CACHED:="blue"}
-#
+
 #   XSOS_COLOR_MEMGRAPH_DIRTY -- color for Dirty in MEMINFO() graph
       : ${XSOS_COLOR_MEMGRAPH_DIRTY:="red"}
-#
+
 #   XSOS_COLOR_IFUP -- color for ethtool InterFace "up"
       : ${XSOS_COLOR_IFUP:="green"}
-#
+
 #   XSOS_COLOR_IFDOWN -- color for ethtool InterFace "down"
       : ${XSOS_COLOR_IFDOWN:="lgrey"}
-#
-#
+
 # INDENTATION
 #   The following variables are not used universally and that might not change
-#
+
 #   XSOS_INDENT_H1 -- 1st level of indentation
       : ${XSOS_INDENT_H1:="  "}
-#
+
 #   XSOS_INDENT_H2 -- 2nd level of indentation
       : ${XSOS_INDENT_H2:="    "}
-#
+
 #   XSOS_INDENT_H3 -- 3rd level of indentation
       : ${XSOS_INDENT_H3:="      "}
-#
-#
+
 # XSOS_FOLD_WIDTH (w, 0, or positive number)
 #   Some content modules print line of unpredictable length
 #   This setting controls the wrapping width for commands that use it
 #   Changing to w causes width of terminal to be used
 #   Changing to 0 causes 99999 to be used
     : ${XSOS_FOLD_WIDTH:="w"}
-#
-#
+
 # XSOS_HEADING_SEPARATOR (str)
 #   Acts as a separator between content modules
 #   Should include at least 1 trailing new-line
     : ${XSOS_HEADING_SEPARATOR:="\n"}
-#
-#
+
 # XSOS_ALL_VIEW (str of variables, space-separated)
 #   Controls what content modules to run when -a/--all switch is used
     : ${XSOS_ALL_VIEW:="bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq bonding ip netdev sysctl ps"}
-#
-#
+
 # XSOS_DEFAULT_VIEW (str of variables, space-separated)
 #   Controls default content modules, i.e. what to run when none are specififed
     : ${XSOS_DEFAULT_VIEW:="os"}
-#
-#
+
 # XSOS_PS_THREADS (bool: y/n)
 #   Controls whether PSCHECK() function parses `ps aux` or `ps auxm` output
     : ${XSOS_PS_THREADS:="n"}
-#
-#
+
 # XSOS_PS_LEVEL (int: 0-4)
 #   Controls verbosity level (4 being highest) in PSCHECK() function
     : ${XSOS_PS_LEVEL:="1"}
-#
-#
+
 # XSOS_MULTIPATH_QUERY (string: arbitrary regex)
 #   Only a tenuous case can be made for statically setting this
 #   It's used by the MULTIPATH() function to restrict display to a particular mpath device
 #   Traditionally controled by -q/--wwid option
     : ${XSOS_MULTIPATH_QUERY:=""}
-#
-#
+
 # XSOS_MEM_UNIT (str: b, k, m, g, t)
 #   Sets unit used by MEMINFO() function for printing
 #   Can also be controlled by cmdline opt -u/--unit
     : ${XSOS_MEM_UNIT:="g"}
-#
-#
+
 # XSOS_NET_UNIT (str: b, k, m, g, t)
 #   Sets unit used by NETDEV() function for printing Rx & Tx Bytes
 #   Can also be controlled by cmdline opt -u/--unit
     : ${XSOS_NET_UNIT:="m"}
-#
-#
+
 # XSOS_PS_UNIT (str: k, m, g)
 #   Sets unit used by PSCHECK() function for printing VSZ & RSS
 #   Not affected by cmdline opt -u/--unit option
     : ${XSOS_PS_UNIT:="m"}
-#
-#
+
 # XSOS_OUTPUT_HANDLER (str: application name)
 #   Sets name of application to handle output
     : ${XSOS_OUTPUT_HANDLER:="cat"}
-#
-#
+
 # XSOS_OS_RHT_CENTRIC (bool: y/n)
 #   Configures whether OSINFO() focuses on Red Hat support issues
     : ${XSOS_OS_RHT_CENTRIC:="n"}
-#
-#
+
 # XSOS_IP_VERSION (int: 4/6)
 #   Configures whether IPADDR() shows ipv4 or ipv6 addresses
     : ${XSOS_IP_VERSION:="4"}
-#
-#
+
 # XSOS_SCRUB_IP_HN (bool: y/n)
 #   Configures whether IP addrs & hostnames should be removed from output
     : ${XSOS_SCRUB_IP_HN:="n"}
-#
-#
+
 # XSOS_SCRUB_MACADDR (bool: y/n)
 #   Configures whether HW MAC addresses should be removed from output
     : ${XSOS_SCRUB_MACADDR:="n"}
-#
-#
+
 # XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
     : ${XSOS_ETHTOOL_ERR_REGEX:="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause).*: [^0]"}
-#
-#
+
 # XSOS_LSPCI_NET_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Net" heading
     : ${XSOS_LSPCI_NET_REGEX:="(Ethernet controller|Network controller|InfiniBand):"}
-#
-#
+
 # XSOS_LSPCI_STORAGE_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Storage" heading
     : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller):"}
-#
+
 # ==============================================================================
 
 
@@ -2982,7 +2962,6 @@ PSCHECK() {
         }
       ' <<<"$ps_input_thrds_raw"
     )
-    echo -e "${top_threads}" >/tmp/thread.debug
     top_threads=$(_convert_and_columize "$top_threads")
     top_threads_ps_header=$(head -n1 <<<"$top_threads")
     top_threads="${c[H3]}$top_threads_ps_header${c[0]}\n$(tail -n+2 <<<"$top_threads" | $(__conditional_head $num_process_lines))"
@@ -3167,7 +3146,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $intrupt ]] && INTERRUPT /
     [[ -n $mem ]]     && MEMINFO /
     [[ -n $disks ]]   && STORAGE /
-    [[ -n $mpath ]]   && COND_RUN MULTIPATH --require_root
+    [[ -n $mpath ]]   && COND_RUN multipath --require_root
     [[ -n $lspci ]]   && COND_RUN lspci
     [[ -n $ethtool ]] && COND_RUN ethtool --require_root
     [[ -n $softirq ]] && SOFTIRQ /
