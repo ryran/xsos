@@ -53,7 +53,7 @@ INSTALLATION
 Two choices:
 
 1. **Manual install:**
-   Get the very latest (potentially bleeding-edge) version directly by downloading the main xsos file from [bit.ly/xsos-direct](http://bit.ly/xsos-direct) (which points to [raw.github.com/ryran/xsos/master/xsos](https://raw.github.com/ryran/xsos/master/xsos)). Updating will need to be done manually (either by re-downloading or by running `xsos --update`).
+   Get the very latest (potentially bleeding-edge) version directly by downloading the main xsos file from [bit.ly/xsos-direct](http://bit.ly/xsos-direct) (which points to [raw.github.com/ryran/xsos/master/xsos](https://raw.github.com/ryran/xsos/master/xsos)). Updating will need to be done manually by re-downloading.
    Explicitly, you could run the following as root:
    
     ```
@@ -507,8 +507,6 @@ THINGS THAT MIGHT SURPRISE YOU
 * xsos does some pretty intensive color-formatting to make the output more easily-readable (can be disabled with `-x` or `--nocolor` and colors can be modified via environment variables).
   * If you like the color but need to use a pager, use the `--less` (`-y`) or `--more` (`-z`) options to auto-pipe output to `less -SR` or `more`.
 * There are a bunch of environment variables that you can use to tweak behavior. See [the original commit comment](https://github.com/ryran/xsos/commit/0c05168d3729d44f4ddf07269b33105f85a306de#commitcomment-2133859) for documentation.
-* xsos can update itself via the internet in 10 seconds if run with `--update` or `-U`.
-  * Set environment variable `XSOS_UPDATE_CONFIRM` to "`n`" if you don't want `--update` to prompt for confirmation.
 * There's a bash autocompletion function defition available for xsos. Use it.
 * When printing disk info with `-d/--disks`, xsos automatically detects linux software raid (md) devices and hides their components. The `multipath` command is also consulted to print info about native multipathd devices. All LUNs that are part of a dm-multipath map are also hidden from the disk output.
 * You can use the `--unit` (`-u`) option to change how `/proc/meminfo` and `/proc/net/dev` are parsed -- displaying units in anything from bytes up to tebibytes. Note that this option does *not* affect display of the `VSZ` & `RSS` fields in the ps output. (For that, manually set the `XSOS_PS_UNIT` variable to `k`, `m`, or `g`.)
