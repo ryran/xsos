@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v1.0.0dev last mod 2015/06/23
+# xsos v1.0.0dev last mod 2015/06/26
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -329,11 +329,19 @@ Environment variables:
   VERSINFO
 }
 
+WARN_NO_UPDATE() {
+  echo "Warning: v0.6.0 dropped the built-in update feature triggered by -U/--update"
+  echo "Future v1.x versions might repurpose the -U option"
+  echo "See https://github.com/ryran/xsos/issues/155 for more info"
+  exit 64
+}
+
 # Help? Version?
 case $1 in
   -V|--vers|--version)  echo "Version info: ${version:2}"; exit ;;
   -\?|-h)               HELP_SHORT ;;
   --help|help)          HELP_EXTENDED ;;
+  -U|--update)          WARN_NO_UPDATE >&2 ;;
 esac
 
 # GNU getopt short and long options:
