@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v1.0.0dev last mod 2015/06/26
+# xsos v1.0.0dev last mod 2015/07/01
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -14,9 +14,6 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 #    General Public License <gnu.org/licenses/gpl.html> for more details.
 #-------------------------------------------------------------------------------
-
-# To make it easy to rename the script filename
-pzero=xsos
 
 # Get version from line #2
 version=$(sed '2q;d' $0)
@@ -200,9 +197,9 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: $pzero [DISPLAY OPTIONS] [-6abokcfmdtlerngisp] [SOSREPORT ROOT]
-  or:  $pzero [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
-  or:  $pzero [-?|-h|--help]
+  echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngisp] [SOSREPORT ROOT]
+  or:  xsos [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
+  or:  xsos [-?|-h|--help]
 
 Display system info from localhost or extracted sosreport"
 }
@@ -286,7 +283,7 @@ HELP_EXTENDED() {
   HELP_OPTS_CONTENT
   HELP_OPTS_DISPLAY
   echo "
-If no content options are specified, $pzero parses the environment variable
+If no content options are specified, xsos parses the environment variable
 XSOS_DEFAULT_VIEW to figure out what information to display. If this variable
 is unset at runtime, it is initialized internally as follows:
 
@@ -313,13 +310,13 @@ are detected. Also note: the \"=\" can be replaced with a space if desired.
 
 Re BASH v4+:
  BASH associative arrays are used for various things. In short, if running
- $pzero on earlier BASH versions (e.g. RHEL5), you get ...
+ xsos on earlier BASH versions (e.g. RHEL5), you get ...
   * No output colorization
   * No -i/--ip
   * No parsing of \"Special options\"
 
 Environment variables:
- For details of all configurable env variables, view first page of $pzero
+ For details of all configurable env variables, view first page of xsos
  source. There are vars to change default colors as well as other settings.
  Each variable name is prefixed with \"XSOS_\" and the important ones follow.
   COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR  IP_VERSION
@@ -349,7 +346,7 @@ sopts='6q:u:v:w:xyzabokcfmdtlerngisp'
 lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
-getopt -Q --name=$pzero -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
+getopt -Q --name=xsos -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
 
 # Setup assoc array for single-file options
 unset sfile
@@ -366,31 +363,31 @@ _OPT_CHECK() {
     egrep -qs "$valid_opts" <<<"$chosen_opt" && return
     case $option in
       width)
-        echo "$pzero: option '$option' expects a positive number or 'w' (auto-detect width) or '0' (disable wrapping)"
+        echo "xsos: option '$option' expects a positive number or 'w' (auto-detect width) or '0' (disable wrapping)"
         ;;
       *)
-       echo "$pzero: option '$option' expects other input, i.e., matching regex '$valid_opts'"=
+       echo "xsos: option '$option' expects other input, i.e., matching regex '$valid_opts'"=
     esac
   
   elif [[ $check_type == range ]]; then
     for n in $(seq $valid_opts); do
       [[ $n == $chosen_opt ]] && return
     done
-    echo "$pzero: option '$option' expects number from range: { ${valid_opts// /-} }"
+    echo "xsos: option '$option' expects number from range: { ${valid_opts// /-} }"
     
   elif [[ $check_type == naturalnumber ]]; then
     egrep -qs '^[0-9]+$' <<<"$chosen_opt" && return
-    echo "$pzero: option '$option' expects any natural number, including zero"
+    echo "xsos: option '$option' expects any natural number, including zero"
     
   elif [[ $check_type == string ]]; then
     for s in $valid_opts; do
       [[ $s == $chosen_opt ]] && return
     done
-    echo "$pzero: option '$option' expects one of: { $valid_opts } "
+    echo "xsos: option '$option' expects one of: { $valid_opts } "
   
   elif [[ $check_type == anystring ]]; then
     [[ -n $2 ]] && return
-    echo "$pzero: option '$option' expects a non-null string value"
+    echo "xsos: option '$option' expects a non-null string value"
   fi
   
   exit 64
@@ -461,7 +458,7 @@ PARSE() {
 }
 
 # Call the parser
-PARSE $(getopt -u --name=$pzero -o $sopts -l $lopts -- "$@")
+PARSE $(getopt -u --name=xsos -o $sopts -l $lopts -- "$@")
 
 # If any special option was used appropriately with a file, do that instead of other opts
 if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
