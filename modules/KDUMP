@@ -6,7 +6,7 @@ KDUMP() {
   
   # If the os module was called, grub config was already inspected; otherwise, we need to do it
   if [[ -z $os ]]; then
-    source ${XSOS_ASSET_PATH}/helpers/CHECK_GRUB
+    IMPORT helper CHECK_GRUB
     CHECK_GRUB "$1"
   fi
         

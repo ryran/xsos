@@ -1,8 +1,7 @@
 #!/bin/bash
 
-source ${XSOS_ASSET_PATH}/helpers/CHECK_TAINTED
-source ${XSOS_ASSET_PATH}/helpers/CHECK_GRUB
-
+IMPORT helper CHECK_TAINTED
+IMPORT helper CHECK_GRUB
 
 _CHECK_DISTRO() {
   # Local vars:

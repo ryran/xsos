@@ -36,10 +36,10 @@ fi
 # ENVIRONMENT VARIABLES -- Modify these by setting them in your shell
 # environment, e.g. ~/.bash_profile or /etc/profile.d/xsos.sh
 
-# XSOS_ASSET_PATH (directory path)
+# XSOS_IMPORT_PATH (colon-delimited array of directory paths)
 #   xsos was split into multiple files starting with xsos v1
-#   This directory must contain all of xsos' helper modules
-    : ${XSOS_ASSET_PATH:="/usr/share/xsos"}
+#   These directories will be searched (in order) for modules
+    : ${XSOS_IMPORT_PATH:=".:$HOME/.local/share/xsos:/usr/share/xsos"}
 
 # COLORS
 # The following configure defaults for various colors to enhance output
@@ -321,7 +321,7 @@ Environment variables:
  Each variable name is prefixed with \"XSOS_\" and the important ones follow.
   COLORS  FOLD_WIDTH  ALL_VIEW  DEFAULT_VIEW  HEADING_SEPARATOR  IP_VERSION
   MEM_UNIT  NET_UNIT  PS_UNIT  PS_LEVEL  PS_THREADS  OUTPUT_HANDLER
-  SCRUB_IP_HN  SCRUB_MACADDR  ETHTOOL_ERR_REGEX
+  SCRUB_IP_HN  SCRUB_MACADDR  ETHTOOL_ERR_REGEX XSOS_IMPORT_PATH
 "
   VERSINFO
 }
@@ -542,19 +542,41 @@ SOS_CHECKFILE() {
   return 1
 }
 
-
-# Used to source and execute a module (e.g., BIOS, CPU, MEM)
-x() {
-  local module=$1 input
-  shift
-  input=$@
-  if ! source ${XSOS_ASSET_PATH}/modules/$module; then
-    echo -e "${c[Warn2]}Warning:${c[Warn1]} unable to load ${XSOS_ASSET_PATH}/modules/$module; skipping $module"
-    return
-  fi
-  $module "$input"
+# Used to source modules
+IMPORT() {
+  local modtype=${1} module=${2} dir subdir IFS=:
+  shift 2
+  case ${modtype} in
+    content) subdir="modules" ;;
+    *)       subdir="${modtype}s"
+  esac
+  for dir in ${XSOS_IMPORT_PATH}; do
+    source ${dir}/${subdir}/${module} 2>/dev/null && return
+  done
+  echo -e "${c[Warn2]}ERROR:${c[Warn1]} To use the ${module} module, one of the \$XSOS_IMPORT_PATH dirs must contain '${subdir}/${module}'" >&2
+  echo -e "Current value of \$XSOS_IMPORT_PATH: '${XSOS_IMPORT_PATH}'${c[0]}" >&2
+  cat >&2 <<\EOF
+  
+Your choices:
+  * cd to the dir containing all of xsos & run it there via ./xsos
+  * Install xsos in its entirety to one of the dirs mentioned above
+  * Install only specific (desired) modules to one of the dirs mentioned above
+  * Change the $XSOS_IMPORT_PATH env variable to the dir containing all of xsos
+    This can be done at runtime, e.g.:
+      XSOS_IMPORT_PATH=~/Downloads/git/xsos xsos -ya
+    Or it can be done by editing your shell environment, e.g.:
+      echo 'export XSOS_IMPORT_PATH=$HOME/Downloads/git/xsos' >>~/.bash_profile
+EOF
+  exit 16
 }
 
+# Used to source and execute a content module (e.g., BIOS, CPU, MEM)
+x() {
+  local module=${1}
+  shift
+  IMPORT content ${module}
+  ${module} "${@}"
+}
 
 # Used to conditionally run certain functions when running on localhost
 COND_RUN() {
@@ -576,7 +598,6 @@ COND_RUN() {
   fi
 }
 
-
 # Create sub tempdir in /dev/shm (tons of bash constructs use TMPDIR)
 [[ -d /dev/shm && -w /dev/shm ]] && parent=/dev/shm || parent=/tmp
 export TMPDIR=$(mktemp -d -p $parent)
@@ -591,38 +612,38 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
   
   # If special options and files were provided ....
   if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
-    [[ -r ${sfile[B]} ]] && x BIOS "${sfile[B]}"
-    [[ -r ${sfile[C]} ]] && x CPU   "${sfile[C]}"
-    [[ -r ${sfile[F]} ]] && x INTRUPT "${sfile[F]}"
-    [[ -r ${sfile[M]} ]] && x MEM   "${sfile[M]}"
-    [[ -r ${sfile[D]} ]] && x DISKS   "${sfile[D]}" --no-mpath
-    [[ -r ${sfile[T]} ]] && x MPATH "${sfile[T]}"
+    [[ -r ${sfile[B]} ]] && x BIOS      "${sfile[B]}"
+    [[ -r ${sfile[C]} ]] && x CPU       "${sfile[C]}"
+    [[ -r ${sfile[F]} ]] && x INTRUPT   "${sfile[F]}"
+    [[ -r ${sfile[M]} ]] && x MEM       "${sfile[M]}"
+    [[ -r ${sfile[D]} ]] && x DISKS     "${sfile[D]}" --no-mpath
+    [[ -r ${sfile[T]} ]] && x MPATH     "${sfile[T]}"
     [[ -r ${sfile[L]} ]] && x LSPCI     "${sfile[L]}"
     [[ -r ${sfile[R]} ]] && x SOFTIRQ   "${sfile[R]}"
     [[ -r ${sfile[N]} ]] && x NETDEV    "${sfile[N]}"
     [[ -r ${sfile[G]} ]] && x BONDING   "${sfile[G]}"
-    [[ -r ${sfile[I]} ]] && x IP    "${sfile[I]}"
-    [[ -r ${sfile[P]} ]] && x PS   "${sfile[P]}"
+    [[ -r ${sfile[I]} ]] && x IP        "${sfile[I]}"
+    [[ -r ${sfile[P]} ]] && x PS        "${sfile[P]}"
 
   # If SOSREPORT-ROOT provided, use that
   elif [[ -n $sosroot ]]; then
-    SOS_CHECKFILE bios    {,sos_commands/kernel.}dmidecode     && x BIOS "$sosroot"
-    SOS_CHECKFILE os      "proc/"                              && x OS    "$sosroot"
+    SOS_CHECKFILE bios    {,sos_commands/kernel.}dmidecode     && x BIOS      "$sosroot"
+    SOS_CHECKFILE os      "proc/"                              && x OS        "$sosroot"
     SOS_CHECKFILE kdump   ""                                   && x KDUMP     "$sosroot"
-    SOS_CHECKFILE cpu     "proc/cpuinfo"                       && x CPU   "$sosroot"
-    SOS_CHECKFILE intrupt "proc/interrupts"                    && x INTRUPT "$sosroot"
-    SOS_CHECKFILE mem     "proc/meminfo"                       && x MEM   "$sosroot"
-    SOS_CHECKFILE disks   "proc/partitions"                    && x DISKS   "$sosroot"
+    SOS_CHECKFILE cpu     "proc/cpuinfo"                       && x CPU       "$sosroot"
+    SOS_CHECKFILE intrupt "proc/interrupts"                    && x INTRUPT   "$sosroot"
+    SOS_CHECKFILE mem     "proc/meminfo"                       && x MEM       "$sosroot"
+    SOS_CHECKFILE disks   "proc/partitions"                    && x DISKS     "$sosroot"
     SOS_CHECKFILE mpath   "sos_commands/devicemapper/multipath_-v4_-ll" \
-                                                               && x MPATH "$sosroot"
+                                                               && x MPATH     "$sosroot"
     SOS_CHECKFILE lspci   "lspci"                              && x LSPCI     "$sosroot"
     SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && x ETHTOOL   "$sosroot"
     SOS_CHECKFILE softirq "proc/net/softnet_stat"              && x SOFTIRQ   "$sosroot"
     SOS_CHECKFILE netdev  "proc/net/dev"                       && x NETDEV    "$sosroot"
     SOS_CHECKFILE bonding "proc/net/bonding/"                  && x BONDING   "$sosroot"
-    SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && x IP    "$sosroot"
+    SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && x IP        "$sosroot"
     SOS_CHECKFILE sysctl  "proc/sys/"                          && x SYSCTL    "$sosroot" 2>/dev/null
-    SOS_CHECKFILE ps      "ps"                                 && x PS   "$sosroot"
+    SOS_CHECKFILE ps      "ps"                                 && x PS        "$sosroot"
     
   # If no SOSREPORT-ROOT provided, run checks against local system
   else

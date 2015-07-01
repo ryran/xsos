@@ -1,12 +1,10 @@
 #!/bin/bash
 
-
-source ${XSOS_ASSET_PATH}/helpers/CHECK_TAINTED
-
-
 SYSCTL() {
   # Local vars:
   local pgsz hpgsz
+  
+  IMPORT helper CHECK_TAINTED
   
   # VM PageSize (don't know how to find this from a sosreport, but I doubt that will often be a problem)
   [[ $1 == / ]] && pgsz=$(($(getconf PAGESIZE)/1024)) || pgsz=4     # Saved as KiB
