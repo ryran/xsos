@@ -6,7 +6,7 @@ KDUMP() {
   
   # If the os module was called, grub config was already inspected; otherwise, we need to do it
   if [[ -z $os ]]; then
-    IMPORT helper CHECK_GRUB
+    IMPORT CHECK_GRUB.helper
     CHECK_GRUB "$1"
   fi
         

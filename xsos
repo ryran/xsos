@@ -39,7 +39,7 @@ fi
 # XSOS_IMPORT_PATH (colon-delimited array of directory paths)
 #   xsos was split into multiple files starting with xsos v1
 #   These directories will be searched (in order) for modules
-    : ${XSOS_IMPORT_PATH:=".:$HOME/.local/share/xsos:/usr/share/xsos"}
+    : ${XSOS_IMPORT_PATH:="./modules:$HOME/.local/share/xsos:/usr/share/xsos"}
 
 # COLORS
 # The following configure defaults for various colors to enhance output
@@ -544,28 +544,24 @@ SOS_CHECKFILE() {
 
 # Used to source modules
 IMPORT() {
-  local modtype=${1} module=${2} dir subdir IFS=:
-  shift 2
-  case ${modtype} in
-    content) subdir="modules" ;;
-    *)       subdir="${modtype}s"
-  esac
+  local module=${1} dir IFS=:
+  shift
   for dir in ${XSOS_IMPORT_PATH}; do
-    source ${dir}/${subdir}/${module} 2>/dev/null && return
+    source ${dir}/${module} 2>/dev/null && return
   done
-  echo -e "${c[Warn2]}ERROR:${c[Warn1]} To use the ${module} module, one of the \$XSOS_IMPORT_PATH dirs must contain '${subdir}/${module}'" >&2
+  echo -e "${c[Warn2]}ERROR:${c[Warn1]} To use the ${module} module, one of the \$XSOS_IMPORT_PATH dirs must contain '${module}'" >&2
   echo -e "Current value of \$XSOS_IMPORT_PATH: '${XSOS_IMPORT_PATH}'${c[0]}" >&2
   cat >&2 <<\EOF
   
 Your choices:
-  * cd to the dir containing all of xsos & run it there via ./xsos
-  * Install xsos in its entirety to one of the dirs mentioned above
-  * Install only specific (desired) modules to one of the dirs mentioned above
-  * Change the $XSOS_IMPORT_PATH env variable to the dir containing all of xsos
+  * cd to the dir you downloaded xsos to & run it there via ./xsos
+  * Copy or symlink the xsos/modules dir to one of the dirs mentioned above
+  * Copy/symlink specific (desired) modules to one of the dirs mentioned above
+  * Change the $XSOS_IMPORT_PATH env variable to point to an xsos module dir
     This can be done at runtime, e.g.:
-      XSOS_IMPORT_PATH=~/Downloads/git/xsos xsos -ya
+      XSOS_IMPORT_PATH=~/git/xsos/modules xsos -ya
     Or it can be done by editing your shell environment, e.g.:
-      echo 'export XSOS_IMPORT_PATH=$HOME/Downloads/git/xsos' >>~/.bash_profile
+      echo 'export XSOS_IMPORT_PATH=$HOME/git/xsos/modules' >>~/.bash_profile
 EOF
   exit 16
 }
@@ -574,7 +570,7 @@ EOF
 x() {
   local module=${1}
   shift
-  IMPORT content ${module}
+  IMPORT ${module}
   ${module} "${@}"
 }
 

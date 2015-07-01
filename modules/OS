@@ -1,7 +1,7 @@
 #!/bin/bash
 
-IMPORT helper CHECK_TAINTED
-IMPORT helper CHECK_GRUB
+IMPORT CHECK_TAINTED.helper
+IMPORT CHECK_GRUB.helper
 
 _CHECK_DISTRO() {
   # Local vars:
