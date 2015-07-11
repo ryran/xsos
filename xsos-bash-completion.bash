@@ -1,7 +1,7 @@
 # This file is part of xsos, providing intelligent xsos tab-completion for BASH
 # Save it to: /etc/bash_completion.d/
 #
-# Revision date:  2015/06/23 matching up with xsos v0.6.x
+# Revision date:  2015/07/11 matching up with xsos v0.7.x
 # Latest version: <http://github.com/ryran/xsos>
 #
 # Copyright 2013, 2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -39,7 +39,7 @@ _xsos()  {
   longopts="--help --version
             --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps
             --B --C --F --M --D --T --L --R --N --G --I --P
-            --scrub-ip --scrub-mac --ipv6 --wwid --unit --threads --verbose --width
+            --scrub --ipv6 --wwid --unit --threads --verbose --width
             --nocolor --less --more"
   
   # Check previous arg to see if we need to do anything special
