@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.6.3 last mod 2015/07/10
+# xsos v0.7.0 last mod 2015/07/11
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -170,6 +170,10 @@ fi
 #   Configures whether HW MAC addresses should be removed from output
     : ${XSOS_SCRUB_MACADDR:="n"}
 
+# XSOS_SCRUB_SERIAL (bool: y/n)
+#   Configures whether serial numbers should be removed from output
+    : ${XSOS_SCRUB_SERIAL:="n"}
+
 # XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
     : ${XSOS_ETHTOOL_ERR_REGEX:="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause).*: [^0]"}
@@ -228,9 +232,7 @@ HELP_OPTS_DISPLAY() {
 Display options:"
 # --rhsupport❚tweak os output to focus on RHEL-centric support issues
   echo "
-     --scrub-ip❚remove IP addresses & hostnames from output
-     --scrub-mac❚remove HW MAC addresses from output
-                ❚see XSOS_SCRUB_IP_HN & XSOS_SCRUB_MACADDR env vars
+     --scrub❚remove IP/MAC addrs, hostnames, & serial numbers from output
  -6, --ipv6❚parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID❚restrict dm-multipath output to a particular mpath device,
               ❚where ID is a wwid, friendly name, or LUN identifier
@@ -338,7 +340,7 @@ esac
 
 # GNU getopt short and long options:
 sopts='6q:u:v:w:xyzabokcfmdtlerngisp'
-lopts='scrub-ip,scrub-mac,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=xsos -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -394,8 +396,7 @@ PARSE() {
   unset opts all bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq netdev bonding ip net sysctl ps
   until [[ $1 == -- ]]; do
     case $1 in
-      --scrub-ip)   shift; XSOS_SCRUB_IP_HN=y ;;
-      --scrub-mac)  shift; XSOS_SCRUB_MACADDR=y ;;
+      --scrub)      shift; XSOS_SCRUB_IP_HN=y XSOS_SCRUB_MACADDR=y XSOS_SCRUB_SERIAL=y ;;
       -6|--ipv6)    shift; XSOS_IP_VERSION=6 ;;
       -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
                       XSOS_MULTIPATH_QUERY=$2; shift 2
@@ -414,24 +415,24 @@ PARSE() {
       -y|--less)    shift; XSOS_OUTPUT_HANDLER='less -SR' ;;
       -z|--more)    shift; XSOS_OUTPUT_HANDLER='more'     ;;
       --rhsupport)  shift; XSOS_OS_RHT_CENTRIC=y          ;;
-      -a|--all)     shift; opts=y; all=y     ;;
-      -b|--bios)    shift; opts=y; bios=y    ;;
-      -o|--os)      shift; opts=y; os=y      ;;
-      -k|--kdump)   shift; opts=y; kdump=y   ;;
-      -c|--cpu)     shift; opts=y; cpu=y     ;;
-      -f|--intrupt) shift; opts=y; intrupt=y ;;
-      -m|--mem)     shift; opts=y; mem=y     ;;
-      -d|--disks)   shift; opts=y; disks=y   ;;
-      -t|--mpath)   shift; opts=y; mpath=y   ;;
-      -l|--lspci)   shift; opts=y; lspci=y   ;;
-      -e|--ethtool) shift; opts=y; ethtool=y ;;
-      -r|--softirq) shift; opts=y; softirq=y ;;
-      -n|--netdev)  shift; opts=y; netdev=y  ;;
-      -g|--bonding) shift; opts=y; bonding=y ;;
-      -i|--ip)      shift; opts=y; ip=y      ;;
-      -s|--sysctl)  shift; opts=y; sysctl=y  ;;
-      -p|--ps)      shift; opts=y; ps=y      ;;
-      --net)        shift; opts=y; lspci=y; ethtool=y; softirq=y; netdev=y; ip=y; bonding=y ;;
+      -a|--all)     shift; opts=y all=y     ;;
+      -b|--bios)    shift; opts=y bios=y    ;;
+      -o|--os)      shift; opts=y os=y      ;;
+      -k|--kdump)   shift; opts=y kdump=y   ;;
+      -c|--cpu)     shift; opts=y cpu=y     ;;
+      -f|--intrupt) shift; opts=y intrupt=y ;;
+      -m|--mem)     shift; opts=y mem=y     ;;
+      -d|--disks)   shift; opts=y disks=y   ;;
+      -t|--mpath)   shift; opts=y mpath=y   ;;
+      -l|--lspci)   shift; opts=y lspci=y   ;;
+      -e|--ethtool) shift; opts=y ethtool=y ;;
+      -r|--softirq) shift; opts=y softirq=y ;;
+      -n|--netdev)  shift; opts=y netdev=y  ;;
+      -g|--bonding) shift; opts=y bonding=y ;;
+      -i|--ip)      shift; opts=y ip=y      ;;
+      -s|--sysctl)  shift; opts=y sysctl=y  ;;
+      -p|--ps)      shift; opts=y ps=y      ;;
+      --net)        shift; opts=y lspci=y ethtool=y softirq=y netdev=y ip=y bonding=y ;;
       
       --B)  sfile[B]=$2; shift 2 ;;
       --F)  sfile[F]=$2; shift 2 ;;
@@ -509,7 +510,6 @@ fi
 # -----------------------------------
 # ===================================
 
-
 DMIDECODE() {
   # Local vars:
   local dmidecode_input
@@ -529,6 +529,17 @@ DMIDECODE() {
     echo -e "${c[Warn2]}Warning:${c[Warn1]} dmidecode input invalid; skipping bios check${c[0]}" >&2
     echo -en $XSOS_HEADING_SEPARATOR >&2
     return 1
+  fi
+  
+  if [[ $XSOS_SCRUB_SERIAL == y ]]; then
+      dmidecode_input=$(
+        gawk -F: '
+          BEGIN { OFS = ":" }
+          /^\s+(UUID|Serial Number):/ {
+            gsub(/[^- ]/, "⣿", $2)
+          }
+          {print}
+        ' <<<"$dmidecode_input")
   fi
   
   echo -e "${c[H1]}DMIDECODE${c[0]}"
