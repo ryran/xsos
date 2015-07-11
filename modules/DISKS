@@ -1,0 +1,92 @@
+#!/bin/bash
+
+DISKS() {
+  # Local vars:
+  local mpath_input scsi_blacklist bl partitions_input
+  
+  echo -e "${c[H1]}STORAGE${c[0]}"
+  
+  # Get mpath input if necessary
+  if [[ $2 != --no-mpath ]]; then
+    if [[ $1 == / && $UID -eq 0 ]]; then
+      # Get multipath input from command, because $1 is system
+      mpath_input=$(multipath -v4 -ll 2>/dev/null)
+    elif [[ -r $1/sos_commands/devicemapper/multipath_-v4_-ll ]]; then
+      # Get multipath input from sosreport file, if present
+      mpath_input=$(<"$1/sos_commands/devicemapper/multipath_-v4_-ll")
+    fi
+  fi
+  
+  # If have good mpath data ..
+  if [[ -n $mpath_input ]] && ! egrep -q 'no.paths|multipath.conf.*not.exist' <<<"$mpath_input"; then
+    echo -e "${c[H2]}  Multipath:${c[0]}"
+    
+    # Print out names & sizes of each multipath map
+    egrep -B1 '^\[?size=' <<<"$mpath_input" |
+      gawk -vRS="--" '
+        {
+          printf "    %s;%s\n",
+            $1, gensub(/.*size=([0-9]+\.?[0-9]*) ?([MGT]).*/, "\\1  \\2iB", 1)
+        }
+      ' | sort | column -ts\;
+    
+    # Also, create a blacklist containing all paths to LUNS used for multipath
+    # This will be used to hide certain devices in the plain "whole disk" output
+    scsi_blacklist=$(gawk '
+      # The beginning of this regex is quite odd .. we are matching lines starting with:
+      #   \_  OR  |-  OR  `-
+      
+      /(\\_|\|-|`-) [0-9]+:[0-9]+:[0-9]+:[0-9]+ +[[:graph:]]+ +[0-9]+:/ {
+        printf gensub(/.*:[0-9]+ +([[:graph:]]+) +[0-9].*/, "\\1|", 1)
+      }
+    ' <<<"$mpath_input")
+  fi
+  
+  # If we have linux swraid info, let's use it to expand our blacklist
+  if [[ -r $1/proc/mdstat ]]; then
+    # Append software raid component disks to the blacklist
+    scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | gawk '{printf "%s|", $1}')
+  fi
+  
+  # Yay, let's go.
+  [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
+  [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
+  echo -e "  ${c[H2]}Whole Disks from /proc/partitions:${c[0]}"
+  egrep -v "${scsi_blacklist%?}" "$partitions_input" |
+    gawk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+      # For starters, we search /proc/partitions for certain types of devices
+      # (These partition types are from devices.txt in the linux kernel documentation)
+      
+      $4 ~ /^hd.$|^sd[[:alpha:]]+$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]+$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd[[:alpha:]]+$|^vd[[:alpha:]]+$|^dasd[[:alpha:]]+$/ {
+        
+        # For each thing found, increment the total number of disks
+        numdisks ++
+        
+        # Name a key in the array after the disk and then store its size in GiB there
+        disk[$4] = $3/1024/1024
+        
+        # Also, add to the total sum of disk-storage
+        sum_gb  += disk[$4]
+      }
+      
+      END {
+        # All done with the data-gathering; so print out a summary
+        printf   "    %s%d disks, totaling %.0f GiB (%.2f TiB)%s\n", H_IMP, numdisks, sum_gb, sum_gb/1024, H0
+        
+        # Print a notice if devices were hidden due to blacklist
+        if (blacklisted == "y")
+          printf "    %s(%d multipath/mdraid components hidden)%s\n", H_IMP, blacklist_devcount, H0
+        
+        # Some pretty header-fun
+        printf   "    %s- - - - - - - - - - - - - - - - - - - - -%s\n", color_grey, H0
+        printf   "    %sDisk \tSize in GiB\n", H3
+        printf   "    ----\t-----------%s\n", H0
+        
+        # Finally, print all the disks & their sizes
+        n = asorti(disk, disk_sorted)
+        for (i = 1; i <= n; i++)
+          printf "    %s \t%.0f\n", disk_sorted[i], disk[disk_sorted[i]]
+      }
+    '
+  echo -en $XSOS_HEADING_SEPARATOR
+}

@@ -1,0 +1,90 @@
+#!/bin/bash
+
+CHECK_TAINTED() {
+  # Local vars:
+  local quote sys_tainted_status sys_kernel_version taint_states taintbit taintval indent t
+  
+  [[ $1 == --quote ]] && quote=1 || quote=
+  
+  sys_tainted_status=$(<"$2/proc/sys/kernel/tainted")
+  sys_kernel_version=$(<"$2/proc/sys/kernel/osrelease")
+  
+  if [[ -n $quote ]]; then
+    echo -en "\"$sys_tainted_status\"${c[0]}"
+  else
+    echo -en "$sys_tainted_status${c[0]}"
+  fi
+
+  if [[ $sys_tainted_status == 0 ]]; then
+    echo "  (kernel untainted)"
+    return
+  else
+    echo "  (see https://access.redhat.com/solutions/40594)"
+  fi
+    
+  case $3 in
+    H0) indent=                ;;
+    H1) indent=$XSOS_INDENT_H1 ;;
+    H2) indent=$XSOS_INDENT_H2 ;;
+    H3) indent=$XSOS_INDENT_H3
+  esac
+  
+  # See /usr/share/doc/kernel-doc*/Documentation/sysctl/kernel.txt
+  #     kernel source: linux/kernel/panic.c
+  #     kernel source: include/linux/kernel.h
+  #     https://access.redhat.com/solutions/40594
+
+  t[0]="PROPRIETARY_MODULE: Proprietary module has been loaded"
+  t[1]="FORCED_MODULE: Module has been forcibly loaded"
+  t[2]="UNSAFE_SMP: SMP with CPUs not designed for SMP"
+  t[3]="FORCED_RMMOD: User forced a module unload"
+  t[4]="MACHINE_CHECK: System experienced a machine check exception"
+  t[5]="BAD_PAGE: System has hit bad_page"
+  if grep -qs '^2\.6\.18-.*el5' <<<"$sys_kernel_version"; then
+    t[6]="UNSIGNED_MODULE: Unsigned module has been loaded (RHEL5-specific)"
+  else
+    t[6]="USER: Userspace-defined naughtiness (RHEL6+)"
+  fi
+  t[7]="DIE: Kernel has oopsed before"
+  t[8]="OVERRIDDEN_ACPI_TABLE: ACPI table overridden"
+  t[9]="WARN: Taint on warning"
+  t[10]="CRAP: Modules from drivers/staging are loaded"
+  t[11]="FIRMWARE_WORKAROUND: Working around severe firmware bug"
+  t[12]="OOT_MODULE: Out-of-tree module has been loaded"
+  t[13]="UNSIGNED_MODULE: Unsigned module has been loaded"
+  t[14]="SOFTLOCKUP: A soft lockup has previously occurred"
+  t[15]="LIVEPATCH: Kernel has been live patched"
+  t[16]="16: undefined"
+  t[17]="17: undefined"
+  t[18]="18: undefined"
+  t[19]="19: undefined"
+  t[20]="20: undefined"
+  t[21]="21: undefined"
+  t[22]="22: undefined"
+  t[23]="23: undefined"
+  t[24]="24: undefined"
+  t[25]="25: undefined"
+  t[26]="26: undefined"
+  t[27]="BIT_BY_ZOMBIE: Kernel booted with OMGZOMBIES param"
+  t[28]="HARDWARE_UNSUPPORTED: Hardware is unsupported"
+  t[29]="TECH_PREVIEW: Technology Preview code is loaded"
+  t[30]="RESERVED30: undefined"
+  t[31]="RESERVED31: undefined"
+  
+  taint_states=$(
+    for taintbit in $(sed 's, ,\n,g' <<<"${!t[@]}" | tac); do
+      taintval=$((2**taintbit))
+      if [[ $sys_tainted_status -gt $taintval ]]; then
+        echo $taintbit
+        sys_tainted_status=$((sys_tainted_status-taintval))
+      elif [[ $sys_tainted_status == $taintval ]]; then
+        echo $taintbit
+        break
+      fi
+    done
+  )
+  
+  for taintbit in $(tac <<<"$taint_states"); do
+    printf "$indent%2s  ${t[$taintbit]}\n" $taintbit
+  done
+}

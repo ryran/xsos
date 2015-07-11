@@ -1,0 +1,107 @@
+#!/bin/bash
+
+SYSCTL() {
+  # Local vars:
+  local pgsz hpgsz
+  
+  IMPORT CHECK_TAINTED.helper
+  
+  # VM PageSize (don't know how to find this from a sosreport, but I doubt that will often be a problem)
+  [[ $1 == / ]] && pgsz=$(($(getconf PAGESIZE)/1024)) || pgsz=4     # Saved as KiB
+  
+  # HugePage size
+  hpgsz=$(gawk '/Hugepagesize:/{print $2/1024}' <"$1/proc/meminfo")  # Saved as MiB
+  
+  __P() {
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || echo \"$(<"$sosroot"/proc/sys/${1//.//})\" )${c[0]}"
+  }
+  
+  __Pa() {
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1#*.} ${c[H4]}$2${c[H3]}=${c[Imp]}  $( [[ ! -f "$sosroot"/proc/sys/${1//.//} ]] && echo -e "${c[Warn1]}{sysctl not present}" || gawk -vH0="${c[0]}" "$3" "$4" <"$sosroot"/proc/sys/${1//.//} )${c[0]}"
+  }
+  
+  echo -e "${c[H1]}SYSCTLS${c[0]}"
+  if grep -qsw rescue "$1/proc/cmdline"; then
+    echo -e "${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
+    echo -e "${c[Warn1]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c[0]}"
+  fi
+  
+  echo -e "$XSOS_INDENT_H1${c[H2]}kernel.${c[0]}"
+  [[ $XSOS_SCRUB_IP_HN == y ]] \
+    && echo -e "$XSOS_INDENT_H2${c[H3]}hostname =  ${c[Warn2]}HOSTNAME SCRUBBED${c[0]}" \
+    || __P kernel.hostname
+  __P kernel.osrelease
+  echo -e "$XSOS_INDENT_H2${c[H3]}tainted =${c[Imp]}  $(CHECK_TAINTED --quote "$1" H3)"
+  __P kernel.random.boot_id
+  __P kernel.random.entropy_avail "[bits] "
+  __P kernel.hung_task_panic "[bool] "
+  __Pa kernel.hung_task_timeout_secs ""  '{if ($1>0) printf "\"%s\"%s  (secs task must be D-state to trigger)", $1, H0; else printf "\"0\"%s  (khungtaskd disabled)", H0}'
+  __P kernel.msgmax "[bytes] "
+  __P kernel.msgmnb "[bytes] "
+  __P kernel.msgmni "[msg queues] "
+  __Pa kernel.panic "[secs] "  '{if ($1>0) printf "\"%s\"%s  (secs til autoreboot after panic)", $1, H0; else printf "\"0\"%s  (no autoreboot on panic)", H0}'
+  __P kernel.panic_on_oops "[bool] "
+  __P kernel.nmi_watchdog "[bool] "
+  __P kernel.panic_on_io_nmi "[bool] "
+  __P kernel.panic_on_unrecovered_nmi "[bool] "
+  __P kernel.unknown_nmi_panic "[bool] "
+  __P kernel.panic_on_stackoverflow "[bool] "
+  __P kernel.softlockup_panic "[bool] "
+  __P kernel.softlockup_thresh "[secs] "
+  __P kernel.pid_max
+  __P kernel.threads-max
+  __Pa kernel.sem "[array] "  "-vS=$XSOS_INDENT_H3"  '{printf "\"%s  %s  %s  %s\"%s\n", $1,$2,$3,$4,H0; printf "%sSEMMSL (max semaphores per array) =  %d\n%sSEMMNS (max sems system-wide)     =  %d\n%sSEMOPM (max ops per semop call)   =  %d\n%sSEMMNI (max number of sem arrays) =  %d\n", S,$1, S,$2, S,$3, S,$4}'
+  __Pa kernel.shmall "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "\"%s\"%s  (%.1f GiB max total shared memory)", $1, H0, $1*PGSZ/1024/1024}'
+  __Pa kernel.shmmax "[bytes] "  '{printf "\"%s\"%s  (%.2f GiB max segment size)", $1, H0, $1/1024/1024/1024}'
+  __Pa kernel.shmmni "[segments] "  '{printf "\"%s\"%s  (max number of segs)", $1, H0}'
+  __Pa kernel.sysrq "[bitmask] "  '{if ($1==0) printf "\"0\"%s  (disallowed)", H0; else if ($1==1) printf "\"1\"%s  (all SysRqs allowed)", H0; else printf "\"%s\"%s  (see proc man page)", $1, H0}'
+  __Pa kernel.sched_min_granularity_ns "[nanosecs] "  '{printf "\"%s\"%s  (%.5f sec)\n", $1, H0, $1*10^-9}'
+  __Pa kernel.sched_latency_ns "[nanosecs] "  '{printf "\"%s\"%s  (%.5f sec)", $1, H0, $1*10^-9}'
+  
+  echo -e "$XSOS_INDENT_H1${c[H2]}fs.${c[0]}"
+  __Pa fs.file-max "[fds] "  '{printf "\"%s\"%s  (system-wide limit for num open files [file descriptors])", $1,H0}'
+  __Pa fs.nr_open  "[fds] "  '{printf "\"%s\"%s  (per-process limit for num open files [see also RLIMIT_NOFILE])", $1,H0}'
+  __Pa fs.file-nr "[fds] "  '{printf "\"%s  %s  %s\"%s  (num allocated fds, N/A, num free fds)", $1,$2,$3,H0 }'
+  __Pa fs.inode-nr "[inodes] "  '{printf "\"%s  %s\"%s  (nr_inodes allocated, nr_free_inodes)", $1,$2,H0}'
+  
+  echo -e "$XSOS_INDENT_H1${c[H2]}net.${c[0]}"
+  __Pa net.core.busy_read "[microsec] "  '{printf "\"%s\"%s  ", $1, H0; if ($1==0) printf "(off)"}'
+  __Pa net.core.busy_poll "[microsec] "  '{printf "\"%s\"%s  ", $1, H0; if ($1==0) printf "(off)"}'
+  __P net.core.netdev_budget "[packets] "
+  __P net.core.netdev_max_backlog "[packets] "
+  __Pa net.core.rmem_default "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.wmem_default "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.rmem_max "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.core.wmem_max "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __P net.ipv4.icmp_echo_ignore_all "[bool] "
+  __P net.ipv4.ip_forward "[bool] "
+  __Pa net.ipv4.ip_local_port_range "[ports] "  '{printf "\"%s  %s\"%s  (defines ephemeral port range used by TCP/UDP)", $1,$2,H0}'
+  __Pa net.ipv4.ip_local_reserved_ports "[ports] "  '{printf "\"%s\"%s  (comma-separated ports/ranges to exclude from automatic port assignments)", $0,H0}'
+  __Pa net.ipv4.tcp_max_orphans "[sockets] "  '{printf "\"%s\"%s  (%d MiB @ max 64 KiB per orphan)", $1, H0, $1*64/1024}'
+  __Pa net.ipv4.tcp_mem "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "\"%s  %s  %s\"%s  (%.2f GiB, %.2f GiB, %.2f GiB)", $1, $2, $3, H0, $1*PGSZ/1024/1024, $2*PGSZ/1024/1024, $3*PGSZ/1024/1024}'
+  __Pa net.ipv4.udp_mem "[$pgsz-KiB pages] "  "-vPGSZ=$pgsz"  '{printf "\"%s  %s  %s\"%s  (%.2f GiB, %.2f GiB, %.2f GiB)", $1, $2, $3, H0, $1*PGSZ/1024/1024, $2*PGSZ/1024/1024, $3*PGSZ/1024/1024}'
+  __P net.ipv4.tcp_window_scaling "[bool] "
+  __Pa net.ipv4.tcp_rmem "[bytes] "  '{printf "\"%s  %s  %s\"%s  (%d KiB, %d KiB, %d KiB)", $1, $2, $3, H0, $1/1024, $2/1024, $3/1024}'
+  __Pa net.ipv4.tcp_wmem "[bytes] "  '{printf "\"%s  %s  %s\"%s  (%d KiB, %d KiB, %d KiB)", $1, $2, $3, H0, $1/1024, $2/1024, $3/1024}'
+  __Pa net.ipv4.udp_rmem_min "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __Pa net.ipv4.udp_wmem_min "[bytes] "  '{printf "\"%s\"%s  (%d KiB)", $1, H0, $1/1024}'
+  __P net.ipv4.tcp_sack "[bool] "
+  __P net.ipv4.tcp_timestamps "[bool] "
+  __Pa net.ipv4.tcp_fastopen "[bitmap] " '{printf "\"%s\"%s  (", $1, H0; if ($1==0) printf "disabled"; else if ($1==1) printf "enable send"; else if ($1==2) printf "enable receive"; else if ($1==3 || $1==7) printf "enable send/receive"; else if ($1==4) printf "invalid value"; else printf "no logic for higher values"; if ($1==7) printf " + send regardless of cookies"; printf "; see ip-sysctl.txt)"}'
+
+  echo -e "$XSOS_INDENT_H1${c[H2]}vm.${c[0]}"
+  __Pa vm.dirty_ratio ""  '{if ($1>0) printf "\"%s\"%s  (%% of total system memory)", $1, H0; else printf "\"0\"%s  (disabled -- check dirty_bytes)", H0}'
+  __Pa vm.dirty_bytes ""  '{if ($1>0) printf "\"%s\"%s  (%.1f MiB)", $1, H0, $1/1024/1024; else printf "\"0\"%s  (disabled -- check dirty_ratio)", H0}'
+  __Pa vm.dirty_background_ratio ""  '{if ($1>0) printf "\"%s\"%s  (%% of total system memory)", $1, H0; else printf "\"0\"%s  (disabled -- check dirty_background_bytes)", H0}'
+  __Pa vm.dirty_background_bytes ""  '{if ($1>0) printf "\"%s\"%s  (%.1f MiB)", $1, H0, $1/1024/1024; else printf "\"0\"%s  (disabled -- check dirty_background_ratio)", H0}'
+  __P vm.dirty_expire_centisecs
+  __P vm.dirty_writeback_centisecs
+  __Pa vm.nr_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
+  __Pa vm.nr_overcommit_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
+  __Pa vm.overcommit_memory "[0-2] "   '{if ($1==0) printf "\"0\"%s  (heuristic overcommit)", H0; else if ($1==1) printf "\"1\"%s  (always overcommit, never check)", H0; else if ($1==2) print "\"2\"%s  (always check, never overcommit)", H0}'
+  __P vm.overcommit_ratio
+  __Pa vm.oom_kill_allocating_task "[bool] "  '{if ($1==0) printf "\"0\"%s  (scan tasklist)", H0; else printf "\"1\"%s  (kill OOM-triggering task)", H0}'
+  __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "\"0\"%s  (no panic)", H0; else if ($1==1) printf "\"1\"%s  (no panic if OOM-triggering task limited by mbind/cpuset)", H0; else if ($1==2) printf "\"2\"%s  (always panic)", H0}'
+  __P vm.swappiness "[0-100] "
+  echo -en $XSOS_HEADING_SEPARATOR
+}

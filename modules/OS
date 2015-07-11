@@ -1,0 +1,507 @@
+#!/bin/bash
+
+IMPORT CHECK_TAINTED.helper
+IMPORT CHECK_GRUB.helper
+
+_CHECK_DISTRO() {
+  # Local vars:
+  local OS_INDENT files file
+  
+  OS_INDENT="            "
+  # Parse redhat-release if we have it
+  if [[ ! -r $1/etc/redhat-release ]]; then
+    distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
+    
+  else
+    # If release is RHEL 4,5,6,7 in standard expected format ...
+    if egrep -e 'Red Hat Enterprise Linux (AS|ES|Desktop|WS) release 4 \((Nahant|Nahant Update [1-9])\)' \
+             -e 'Red Hat Enterprise Linux (Client|Server) release 5\.?[0-9]* \(Tikanga\)' \
+             -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 6\.?[0-9]* \(Santiago\)' \
+             -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 7\.[0-9] \(Maipo\)' \
+             -qs "$1/etc/redhat-release"; then
+    
+      # ... And if redhat-release file has more than 1 line ...
+      [[ $(wc -l <"$1/etc/redhat-release") -gt 1 ]] &&
+      
+        # ... Then print it in orange
+        distro_release=${c[ORANGE]}$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release") ||
+        
+          # Otherwise, if only 1 line, all is well -- print it normally
+          distro_release=$(sed "1!s/^/$OS_INDENT/" <"$1/etc/redhat-release")
+          
+    # If release is not RHEL 4,5,6,7 in standard expected format, freak out
+    else
+      distro_release=$(sed "1!s/^/$OS_INDENT/" "$1/etc/redhat-release" 2>/dev/null)
+      
+      if grep -qi fedora <<<"$distro_release"; then
+        distro_release=${c[bg_BLUE]}$distro_release
+      
+      elif egrep -qi 'alpha|beta' <<<"$distro_release"; then
+        distro_release=${c[bg_RED]}${c[ORANGE]}$distro_release
+        
+      else
+        distro_release=${c[bg_DGREY]}${c[RED]}$distro_release
+      fi
+    fi
+    # Prepend the distro information with "[redhat-release] " and do a little color fun
+    distro_release="${c[Imp]}[redhat-release]${c[0]} $distro_release${c[0]}"
+  fi
+
+  # Check for any /etc/*-release or /etc/*_version files and add their content to the distro_release variable
+  files=$(ls "$1"/etc/*{-release,_version} 2>/dev/null | egrep -sv '/etc/(os|redhat|system|lsb)-release')
+  if [[ -n $files ]]; then
+    for file in $files; do
+      if [[ -r $file ]]; then
+        distro_release="$distro_release\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} $(sed "1!s/^/$OS_INDENT/" <"$file")"
+      elif [[ -L $file ]]; then
+        distro_release="$distro_release\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} ${c[RED]}(error: broken link)${c[0]}"
+      else
+        distro_release="$distro_release\n$OS_INDENT${c[Imp]}[${file##*/}]${c[0]} ${c[RED]}(error: file exists, but cannot read it)${c[0]}"
+      fi
+    done
+  fi
+  
+  # I don't like blindly sourcing a file -- that provides a vector to screw with this script...
+  # But in modern Linux boxen this file is standard
+  # If able to source the new standard /etc/os-release, list it out
+  if source "$1/etc/os-release" 2>/dev/null; then
+    distro_release="$distro_release\n$OS_INDENT${c[Imp]}[os-release]${c[0]} $PRETTY_NAME $VERSION"
+  fi
+}
+
+
+_CHECK_KERNELBUILD() {
+  # Get kernel build version somehow or another, making sure not to use build offered by rescue mode kernel
+  
+  # if localhost: get it from the best place, yay
+  if [[ $1 == / ]]; then
+    kernel_build=$(</proc/version)
+  
+  # sosreport: sosreports don't normally contain this.. yet
+  elif [[ -r "$1/proc/version" ]] && ! grep -qsw rescue "$1/proc/cmdline"; then
+    kernel_build=$(<"$1/proc/version")
+  
+  # sosreport: if find it via `dmesg` output file, great
+  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -as 'Linux version' "$1/sos_commands/general/dmesg"); then
+    :
+    
+  # sosreport: if find it in var/log/dmesg, woo hoo
+  elif grep -qs 'Linux version' "$1/var/log/dmesg"; then
+    kernel_build=$(grep -a 'Linux version' "$1/var/log/dmesg" | tail -n1)
+  
+  # sosreport: if find it in var/log/messages, lovely
+  elif grep -qs 'kernel: Linux version' "$1/var/log/messages"; then
+    kernel_build=$(grep 'kernel: Linux version' "$1/var/log/messages" | tail -n1)
+  
+  # sosreport: final option: search in all old messages files -- this might be a bad idea
+  else
+    # To explain this last one: The goal is to find the most recent instance of "Linux version"
+    # So this reverse-sorts by filename, searches through all files ending with the most recent file
+    # This is obviously not very efficient, but it's the only way I've thought of to do it so far
+    kernel_build=$(find "$1/var/log" -name 'messages?*' 2>/dev/null | sort -r | xargs zgrep -sh 'kernel: Linux version' 2>/dev/null | tail -n1)
+  fi
+  
+  # Fix format if necessary
+  if [[ -n $kernel_build ]]; then
+    kernel_build=$(sed -e 's,^\[.*\] Linux,Linux,' -e 's,^.*kernel: Linux,Linux,' <<<"$kernel_build")
+    kernel_buildhost=$(gawk '{print $4}' <<<"$kernel_build")
+  fi
+}
+
+
+_CHECK_SELINUX() {
+  # Local vars:
+  local input_sestatus have_dmesg input_seconfig selinux enforcing selinux_dmesg sestatus_status sestatus_mode sestatus_cfgmode sestatus_policy seconfig_cfgmode seconfig_policy
+  
+  __cond_print_cfgmode() {
+    [[ -n $seconfig_cfgmode ]] &&
+      printf "  (default $seconfig_cfgmode)" || printf "  (default unknown)"
+  }
+  
+  # Grab input from sestatus command if localhost
+  if [[ $1 == / ]]; then
+    input_sestatus=$(sestatus 2>/dev/null)
+    
+  # Else, from $sosroot/sestatus & dmesg
+  else
+    input_sestatus=$(gawk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null)
+    egrep -qis '^SELinux: *Disabled at (boot|runtime)' "$1"/var/log/dmesg "$1"/sos_commands/general/dmesg* && selinux_dmesg=disabled
+    # Could also check /var/log/messages, but it would be too expensive and complicated
+    # to ensure any hits were for the current boot-cycle
+  fi
+  
+  # Read in /etc/selinux/config from sosroot or localhost
+  input_seconfig=$(cat "$1"/etc/selinux/config 2>/dev/null)
+  
+  # Set "selinux" and "enforcing" variables per kernel args
+  eval $(egrep -ios 'selinux=.|enforcing=.' "$1"/proc/cmdline | tr '[:upper:]' '[:lower:]')
+  
+  # Check /etc/selinux/config input
+  if [[ -n $input_seconfig ]]; then
+    eval $(gawk -F= '
+      /^SELINUX=/     { cfgmode = $2 }
+      /^SELINUXTYPE=/ { policy  = $2 }
+      END {
+        printf "seconfig_cfgmode=%s; seconfig_policy=%s", cfgmode, policy
+      }
+    ' <<<"$input_seconfig")
+  fi
+  
+  # Check sestatus input
+  if [[ -n $input_sestatus ]]; then
+    eval $(gawk '
+      /SELinux status/                    { status  = $NF }
+      /Current mode/                      { mode    = $NF }
+      /Mode from config file/             { cfgmode = $NF }
+      /Loaded policy|Policy from config/  { policy  = $NF }
+      END {
+        printf "sestatus_status=%s; sestatus_mode=%s; sestatus_cfgmode=%s; sestatus_policy=%s",
+          status, mode, cfgmode, policy
+      }
+    ' <<<"$input_sestatus")
+    
+    # Since we have sestatus input, primarily rely on that
+    if [[ $sestatus_status == disabled ]]; then
+      # If sestatus says disabled, need to rely on config file for default mode
+      printf "disabled"; __cond_print_cfgmode
+    else
+      # Otherwise, just use sestatus output
+      printf "$sestatus_mode  (default $sestatus_cfgmode)"
+    fi
+  
+  # If we don't have sestatus input, things are more complicated...
+  else
+  
+    # If we have selinux/enforcing kernel args, use those for current status
+    if [[ -n $selinux || -n $enforcing ]]; then
+      case $selinux in
+        0)  printf "disabled"   ;;
+        1)  printf "enforcing"  ;;
+      esac
+      case $enforcing in
+        0)  printf "permissive" ;;
+        1)  printf "enforcing"  ;;
+      esac
+      __cond_print_cfgmode
+      
+    # If dmesg from sosreport says disabled, print it out
+    elif [[ $selinux_dmesg == disabled ]]; then
+      printf "dmesg says disabled"; __cond_print_cfgmode
+      
+    # If we only have stuff from /etc/selinux/config
+    elif [[ -n $seconfig_cfgmode ]]; then
+      printf "${c[Warn1]}status unknown${c[0]} (default $seconfig_cfgmode)"
+    
+    # Otherwise, we have no clue ... :(
+    else
+      printf "${c[Warn1]}status unknown (default unknown)${c[0]}"
+    fi
+  fi
+}
+
+
+OS() {
+  # Local vars:
+  local distro_release kernel_build kernel_buildhost num_cpu btime hostname hntmp kernel total_plugins yum_plugins num_enabled f rhn_serverURL sURLtmp a rhn_enableProxy rhn_httpProxy rhn_enableProxyAuth rhn_proxyUser rhn_proxyPassword rhnProxyStuff rhsm_hostname rhsm_proxy_hostname rhsm_proxy_port rhsm_proxy_user rhsm_proxy_password rhsmProxyStuff uname systime boottime uptime_input runlevel initdefault timezone
+  
+  # These functions populate variables for later use
+  _CHECK_DISTRO "$1"
+  _CHECK_KERNELBUILD "$1"
+  CHECK_GRUB "$1"
+  
+  # Grab number of cpus from proc/stat
+  num_cpu=$(gawk '/^cpu[[:graph:]]+/{n++} END{print n}' "$1/proc/stat" 2>/dev/null)
+  
+  # Grab btime (in seconds since U.Epoch) from proc/stat
+  btime=$(gawk '/^btime/{print $2}' "$1/proc/stat" 2>/dev/null)
+  
+  # Grab system hostname & kernel version from /proc first
+  hostname=$(cat "$1/proc/sys/kernel/hostname" 2>/dev/null)
+  kernel=$(cat "$1/proc/sys/kernel/osrelease" 2>/dev/null)
+  
+  # Grab yum plugin stuff
+  if total_plugins=$(ls "$1"/etc/yum/pluginconf.d/*.conf 2>/dev/null); then
+    total_plugins=$(wc -l <<<"$total_plugins")
+    yum_plugins=$(
+      cd "$1"/etc/yum/pluginconf.d/
+      gawk -F= '
+        /^enabled *= */ {
+          sub(" ", "")
+          if ($2==1) printf FILENAME" "
+        }
+      ' *.conf
+    )
+    if [[ -n $yum_plugins ]]; then
+      num_enabled=$(wc -w <<<"$yum_plugins")
+      yum_plugins=$(sed 's/\.conf /, /g' <<<"$yum_plugins")
+      yum_plugins=${yum_plugins%, }
+      yum_plugins="$num_enabled enabled plugins: $yum_plugins"
+    else
+      yum_plugins="0 enabled plugins"
+    fi
+  else
+    yum_plugins="${c[Warn1]}No yum plugin info (missing etc/yum/pluginconf.d/*.conf)${c[0]}"
+  fi
+  
+  # Grab RHN settings
+  _get_rhn_cfg() {
+    local directive=$1 file="$2/etc/sysconfig/rhn/up2date" result=
+    result=$(gawk -F= "/^$directive *=/{print\$2}" "$file" 2>/dev/null)
+    result=${result/ /}
+    if [[ -n $result ]]; then
+      echo "$directive = $result"
+    else
+      return 1
+    fi
+  }
+  a="\n            "
+  if rhn_serverURL=$(_get_rhn_cfg serverURL "$1"); then
+    sURLtmp=$(egrep --color=always -si 'oracle' <<<"$serverURL") && rhn_serverURL=$sURLtmp
+    if rhn_enableProxy=$(_get_rhn_cfg enableProxy "$1") && [[ $rhn_enableProxy -eq 1 ]]; then
+      rhnProxyStuff="${a}$rhn_enableProxy"
+      if rhn_httpProxy=$(_get_rhn_cfg httpProxy "$1"); then
+        rhnProxyStuff+="${a}$rhn_httpProxy"
+        if rhn_enableProxyAuth=$(_get_rhn_cfg enableProxyAuth "$1") && [[ $rhn_enableProxyAuth -eq 1 ]]; then
+          rhnProxyStuff+="${a}$rhn_enableProxyAuth"
+          rhn_proxyUser=$(_get_rhn_cfg proxyUser "$1")         && rhnProxyStuff+="${a}$rhn_proxyUser"
+          rhn_proxyPassword=$(_get_rhn_cfg proxyPassword "$1") && rhnProxyStuff+="${a}$rhn_proxyPassword"
+        else
+          rhnProxyStuff+="${a}$rhn_enableProxyAuth"
+        fi
+      else
+        rhnProxyStuff+="${a}httpProxy ="
+      fi
+    else
+      rhnProxyStuff="${a}$rhn_enableProxy"
+    fi
+  else
+    rhn_serverURL="${c[red]}(missing)${c[0]}"
+  fi
+  
+  # Grab RHSM settings
+  _get_rhsm_cfg() {
+    local directive=$1 file="$2/etc/rhsm/rhsm.conf" result=
+    result=$(gawk -F= "/^$directive *=/{print\$2}" "$file" 2>/dev/null)
+    result=${result/ /}
+    if [[ -n $result ]]; then
+      echo "$directive = $result"
+    else
+      return 1
+    fi
+  }
+  a="\n            "
+  if rhsm_hostname=$(_get_rhsm_cfg hostname "$1"); then
+    if rhsm_proxy_hostname=$(_get_rhsm_cfg proxy_hostname "$1"); then
+      rhsmProxyStuff="${a}$rhsm_proxy_hostname"
+      rhsm_proxy_port=$(_get_rhsm_cfg proxy_port "$1")          && rhsmProxyStuff+="${a}$rhsm_proxy_port"
+      rhsm_proxy_user=$(_get_rhsm_cfg proxy_user "$1")          && rhsmProxyStuff+="${a}$rhsm_proxy_user"
+      rhsm_proxy_password=$(_get_rhsm_cfg proxy_password "$1")  && rhsmProxyStuff+="${a}$rhsm_proxy_password"
+    else
+      rhsmProxyStuff="${a}proxy_hostname ="
+    fi
+  else
+    rhsm_hostname="${c[red]}(missing)${c[0]}"
+  fi
+  
+  # If running on localhost
+  if [[ $1 == / ]]; then
+    uname=$(uname -a | gawk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
+    systime=$(date)
+    [[ $(wc -w <<<"$systime") == 6 ]] &&
+      systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
+    boottime=$(date --date=@$btime 2>/dev/null)
+    [[ $(wc -w <<<"$boottime") == 6 ]] &&
+      boottime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+    uptime_input=$(uptime)
+    runlevel=$(runlevel)
+    initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
+      initdefault=${initdefault%.target} ||
+        initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
+    
+  # Otherwise, running on sosreport
+  else
+    # If sosreport ran in rescue mode, try to get good hostname
+    if grep -qsw rescue "$1/proc/cmdline"; then
+      hostname=$(gawk -F= /^HOSTNAME=/{print\$2}  "$1/etc/sysconfig/network" 2>/dev/null) ||
+        hostname="${c[Warn1]}unknown${c[0]}  (sosreport collected from rescue mode)"
+    # Otherwise, if no hostname from proc/, try to get from sosroot/hostname or sosroot/uname
+    else
+      [[ -z $hostname ]] && {
+        hostname=$(gawk '!/\/.*bin/ && NF!=0' "$1/hostname" 2>/dev/null) ||
+          hostname=$(gawk '!/\/.*bin/ && NF!=0 {print $2}' "$1/uname" 2>/dev/null) ||
+            hostname="${c[Warn1]}unknown${c[0]}"
+      }
+    fi
+    # If sosreport ran in rescue mode, leave it to the kernel-build funness
+    if grep -qsw rescue "$1/proc/cmdline"; then
+      kernel="$kernel  ${c[Warn1]}(Rescue mode kernel version)${c[0]}"
+    # Otherwise, if no kernel version from proc/, try to get from sosroot/uname
+    else
+      [[ -z $kernel ]] && {
+        kernel=$(gawk '!/\/.*bin/ && NF!=0 {print $3}' "$1/uname" 2>/dev/null) ||
+          kernel="${c[Warn1]}unknown${c[0]}"
+      }
+    fi
+    uname=$(gawk '!/\/.*bin/ && NF!=0 {printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}' "$1/uname" 2>/dev/null) ||
+      uname="${c[Warn1]}unknown${c[0]}"
+    # Check kernel for uek
+    grep -qsi uek <<<"$kernel" && kernel=$(grep --color=always -i uek <<<"$kernel")
+    grep -qsi uek <<<"$grub_kernel" && grub_kernel=$(grep --color=always -i uek <<<"$grub_kernel")
+    
+    systime=$(gawk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null)
+    [[ $(wc -w <<<"$systime") == 6 ]] &&
+      systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
+    
+    timezone=$(gawk -F= '/^ZONE=/{print $2}' "$1/etc/sysconfig/clock" 2>/dev/null | tr -d \")
+    [[ -n $timezone && -f /usr/share/zoneinfo/$timezone ]] &&
+      boottime=$(echo -n $(TZ=$timezone date --date=@$btime 2>/dev/null)) ||
+        boottime=$(echo -n $(TZ= date --date=@$btime 2>/dev/null))
+    
+    [[ $(wc -w <<<"$boottime") == 6 ]] &&
+      boottime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+    
+    uptime_input=$(gawk '!/\/.*bin/ && NF!=0' "$1/uptime")
+    [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
+    [[ -r $1/etc/inittab ]] &&
+      initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab") ||
+        initdefault=unknown
+  fi
+  
+  if [[ $XSOS_SCRUB_IP_HN == y ]]; then
+    hntmp="${c[Warn2]}HOSTNAME SCRUBBED${c[0]}"
+    [[ $serverURL == "serverURL=https://xmlrpc.rhn.redhat.com/XMLRPC" ]] || serverURL="${c[Warn2]}SATELLITE URL SCRUBBED${c[0]}"
+  else
+    hntmp=$hostname
+  fi
+  
+  # Start printing stuff
+  echo -e "${c[H1]}OS${c[0]}"
+  echo -e "  ${c[H2]}Hostname:${c[0]} $hntmp"
+  echo -e "  ${c[H2]}Distro:${c[0]}   $distro_release"
+  echo -e "  ${c[H2]}RHN:${c[0]}      $rhn_serverURL$rhnProxyStuff"
+  echo -e "  ${c[H2]}RHSM:${c[0]}     $rhsm_hostname$rhsmProxyStuff"
+  echo -e "  ${c[H2]}YUM:${c[0]}      $yum_plugins"
+  [[ -n $runlevel ]] &&
+  echo -e "  ${c[H2]}Runlevel:${c[0]} $runlevel  (default $initdefault)"
+  echo -e "  ${c[H2]}SELinux:${c[0]}  $(_CHECK_SELINUX "$1")"
+  echo -e "  ${c[H2]}Arch:${c[0]}     $uname"
+  echo -e "  ${c[H2]}Kernel:${c[0]}"
+  echo -e "    ${c[H3]}Booted kernel:${c[0]}  $kernel"
+  echo -e "    ${c[H3]}GRUB default:${c[0]}   $bad_grubcfg$grub_kernel  $default_missing"
+  
+  # Print and format kernel version
+  echo -e "    ${c[H3]}Build version:${c[0]}"
+  # If kernel build was detected ...
+  if [[ -n $kernel_build ]]; then
+    # Print a notice if rescue mode
+    grep -qsw rescue "$1/proc/cmdline" &&
+      echo -e "${c[Warn1]}     (Rescue mode detected; build info captured from logs of last boot)${c[0]}"
+    # Format it to fit properly
+    kernel_build=$(fold -sw$XSOS_FOLD_WIDTH <<<"$kernel_build" | sed 's,^,      ,')
+    # Change color to warning color (orange) if can't find "build.redhat.com"
+    grep -qe '\.z900\.redhat\.com' -e '\.build\.redhat\.com' -e '\.bos\.redhat\.com' -e '\.perf\.redhat\.com' <<<"$kernel_buildhost" ||
+      kernel_build="${c[Warn1]}$kernel_build${c[0]}"
+    echo -e "$kernel_build"
+  else
+    echo -e "$XSOS_INDENT_H3${c[Warn1]}unknown${c[0]}"
+  fi
+  
+  # Print kernel cmdline from proc/cmdline
+  echo -e "    ${c[H3]}Booted kernel cmdline:${c[0]}"
+  # If rescue mode detected, print a warning
+  grep -qsw rescue "$1/proc/cmdline" &&
+    echo -e "     ${c[Warn1]}(Rescue mode detected)${c[0]}"
+  if [[ -r $1/proc/cmdline ]]; then
+    proc_cmdline=$(sed -r 's,^BOOT_IMAGE=/[[:graph:]]+ ,,' "$1"/proc/cmdline)
+    [[ $XSOS_SCRUB_IP_HN == y ]] && proc_cmdline=$(sed "s/${hostname%%.*}/HOSTNAME/g" <<<"$proc_cmdline")
+    fold -sw$XSOS_FOLD_WIDTH <<<"$proc_cmdline" 2>/dev/null | sed -e "s,^,$XSOS_INDENT_H3,"
+  else
+    echo -e "$XSOS_INDENT_H3${c[Warn1]}unknown${c[0]}"
+  fi
+
+  echo -e "    ${c[H3]}GRUB default kernel cmdline:${c[0]}  $default_missing"
+  if [[ -n $bad_grubcfg ]]; then
+    echo -e "      $bad_grubcfg"
+  else
+    if grep -qs 'unknown.*rescue mode' <<<"$grub_cmdline"; then
+      echo -e "$XSOS_INDENT_H3$grub_cmdline"
+    else
+      [[ $XSOS_SCRUB_IP_HN == y ]] && grub_cmdline=${grub_cmdline//${hostname%%.*}/HOSTNAME}
+      fold -sw$XSOS_FOLD_WIDTH <<<"$grub_cmdline" 2>/dev/null | sed -e "s,^,$XSOS_INDENT_H3,"
+    fi
+  fi
+    
+  # Print kernel tainted-status
+  echo -e "    ${c[H3]}Taint-check:${c[0]} $(CHECK_TAINTED --noquote "$1" H3)"
+  # End the kernel section
+  echo -e "    ${c[DGREY]}- - - - - - - - - - - - - - - - - - -${c[0]}"
+  
+  ##echo -e "  ${c[H2]}Supportability:${c[0]}"
+  
+  [[ -n $systime ]] &&
+  echo -e "  ${c[H2]}Sys time:${c[0]}  $systime"
+  
+  # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
+  [[ -n $uptime_input && -n $num_cpu ]] &&
+  gawk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDBOLD="${c[RED]}" -vRED="${c[red]}" -vORANGE="${c[orange]}" -vGREEN="${c[green]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+      !/load average/ { next }
+      {
+      Time = $1
+      
+      Uptime = gensub(/^ *[[:graph:]]+ up +(.+users?),.+/, "\\1", 1)
+      
+      Load[15] = $(NF)
+      Load[5]  = $(NF-1)
+      Load[1]  = $(NF-2)
+      for (i in Load) {
+        sub(/,/, "", Load[i])
+        LP[i] = Load[i] * 100 / NUM_CPU
+      }
+      for (i in LP) {
+        if (LP[i] < 70) Color[i] = GREEN
+        if (LP[i] > 69) Color[i] = ORANGE
+        if (LP[i] > 89) Color[i] = RED
+        if (LP[i] > 99) Color[i] = REDBOLD
+      }
+      
+      if (SYSTIME == "")
+        printf "  %sSys time:%s  %s\n", H2, H0, Time
+      printf   "  %sBoot time:%s %s\n", H2, H0, BTIME
+      printf   "  %sUptime:%s    %s\n", H2, H0, Uptime
+      printf   "  %sLoadAvg:%s   %s[%d CPU]%s %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
+        H2, H0, H_IMP, NUM_CPU, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
+    }' <<<"$uptime_input"
+    
+  # Print info from proc/stat
+  [[ -n $btime ]] &&
+  gawk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+    /^cpu / {
+      TotalTime = $2 + $3 + $4 + $5 + $6 + $7 + $8 + $9 + $10 + $11
+      user    = $2 * 100 / TotalTime
+      nice    = $3 * 100 / TotalTime
+      sys     = $4 * 100 / TotalTime
+      idle    = $5 * 100 / TotalTime
+      iowait  = $6 * 100 / TotalTime
+      irq     = $7 * 100 / TotalTime
+      softirq = $8 * 100 / TotalTime
+      steal   = $9 * 100 / TotalTime
+     #guest      = $10
+     #guest_nice = $11
+    }
+    /^cpu[[:graph:]]+/ { num_cpu++ }
+    /procs_running/    { procs_running = $2 }
+    /procs_blocked/    { procs_blocked = $2 }
+    /processes/        { processes = $2 }
+    
+    END {
+      printf "  %s/proc/stat:%s\n",
+        H2, H0
+      printf "    %sprocs_running:%s %d   %sprocs_blocked:%s %d", H3, H0, procs_running, H3, H0, procs_blocked
+      printf "    %sprocesses [Since boot]:%s %d\n", H3, H0, processes
+      printf "    %scpu [Utilization since boot]:%s\n      us %.0f%%, ni %.0f%%, sys %.0f%%, idle %.0f%%, iowait %.0f%%, irq %.0f%%, sftirq %.0f%%, steal %.0f%%\n",
+        H3, H0, user, nice, sys, idle, iowait, irq, softirq, steal
+    }
+  ' <"$1/proc/stat"
+  
+  echo -en $XSOS_HEADING_SEPARATOR
+}

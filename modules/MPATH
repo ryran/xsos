@@ -1,0 +1,45 @@
+#!/bin/bash
+
+MPATH() {
+  # Local vars:
+  local mpath_input search_cmd mpath_output
+  
+  # If localhost, grab output from multipath
+  if [[ -z $1 ]]; then
+    mpath_input=$(multipath -v4 -ll 2>/dev/null)
+
+  # If directory, assume sosreport and look for multipath output
+  elif [[ -d $1 ]]; then
+    mpath_input=$(<"$1/sos_commands/devicemapper/multipath_-v4_-ll")
+
+  # Otherwise grab file
+  elif [[ -f $1 ]]; then
+    mpath_input=$(<$1)
+  fi
+
+  echo -e "${c[H1]}DM-MULTIPATH${c[0]}"
+  
+  # If we have a specific query, we'll use gawk for post-processing
+  # Otherwise simply use cat
+  if [[ -n $XSOS_MULTIPATH_QUERY ]]; then
+    search_cmd="gawk -vRS=\n\n /$XSOS_MULTIPATH_QUERY/"
+  else
+    search_cmd=cat
+  fi
+  
+  # Need to parse through `multipath -v4 -ll` output from multiple version of rhel
+  mpath_output=$(gawk '
+    /^[[:graph:]]+ \([[:alnum:][:punct:]]+\) *dm-/
+    /^[[:graph:]]+ *dm-/
+    /^\[?size=/
+    /(\\_|\|-|`-)/
+  ' <<<"$mpath_input")
+  
+  if [[ -n $mpath_output ]]; then
+    sed '1!s,^[[:alnum:]].*dm-,\n&,' <<<"$mpath_output" | $search_cmd | sed "s/^/$XSOS_INDENT_H1/"
+  else
+    echo -e "${XSOS_INDENT_H1}${c[DGREY]}[No paths detected]${c[0]}"
+  fi
+  
+  echo -en $XSOS_HEADING_SEPARATOR
+}

@@ -1,0 +1,122 @@
+#!/bin/bash
+
+NETDEV() {
+  # Local vars:
+  local netdev_input_file
+  
+  [[ -f $1 ]] && netdev_input_file=$1 || netdev_input_file=$1/proc/net/dev
+  
+  echo -e "${c[H1]}NETDEV${c[0]}"
+  tail -n+3 "$netdev_input_file" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
+    gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_NET_UNIT) '
+      function round(num, places) {
+        places = 10 ^ places
+        return int(num * places + .5) / places
+      }
+
+      {
+        # Set variables based on fields
+        
+        Interface[$1] = $1
+        RxBytes[$1]   = $2
+        RxPackets[$1] = $3
+        RxErrs[$1]    = $4
+        RxDrop[$1]    = $5
+        RxFifo[$1]    = $6
+        TxBytes[$1]   = $10
+        TxPackets[$1] = $11
+        TxErrs[$1]    = $12
+        TxDrop[$1]    = $13
+        TxCols[$1]    = $15
+        
+        # Calculate percentages only if rx/tx packets gt 0
+        
+        if  ($3 > 0) {
+          if  ($4 > 0) RxErrsPercent[$1] = "(" round($4  * 100 / $3,  0) "%)"
+          if  ($5 > 0) RxDropPercent[$1] = "(" round($5  * 100 / $3,  0) "%)"
+          if  ($6 > 0) RxFifoPercent[$1] = "(" round($6  * 100 / $3,  0) "%)"
+        }
+        if ($11 > 0) {
+          if ($12 > 0) TxErrsPercent[$1] = "(" round($12 * 100 / $11, 0) "%)"
+          if ($13 > 0) TxDropPercent[$1] = "(" round($13 * 100 / $11, 0) "%)"
+          if ($15 > 0) TxColsPercent[$1] = "(" round($15 * 100 / $11, 0) "%)"
+        }
+        
+        # Figure out what number to divide by to end up with KiB, MiB, GiB, or TiB
+        
+        if      (u == "K") { bytes_divisor = 1024 }
+        else if (u == "M") { bytes_divisor = 1024 ** 2 ; packets_divisor = 1000      ; Packets_Unit = " k" }
+        else if (u == "G") { bytes_divisor = 1024 ** 3 ; packets_divisor = 1000 ** 2 ; Packets_Unit = " M" }
+        else if (u == "T") { bytes_divisor = 1024 ** 4 ; packets_divisor = 1000 ** 2 ; Packets_Unit = " M" }
+        
+        # Figure out decimal precision
+        
+        if (u == "T")
+          # For T, round Bytes field to nearest hundredth (.nn)
+          Precision_Bytes = 2
+          
+        else if (u == "G")
+          # For G, round Bytes field to nearest tenth (.n)
+          Precision_Bytes = 1
+          
+        else
+          # For K/M, keep Bytes as whole numbers
+          Precision_Bytes = 0
+        
+        # Never show decimal for Packets
+        Precision_Pckts = 0
+        
+        # If unit is anything but bytes, perform the necessary division
+        
+        if (u == "K" || u == "M" || u == "G" || u == "T") {
+          U = u"iB"
+          RxBytes[$1] /= bytes_divisor
+          TxBytes[$1] /= bytes_divisor
+        }
+        
+        # If unit is MiB, GiB, or TiB, perform division on packets as well
+        
+        if (u == "M" || u == "G" || u == "T") {
+          RxPackets[$1] /= packets_divisor
+          TxPackets[$1] /= packets_divisor
+        }
+        
+        # Now that we have our numbers, time to do rounding
+        
+        RxBytes[$1]   = round(RxBytes[$1],   Precision_Bytes)
+        TxBytes[$1]   = round(TxBytes[$1],   Precision_Bytes)
+        RxPackets[$1] = round(RxPackets[$1], Precision_Pckts)
+        TxPackets[$1] = round(TxPackets[$1], Precision_Pckts)
+        
+        # If U (pretty printing unit) was never set, it should be bytes
+        
+        if (U == "")
+          U = "B"
+      }
+      
+      END {
+        print "  Interface❚Rx"U"ytes❚RxPackets❚RxErrs❚RxDrop❚RxFifo❚Tx"U"ytes❚TxPackets❚TxErrs❚TxDrop❚TxColls"
+        print "  =========❚=========❚=========❚======❚======❚======❚=========❚=========❚======❚======❚======="
+        n = asorti(Interface, IF)
+        for (i = 1; i <= n; i++)
+        # printf "  %s❚%.0f❚%.0f%s❚%d %s❚%d %s❚%.0f❚%.0f%s❚%d (%.0f%%)❚%d (%.0f%%)\n",
+          printf "  %s❚%s❚%s%s❚%s %s❚%s %s❚%s %s❚%s❚%s%s❚%s %s❚%s %s❚%s %s\n",
+            IF[i], RxBytes[IF[i]], RxPackets[IF[i]], Packets_Unit, RxErrs[IF[i]], RxErrsPercent[IF[i]], RxDrop[IF[i]], RxDropPercent[IF[i]], RxFifo[IF[i]], RxFifoPercent[IF[i]],
+                   TxBytes[IF[i]], TxPackets[IF[i]], Packets_Unit, TxErrs[IF[i]], TxErrsPercent[IF[i]], TxDrop[IF[i]], TxDropPercent[IF[i]], TxCols[IF[i]], TxColsPercent[IF[i]]
+      }
+    ' | column -ts❚ |
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
+        {
+          if (NR <= 2) print H2 $0 H0
+          else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
+        }'
+
+# Disabled this cuz ... well, it took up space and I had no evidence that anyone uses it
+#  if [[ -d $1 ]]; then
+#    echo -en $XSOS_HEADING_SEPARATOR
+#    echo -e "${c[H1]}SOCKSTAT${c[0]}"
+#    gawk -vS="  " -vH3="${c[H3]}" -vH0="${c[0]}" '
+#      { printf gensub(/^(.*:)/, S H3"\\1"H0, 1)"\n" }' <"$1/proc/net/sockstat"
+#  fi
+  echo -en $XSOS_HEADING_SEPARATOR
+}

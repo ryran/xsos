@@ -1,0 +1,25 @@
+#!/bin/bash
+
+INTRUPT() {
+  # Local vars:
+  local interrupts_input longest_len_interupt_field_one indent
+  [[ -f $1 ]] && interrupts_input=$1 || interrupts_input=$1/proc/interrupts
+  longest_len_interupt_field_one=$(gawk 'NR > 1 {print length($1)}' $interrupts_input | sort -nr | head -1)
+  indent=$(( longest_len_interupt_field_one + $(printf "$XSOS_INDENT_H1" | wc -m) ))
+  echo -e "${c[H1]}INTERRUPTS${c[0]}"
+  gawk '
+    NR > 1 {
+      printf "%'$indent's ", $1
+      for (i=2; i <= NF; i++) {
+        if ($i ~ "[a-zA-Z]")
+          printf " %s", $i
+        else if($i > 0)
+          printf "▊"
+        else
+          printf "."
+      }
+      printf "\n"
+    }
+  ' <"$interrupts_input"
+  echo -en $XSOS_HEADING_SEPARATOR
+}

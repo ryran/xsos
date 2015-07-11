@@ -1,0 +1,234 @@
+#!/bin/bash
+
+KDUMP() {
+  # Local vars
+  local kexec_tools_vers kdump_initrd path kdump_cfg target MemTotal PathAvailableSpace ColorAvailable lsbootfile
+  
+  # If the os module was called, grub config was already inspected; otherwise, we need to do it
+  if [[ -z $os ]]; then
+    IMPORT CHECK_GRUB.helper
+    CHECK_GRUB "$1"
+  fi
+        
+  # If running on localhost ....
+  if [[ $1 == / ]]; then
+    __rpm_check_kexec() {
+      kexec_tools_vers=$(rpm -q kexec-tools) \
+        && echo $kexec_tools_vers \
+        || echo -e "${c[Warn1]}$kexec_tools_vers${c[0]}"
+    }
+    __svc_check_kdump() {
+      if command -v systemctl >/dev/null; then
+        if systemctl list-unit-files | grep -qs kdump.service; then
+          systemctl list-unit-files | gawk '/kdump.service/ { printf "UNIT STATE\n" $0 }' | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+            { gsub(".*disabled", warn "&" H0)
+              gsub(".*enabled", green "&" H0)
+              print
+            }'
+        else
+          echo -e "${c[Warn1]}Unit kdump.service not-found (Reason: No such file or directory)${c[0]}"
+        fi
+      else
+        if chkconfig --list kdump &>/dev/null; then
+          chkconfig --list kdump | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+            { for (i=3; i<6; i++) {
+                gsub(i ":on", i ":" green "on" H0)
+                gsub(i ":off", i ":" warn "off" H0)
+              }
+              print
+            }'
+        else
+          echo -e "${c[Warn1]}$(chkconfig --list kdump 2>&1)${c[0]}"
+        fi
+      fi
+    }
+    __initrd_file_check() {
+      ls /boot/initr*kdump.img &>/dev/null \
+        && ls -l /boot/initr*kdump.img | sed -r 's@^........... +[0-9]+ \w+ *\w+ *([0-9]+ .*)@\1@' | sed -r 's,/+boot/,,' \
+        || echo -e "${c[Warn1]}missing '/boot/initr*kdump.img'${c[0]}"
+    }
+    __get_df_for_parent_fs_of_path() {
+      df_output=$(df "$path" | gawk '{if (NF==1) {dev=$1; getline; print dev $0} else if (NR==2) print}')
+    }
+    
+      
+  # If running on sosreport ....
+  else
+    __rpm_check_kexec() {
+      if [[ -r "$sosroot"/installed-rpms ]]; then
+        grep -q kexec-tools "$sosroot"/installed-rpms \
+          && gawk '/kexec-tools/{print$1}' "$sosroot"/installed-rpms \
+          || echo -e "${c[Warn1]}package kexec-tools is not installed${c[0]}"
+      else
+        echo -e "${c[Warn1]}missing '$sosroot/installed-rpms'${c[0]}"
+      fi
+    }
+    __svc_check_kdump() {
+      if [[ -r "$sosroot"/sos_commands/systemd/systemctl_list-unit-files ]]; then
+        if grep -qs kdump.service "$sosroot"/sos_commands/systemd/systemctl_list-unit-files; then
+          gawk '/kdump.service/ { printf "UNIT STATE\n" $0 }' "$sosroot"/sos_commands/systemd/systemctl_list-unit-files | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+            { gsub(".*disabled", warn "&" H0)
+              gsub(".*enabled", green "&" H0)
+              print
+            }'
+        else
+          echo -e "${c[Warn1]}Unit kdump.service not-found (Reason: No such file or directory)${c[0]}"
+        fi
+      else
+        if [[ -r "$sosroot"/chkconfig ]]; then
+          if grep -q ^kdump "$sosroot"/chkconfig; then
+            grep ^kdump "$sosroot"/chkconfig | column -t | gawk -vH0="${c[0]}" -vgreen="${c[green]}" -vwarn="${c[Warn1]}" '
+              { for (i=3; i<6; i++) {
+                  gsub(i ":on", i ":" green "on" H0)
+                  gsub(i ":off", i ":" warn "off" H0)
+                }
+                print
+              }'
+          else
+            echo -e "${c[Warn1]}kdump not present in chkconfig output${c[0]}"
+          fi
+        else
+          echo -e "${c[Warn1]}missing '$sosroot/chkconfig'${c[0]}"
+        fi
+      fi
+    }
+    __initrd_file_check() {
+      [[ -r "$sosroot"/sos_commands/bootloader/ls_-laR_.boot ]] && lsbootfile="$sosroot"/sos_commands/bootloader/ls_-laR_.boot
+      [[ -r "$sosroot"/sos_commands/boot/ls_-lanR_.boot ]] && lsbootfile="$sosroot"/sos_commands/boot/ls_-lanR_.boot
+      if [[ -z $lsbootfile ]]; then
+        echo -e "${c[Warn1]}missing '$sosroot/sos_commands/bootloader/ls_-laR_.boot' & '$sosroot/sos_commands/boot/ls_-lanR_.boot'${c[0]}"
+      else
+        kdump_initrd=$(grep 'initr.*kdump.img$' "$lsbootfile") \
+          && sed -r 's@^........... +[0-9]+ \w+ *\w+ *([0-9]+ .*)@\1@' <<<"$kdump_initrd" | sed -r 's,/+boot/,,' \
+          || echo -e "${c[Warn1]}missing '/boot/initr*kdump.img' according to '$lsbootfile'${c[0]}"
+      fi
+    }
+    __get_df_for_parent_fs_of_path() {
+      local dfpath lastloop
+      dfpath=$path
+      while [[ $(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | gawk -vP=$dfpath '{if ($6==P || $5==P) n+=1} END{if (n>0) print 0; else print 255}') -eq 255 ]]; do
+        if [[ $lastloop == y ]]; then
+          echo "DEBUG: This should never happen unless sos_commands/filesys/df_-al is missing an entry for '/'"
+          return 2
+        fi
+        dfpath=${dfpath%/*}
+        if [[ -z $dfpath ]]; then
+          dfpath=/
+          lastloop=y
+        fi
+      done
+      df_output=$(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | gawk -vP=$dfpath '{if (NF==6 && $6==P) print; else if (NF==1) {dev=$1; getline; if ($5==P) print dev $0} }')
+    }
+  fi
+  
+  # A couple functions that work regardless of localhost/sosreport
+  __get_crashkernel_proc_cmdline() {
+    local out
+    if [[ -r "$sosroot"/proc/cmdline ]]; then
+      out=$(egrep -o 'crashkernel=[[:graph:]]+' "$sosroot"/proc/cmdline)
+    else
+      out="${c[Warn1]}file missing${c[0]}"
+    fi
+    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}crashkernel param not present${c[0]}"
+  }
+  __get_crashkernel_grub_cmdline() {
+    local out
+    if [[ -n $bad_grubcfg ]]; then
+      out="$bad_grubcfg"
+    else
+      out=$(egrep -o 'crashkernel=[[:graph:]]+' <<<"$grub_cmdline")
+    fi
+    [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}crashkernel param not present${c[0]}"
+  }
+  __P() {
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1} =  $(gawk -vW="${c[Warn1]}" -vG="${c[green]}" '{ if ($1==0) print W 0; else print G $1 }' "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
+  }
+  __Pa() {
+    echo -e "$XSOS_INDENT_H2${c[H3]}${1} ${c[H4]}$2${c[H3]}=  $(gawk -vW="${c[Warn1]}" -vG="${c[green]}" -vH0="${c[0]}" "$3" "$4" "$sosroot"/proc/sys/${1//.//} 2>/dev/null)${c[0]}"
+  }
+  __get_proc_iomem() {
+    local out
+    if [[ ! -r "$sosroot"/proc/iomem ]]; then
+      echo -e "$XSOS_INDENT_H2${c[Warn1]}Missing $sosroot/proc/iomem${c[0]}"
+      return
+    fi
+    if out=$(grep Crash.kernel "$sosroot"/proc/iomem); then
+      echo -e "$XSOS_INDENT_H2${c[green]}${out}${c[0]}"
+    else
+      echo -e "$XSOS_INDENT_H2${c[Warn1]}Memory IS NOT reserved, according to $sosroot/proc/iomem${c[0]}"
+    fi
+  }
+  
+  echo -e "${c[H1]}KDUMP CONFIG${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}kexec-tools rpm version:${c[0]}"
+    __rpm_check_kexec | sed "s,^,$XSOS_INDENT_H2,"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Service enablement:${c[0]}"
+    __svc_check_kdump | sed "s,^,$XSOS_INDENT_H2,"
+  echo -e "$XSOS_INDENT_H1${c[H2]}kdump initrd/initramfs:${c[0]}"
+    __initrd_file_check | gawk '{ print gensub(/^([0-9]+) *([[:upper:]][[:lower:]]+) *([0-9]{1,2}) *([0-9]{4}) *(initrd.*)$/, "\\1  \\2 \\3 \\4  \\5", 1) }' | sed "s,^,$XSOS_INDENT_H2,"
+    # The extra gawk command above reformats spacing in the ls -l output
+  echo -e "$XSOS_INDENT_H1${c[H2]}Memory reservation config:${c[0]}"
+    grep -qsw rescue "$1/proc/cmdline" && echo -e "$XSOS_INDENT_H1 ${c[Warn2]}(Rescue mode detected)${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}/proc/cmdline {${c[0]} $(__get_crashkernel_proc_cmdline) ${c[H3]}}${c[0]}"
+    echo -e "$XSOS_INDENT_H2${c[H3]}GRUB default  {${c[0]} $(__get_crashkernel_grub_cmdline) ${c[H3]}}${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Actual memory reservation per /proc/iomem:${c[0]}"
+    __get_proc_iomem
+  echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf:${c[0]}"
+  
+    if [[ -r "$sosroot"/etc/kdump.conf ]]; then
+      kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$sosroot"/etc/kdump.conf)
+      if [[ -n $kdump_cfg ]]; then
+        sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg"
+        path=$(gawk '/^path / {print$2}' <<<"$kdump_cfg" | tail -n1)
+        [[ -z $path ]] && path=/var/crash
+        
+        for target in raw net nfs nfs4 ssh minix ext2 ext3 ext4 btrfs xfs; do
+          if grep -q ^$target <<<"$kdump_cfg"; then
+            path=
+            break
+          fi
+        done
+        
+      else
+        echo -e "$XSOS_INDENT_H2${c[DGREY]}[All commented]${c[0]}"
+        path=/var/crash
+      fi
+      
+      if [[ -n $path ]]; then
+        __get_df_for_parent_fs_of_path
+        if [[ -n $df_output ]]; then
+          echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf \"path\" available space:${c[0]}"
+          MemTotal=$(gawk '/^MemTotal/{printf "%.2f\n", $2/1024/1024}' "$sosroot"/proc/meminfo)
+          PathAvailableSpace=$(gawk '{printf "%.2f\n", $4/1024/1024}' <<<"$df_output")
+          ColorAvailable=$(gawk -vP=$path -vMemtotal=$(gawk /MemTotal/{print\$2} "$sosroot"/proc/meminfo) '
+                            { if ($4 > Memtotal) print "green"; else print "orange" }
+                           '  <<<"$df_output")
+          echo -e "$XSOS_INDENT_H2${c[H3]}System MemTotal (uncompressed core size) {${c[0]} $MemTotal GiB ${c[H3]}}${c[0]}"
+          echo -e "$XSOS_INDENT_H2${c[H3]}Available free space on target path's fs {${c[0]} ${c[$ColorAvailable]}$PathAvailableSpace GiB ${c[H3]}}${c[0]}  (fs=$(gawk '{print$6}' <<<"$df_output"))"
+        else
+          echo "DEBUG: no df_output .. shouldn't happen"
+        fi
+      fi
+      
+    else
+      echo -e "$XSOS_INDENT_H2${c[Warn1]}missing '$1/etc/kdump.conf'${c[0]}"
+    fi
+
+  echo -e "$XSOS_INDENT_H1${c[H2]}Panic sysctls:${c[0]}"
+  if grep -qsw rescue "$sosroot/proc/cmdline"; then
+    echo -e "$XSOS_INDENT_H1${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
+    echo -e "$XSOS_INDENT_H1${c[Warn1]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c[0]}"
+  fi
+  __Pa kernel.panic "[secs] "  '{if ($1>0) printf "%s%s%s  (secs til autoreboot after panic)", W, $1, H0; else printf "%s0%s  (no autoreboot on panic)", G, H0}'
+  __P kernel.hung_task_panic
+  __P kernel.panic_on_oops
+  __P kernel.panic_on_io_nmi
+  __P kernel.panic_on_unrecovered_nmi
+  __P kernel.panic_on_stackoverflow
+  __P kernel.softlockup_panic
+  __P kernel.unknown_nmi_panic
+  __P kernel.nmi_watchdog
+  __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "%s0%s  (no panic)", W, H0; else if ($1==1) printf "%s1%s  (no panic if OOM-triggering task limited by mbind/cpuset)", G, H0; else if ($1==2) printf "%s2%s  (always panic)", G, H0}'
+  
+  echo -en $XSOS_HEADING_SEPARATOR
+}

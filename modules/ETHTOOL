@@ -1,0 +1,119 @@
+#!/bin/bash
+
+ETHTOOL() {
+  # Local vars:
+  local changedir ethdevs i errsfound count ethindent multiqueue_header
+  
+  # If localhost, grab interfaces from /sys
+  if [[ -z $1 ]]; then
+    ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0|bonding_masters')
+    # Setup local functions for ethtool & ethtool -i & ethtool -S
+    __ethtool()   { ethtool $1; }
+    __ethtool_i() { ethtool -i $1; }
+    __ethtool_S() { ethtool -S $1 2>&1; }
+    __ethtool_g() { ethtool -g $1 2>&1; }
+    
+  # If sosreport, determine interfaces from ethtool_<iface> files
+  else
+    changedir=1
+    pushd "$1"/sos_commands/networking &>/dev/null
+    ethdevs=$(ls ethtool_[[:alpha:]]* | cut -d_ -f2-)
+    # Setup local functions for ethtool & ethtool -i & ethtool -S
+    __ethtool()   { cat ethtool_$1; }
+    __ethtool_i() { [[ -r ethtool_-i_$1 ]] && cat ethtool_-i_$1; }
+    __ethtool_S() { [[ -r ethtool_-S_$1 ]] && cat ethtool_-S_$1; }
+    __ethtool_g() { [[ -r ethtool_-g_$1 ]] && cat ethtool_-g_$1; }
+  fi
+  
+  # If have ethdevs to work on ...
+  if [[ -n $ethdevs ]]; then
+    echo -e "${c[H1]}ETHTOOL${c[0]}"
+    echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Status:${c[0]}"
+    for i in $ethdevs; do
+      echo -e "${XSOS_INDENT_H2}$i❚$(__ethtool_i $i |
+      gawk '
+        BEGIN { pci = "PCI UNKNOWN" }
+        /^bus-info:/ { pci = $2 }
+        END { printf pci }
+      '
+      )❚$(__ethtool $i |
+      gawk '
+        /Link detected:/    { link = $3; sub(/yes/, "up", link); sub(/no/, "DOWN", link) }
+        /Speed:/            { spd = $2 }
+        /Duplex:/           { dup = tolower($2) }
+        /Auto-negotiation:/ { aneg = $2; sub(/on/, "Y", aneg); sub(/off/, "N", aneg) }
+        END {
+          if (link == "up" && spd != "")
+            linkdetails = " "spd" "dup" (autoneg="aneg")"
+          else if (link == "")
+            link = "UNKNOWN"
+          printf "link=%s%s", link, linkdetails
+        }
+      '
+      )❚$(__ethtool_g $i |
+      gawk '
+        /Pre-set maximums:/          { getline; if ($1 == "RX:") rx_max=$2 }
+        /Current hardware settings:/ { getline; if ($1 == "RX:") rx_now=$2 }
+        END {
+          if (rx_now == "" && rx_max == "") {
+            print "rx ring UNKNOWN"
+            exit
+          }
+          else if (rx_now == "")
+            rx_now = "?"
+          else if (rx_max == "")
+            rx_max = "?"
+          printf "rx ring %s/%s\n", rx_now, rx_max
+        }
+      '
+      )❚$(__ethtool_i $i |
+      gawk -F: '
+        BEGIN { driver="UNKNOWN"; drv_vers=""; fw_vers="UNKNOWN" }
+        /^driver:/           { if ($2 !~ /^ *$/) driver=$2;   sub(/^ /, "", driver) }
+        /^version:/          { if ($2 !~ /^ *$/) drv_vers=$2; sub(/^ /, " v", drv_vers) }
+        /^firmware-version:/ { if ($2 !~ /^ *$/) fw_vers=$2;  sub(/^ /, "", fw_vers) }
+        END { printf "drv %s%s / fw %s", driver, drv_vers, fw_vers }
+      '
+      )"
+    done | column -ts❚ |
+      gawk -vH0="${c[0]}" -vU="${c[Up]}" -vD="${c[Down]}" -vE="${c[Warn1]}" '
+        /link=DOWN/     { print D $0 H0 }
+        /link=up/       { print U $0 H0 }
+        /link=UNKNOWN/  { print E $0 H0 }
+      '
+      
+    echo -e "${c[H2]}${XSOS_INDENT_H1}Interface Errors:${c[0]}"
+    echo -en "${c[Warn1]}"
+    multiqueue_header='^[[:space:]]+[RT]x.Queue#:'
+    for i in $ethdevs; do
+      errsfound=
+      ethindent=$(tr '[[:graph:]]'   ' ' <<<"$i ")
+      if __ethtool_S $i | egrep -q "$XSOS_ETHTOOL_ERR_REGEX"; then
+        [[ -n $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}- - - - - - - - - - - - - - - - - - -"
+        echo -en "${c[Warn1]}"
+        errsfound=$(__ethtool_S $i |
+          tac |
+            gawk "
+              BEGIN { found = 0 }
+              /$XSOS_ETHTOOL_ERR_REGEX/ {
+                print ; found = 1
+              }
+              /$multiqueue_header/ {
+                if (found == 1) {
+                  print ; found = 0
+                }
+              }
+            " |
+              tac
+        )
+        sed -e "1s/[[:space:]][[:graph:]]/$i &/" -e "1!s/^/$ethindent/" <<<"$errsfound"
+        count+=1
+      fi
+    done
+    [[ -z $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}[None]"
+    echo -en "${c[0]}"
+    
+    [[ -n $changedir ]] && popd &>/dev/null
+  fi
+  echo -en $XSOS_HEADING_SEPARATOR
+}
