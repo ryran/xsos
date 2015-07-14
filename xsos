@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.0 last mod 2015/07/11
+# xsos v0.7.1 last mod 2015/07/14
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1389,6 +1389,7 @@ KDUMP() {
     echo -e "$XSOS_INDENT_H1${c[Warn2]}  WARNING: RESCUE MODE DETECTED${c[0]}"
     echo -e "$XSOS_INDENT_H1${c[Warn1]}  sysctls below reflect rescue env; inspect sysctl.conf manually${c[0]}"
   fi
+  __Pa kernel.sysrq "[bitmask] "  '{if ($1==0) printf "\"0\"%s  (disallowed)", H0; else if ($1==1) printf "\"1\"%s  (all SysRqs allowed)", H0; else printf "\"%s\"%s  (see proc man page)", $1, H0}'
   __Pa kernel.panic "[secs] "  '{if ($1>0) printf "%s%s%s  (secs til autoreboot after panic)", W, $1, H0; else printf "%s0%s  (no autoreboot on panic)", G, H0}'
   __P kernel.hung_task_panic
   __P kernel.panic_on_oops
