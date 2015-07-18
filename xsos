@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.2 last mod 2015/07/17
+# xsos v0.7.3 last mod 2015/07/18
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -450,7 +450,7 @@ PARSE() {
   done
   shift #(to get rid of the '--')
   # Set sosroot
-  sosroot=$1
+  sosroot=$@
 }
 
 # Call the parser
