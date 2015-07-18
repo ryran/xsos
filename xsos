@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.3 last mod 2015/07/18
+# xsos v0.7.4 last mod 2015/07/18
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -396,57 +396,58 @@ PARSE() {
   unset opts all bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq netdev bonding ip net sysctl ps
   until [[ $1 == -- ]]; do
     case $1 in
-      --scrub)      shift; XSOS_SCRUB_IP_HN=y XSOS_SCRUB_MACADDR=y XSOS_SCRUB_SERIAL=y ;;
-      -6|--ipv6)    shift; XSOS_IP_VERSION=6 ;;
+      --scrub)      XSOS_SCRUB_IP_HN=y XSOS_SCRUB_MACADDR=y XSOS_SCRUB_SERIAL=y ;;
+      -6|--ipv6)    XSOS_IP_VERSION=6 ;;
       -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
-                      XSOS_MULTIPATH_QUERY=$2; shift 2
+                      XSOS_MULTIPATH_QUERY=$2; shift
                     ;;
       -u|--unit)    _OPT_CHECK "unit" "$2" string "b k m g t"
-                      XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift 2
+                      XSOS_MEM_UNIT=$2; XSOS_NET_UNIT=$2; shift
                     ;;
-      --threads)    shift; XSOS_PS_THREADS=y ;;
+      --threads)    XSOS_PS_THREADS=y ;;
       -v|--verbose) _OPT_CHECK "verbose" "$2" range "0 4"
-                      XSOS_PS_LEVEL=$2; shift 2
+                      XSOS_PS_LEVEL=$2; shift
                     ;;
       -w|--width)   _OPT_CHECK "width" "$2" regex '^[0-9]*$|^w$'
-                      XSOS_FOLD_WIDTH=$2; shift 2
+                      XSOS_FOLD_WIDTH=$2; shift
                     ;;
-      -x|--nocolor) shift; XSOS_COLORS=n     ;;
-      -y|--less)    shift; XSOS_OUTPUT_HANDLER='less -SR' ;;
-      -z|--more)    shift; XSOS_OUTPUT_HANDLER='more'     ;;
-      --rhsupport)  shift; XSOS_OS_RHT_CENTRIC=y          ;;
-      -a|--all)     shift; opts=y all=y     ;;
-      -b|--bios)    shift; opts=y bios=y    ;;
-      -o|--os)      shift; opts=y os=y      ;;
-      -k|--kdump)   shift; opts=y kdump=y   ;;
-      -c|--cpu)     shift; opts=y cpu=y     ;;
-      -f|--intrupt) shift; opts=y intrupt=y ;;
-      -m|--mem)     shift; opts=y mem=y     ;;
-      -d|--disks)   shift; opts=y disks=y   ;;
-      -t|--mpath)   shift; opts=y mpath=y   ;;
-      -l|--lspci)   shift; opts=y lspci=y   ;;
-      -e|--ethtool) shift; opts=y ethtool=y ;;
-      -r|--softirq) shift; opts=y softirq=y ;;
-      -n|--netdev)  shift; opts=y netdev=y  ;;
-      -g|--bonding) shift; opts=y bonding=y ;;
-      -i|--ip)      shift; opts=y ip=y      ;;
-      -s|--sysctl)  shift; opts=y sysctl=y  ;;
-      -p|--ps)      shift; opts=y ps=y      ;;
-      --net)        shift; opts=y lspci=y ethtool=y softirq=y netdev=y ip=y bonding=y ;;
+      -x|--nocolor) XSOS_COLORS=n     ;;
+      -y|--less)    XSOS_OUTPUT_HANDLER='less -SR' ;;
+      -z|--more)    XSOS_OUTPUT_HANDLER='more'     ;;
+      --rhsupport)  XSOS_OS_RHT_CENTRIC=y          ;;
+      -a|--all)     opts=y all=y     ;;
+      -b|--bios)    opts=y bios=y    ;;
+      -o|--os)      opts=y os=y      ;;
+      -k|--kdump)   opts=y kdump=y   ;;
+      -c|--cpu)     opts=y cpu=y     ;;
+      -f|--intrupt) opts=y intrupt=y ;;
+      -m|--mem)     opts=y mem=y     ;;
+      -d|--disks)   opts=y disks=y   ;;
+      -t|--mpath)   opts=y mpath=y   ;;
+      -l|--lspci)   opts=y lspci=y   ;;
+      -e|--ethtool) opts=y ethtool=y ;;
+      -r|--softirq) opts=y softirq=y ;;
+      -n|--netdev)  opts=y netdev=y  ;;
+      -g|--bonding) opts=y bonding=y ;;
+      -i|--ip)      opts=y ip=y      ;;
+      -s|--sysctl)  opts=y sysctl=y  ;;
+      -p|--ps)      opts=y ps=y      ;;
+      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y bonding=y ;;
       
-      --B)  sfile[B]=$2; shift 2 ;;
-      --F)  sfile[F]=$2; shift 2 ;;
-      --C)  sfile[C]=$2; shift 2 ;;
-      --M)  sfile[M]=$2; shift 2 ;;
-      --D)  sfile[D]=$2; shift 2 ;;
-      --T)  sfile[T]=$2; shift 2 ;;
-      --L)  sfile[L]=$2; shift 2 ;;
-      --R)  sfile[R]=$2; shift 2 ;;
-      --N)  sfile[N]=$2; shift 2 ;;
-      --G)  sfile[G]=$2; shift 2 ;;
-      --I)  sfile[I]=$2; shift 2 ;;
-      --P)  sfile[P]=$2; shift 2 ;;
+      --B)  sfile[B]=$2; shift ;;
+      --F)  sfile[F]=$2; shift ;;
+      --C)  sfile[C]=$2; shift ;;
+      --M)  sfile[M]=$2; shift ;;
+      --D)  sfile[D]=$2; shift ;;
+      --T)  sfile[T]=$2; shift ;;
+      --L)  sfile[L]=$2; shift ;;
+      --R)  sfile[R]=$2; shift ;;
+      --N)  sfile[N]=$2; shift ;;
+      --G)  sfile[G]=$2; shift ;;
+      --I)  sfile[I]=$2; shift ;;
+      --P)  sfile[P]=$2; shift ;;
     esac
+    shift
   done
   shift #(to get rid of the '--')
   # Set sosroot
