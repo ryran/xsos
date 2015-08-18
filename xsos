@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.4 last mod 2015/07/18
+# xsos v0.7.5 last mod 2015/08/18
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1842,9 +1842,20 @@ STORAGE() {
   egrep -v "${scsi_blacklist%?}" "$partitions_input" |
     gawk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
       # For starters, we search /proc/partitions for certain types of devices
-      # (These partition types are from devices.txt in the linux kernel documentation)
-      
-      $4 ~ /^hd.$|^sd[[:alpha:]]+$|^md.$|^r+om.$|^r?flash.$|^rd\/c.{1,2}d.{1,2}$|^ida\/c.d.$|^i2o\/hd[[:alpha:]]+$|^amiraid\/ar.{1,2}$|cbd\/.$|^cciss\/c.d.{1,2}$|^iseries\/vd[[:alpha:]]+$|^ataraid\/d.{1,2}$|^emd\/.{1,2}$|^carmel\/.{1,2}$|^mmcblk.$|^ub.$|^xvd[[:alpha:]]+$|^vd[[:alpha:]]+$|^dasd[[:alpha:]]+$/ {
+      # These block types are from devices.txt in the linux kernel documentation
+      # Updated 2015/08/18 from kernel-doc-3.10.0-229.7.2.el7
+      BEGIN {
+        blkdevs = "^("  \
+                  "(vd|hd|sd|mfm|ad|ftl|pd|i2o/hd|nftl|dasd|inftl|ubd|cbd/|iseries/vd|ub|xvd|rfd|ssfdc)[[:alpha:]]+"  \
+                  "|"  \
+                  "(ramdisk|ram|loop|md|rr?om|r?flash|nb|ppdd|amiraid/ar|ataraid/d|nwfs/v|umem/d|drbd|etherd/|emd/|carmel/|mmcblk|blockrom)[0-9]+"  \
+                  "|"  \
+                  "(rd|ida|cciss)/c[0-9]+d[0-9]+"  \
+                  "|"  \
+                  "vx/dsk/.*/.*|vx/dmp/.*"  \
+                  ")$"
+      }
+      $4 ~ blkdevs {
         
         # For each thing found, increment the total number of disks
         numdisks ++
