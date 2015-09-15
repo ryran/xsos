@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.5 last mod 2015/08/18
+# xsos v0.7.6 last mod 2015/09/15
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -827,12 +827,15 @@ _CHECK_GRUB() {
   if [[ -f $1/boot/grub/grub.conf ]]; then
     # Set grubcfg for grub1
     grubcfg=$1/boot/grub/grub.conf
+  elif [[ -f $1/boot/efi/EFI/redhat/grub.conf ]]; then
+    # Set grubcfg for rhel UEFI grub1
+    grubcfg=$1/boot/efi/EFI/redhat/grub.conf
   elif [[ -f $1/boot/grub2/grub.cfg ]]; then
     # Set grubcfg for rhel grub2
     grubcfg=$1/boot/grub2/grub.cfg
-  elif [[ -f $1/boot/efi/EFI/redhat/grub.conf ]]; then
-    # Set grubcfg for rhel grub2 EFI
-    grubcfg=$1/boot/efi/EFI/redhat/grub.conf
+  elif [[ -f $1/boot/efi/EFI/redhat/grub.cfg ]]; then
+    # Set grubcfg for rhel UEFI grub2
+    grubcfg=$1/boot/efi/EFI/redhat/grub.cfg
   elif [[ -f $1/boot/grub/grub.cfg ]]; then
     # Set grubcfg for debian grub2
     grubcfg=$1/boot/grub/grub.cfg
