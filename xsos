@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.6 last mod 2015/09/15
+# xsos v0.7.7 last mod 2015/12/31
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -176,7 +176,7 @@ fi
 
 # XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
-    : ${XSOS_ETHTOOL_ERR_REGEX:="(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause).*: [^0]"}
+    : ${XSOS_ETHTOOL_ERR_REGEX:="Missing ethtool_-S file|(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause).*: [^0]"}
 
 # XSOS_LSPCI_NET_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Net" heading
@@ -698,7 +698,7 @@ _CHECK_KERNELBUILD() {
     kernel_build=$(<"$1/proc/version")
   
   # sosreport: if find it via `dmesg` output file, great
-  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(grep -as 'Linux version' "$1/sos_commands/general/dmesg"); then
+  elif ! grep -qsw rescue "$1/proc/cmdline" && kernel_build=$(cat "$1/sos_commands/general/dmesg" "$1/sos_commands/kernel/dmesg" 2>/dev/null | grep -as 'Linux version'); then
     :
     
   # sosreport: if find it in var/log/dmesg, woo hoo
@@ -738,10 +738,10 @@ _CHECK_SELINUX() {
   if [[ $1 == / ]]; then
     input_sestatus=$(sestatus 2>/dev/null)
     
-  # Else, from $sosroot/sestatus & dmesg
+  # Else, from $sosroot/sestatus or $sosroot/sos_commands/selinux/sestatus_-b & dmesg
   else
-    input_sestatus=$(gawk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null)
-    egrep -qis '^SELinux: *Disabled at (boot|runtime)' "$1"/var/log/dmesg "$1"/sos_commands/general/dmesg* && selinux_dmesg=disabled
+    input_sestatus=$(gawk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null; gawk '!/\/.*bin/ && NF!=0' "$1/sos_commands/selinux/sestatus_-b" 2>/dev/null)
+    cat "$1"/var/log/dmesg "$1"/sos_commands/general/dmesg* "$1"/sos_commands/kernel/dmesg 2>/dev/null | egrep -qis '^SELinux: *Disabled at (boot|runtime)' && selinux_dmesg=disabled
     # Could also check /var/log/messages, but it would be too expensive and complicated
     # to ensure any hits were for the current boot-cycle
   fi
@@ -1804,9 +1804,9 @@ STORAGE() {
     if [[ $1 == / && $UID -eq 0 ]]; then
       # Get multipath input from command, because $1 is system
       mpath_input=$(multipath -v4 -ll 2>/dev/null)
-    elif [[ -r $1/sos_commands/devicemapper/multipath_-v4_-ll ]]; then
+    elif [[ -r $1/sos_commands/devicemapper/multipath_-v4_-ll || -r $1/sos_commands/multipath/multipath_-v4_-ll ]]; then
       # Get multipath input from sosreport file, if present
-      mpath_input=$(<"$1/sos_commands/devicemapper/multipath_-v4_-ll")
+      mpath_input=$(cat "$1"/sos_commands/{devicemapper,multipath}/multipath_-v4_-ll 2>/dev/null)
     fi
   fi
   
@@ -1906,7 +1906,7 @@ MULTIPATH() {
 
   # If directory, assume sosreport and look for multipath output
   elif [[ -d $1 ]]; then
-    mpath_input=$(<"$1/sos_commands/devicemapper/multipath_-v4_-ll")
+    mpath_input=$(cat "$1"/sos_commands/{devicemapper,multipath}/multipath_-v4_-ll 2>/dev/null)
 
   # Otherwise grab file
   elif [[ -f $1 ]]; then
@@ -2364,7 +2364,7 @@ ETHTOOL() {
     # Setup local functions for ethtool & ethtool -i & ethtool -S
     __ethtool()   { cat ethtool_$1; }
     __ethtool_i() { [[ -r ethtool_-i_$1 ]] && cat ethtool_-i_$1; }
-    __ethtool_S() { [[ -r ethtool_-S_$1 ]] && cat ethtool_-S_$1; }
+    __ethtool_S() { [[ -r ethtool_-S_$1 ]] && cat ethtool_-S_$1 || echo "     Missing ethtool_-S file"; }
     __ethtool_g() { [[ -r ethtool_-g_$1 ]] && cat ethtool_-g_$1; }
   fi
   
@@ -2500,6 +2500,7 @@ SOFTIRQ() {
   else
     echo -e "${XSOS_INDENT_H1}Budget is sufficient${c[0]}$budget"
   fi
+  echo "${XSOS_INDENT_H1}(see https://access.redhat.com/solutions/1241943)"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
@@ -3163,7 +3164,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     SOS_CHECKFILE intrupt "proc/interrupts"                    && INTERRUPT "$sosroot"
     SOS_CHECKFILE mem     "proc/meminfo"                       && MEMINFO   "$sosroot"
     SOS_CHECKFILE disks   "proc/partitions"                    && STORAGE   "$sosroot"
-    SOS_CHECKFILE mpath   "sos_commands/devicemapper/multipath_-v4_-ll" \
+    SOS_CHECKFILE mpath   sos_commands/{devicemapper,multipath}/multipath_-v4_-ll \
                                                                && MULTIPATH "$sosroot"
     SOS_CHECKFILE lspci   "lspci"                              && LSPCI     "$sosroot"
     SOS_CHECKFILE ethtool "sos_commands/networking/ethtool*"   && ETHTOOL   "$sosroot"
