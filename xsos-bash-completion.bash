@@ -51,7 +51,7 @@ _xsos()  {
           ;;
           
       # These special opts require filenames as arguments
-      --B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P)
+      --B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P|--X)
           compopt -o plusdirs  # Important!
           COMPREPLY=( $(compgen -f -- "$curr") )
           return 0

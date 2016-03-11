@@ -197,7 +197,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 
 HELP_USAGE() {
   echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngisp] [SOSREPORT ROOT]
-  or:  xsos [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
+  or:  xsos [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P|--X FILE}...
   or:  xsos [-?|-h|--help]
 
 Display system info from localhost or extracted sosreport"
@@ -262,7 +262,8 @@ Special options (BASH v4+ required):"
  --N=FILE❚read from FILE containing /proc/net/dev dump
  --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
- --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
+ --P=FILE❚read from FILE containing \`ps aux\` dump
+ --X=FILE❚extract sosreport FILE" | column -ts❚
 }
 
 HELP_SHORT() {
@@ -340,7 +341,7 @@ esac
 
 # GNU getopt short and long options:
 sopts='6q:u:v:w:xyzabokcfmdtlerngisp'
-lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:,X:'
 
 # Check for bad switches
 getopt -Q --name=xsos -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -356,6 +357,7 @@ _OPT_CHECK() {
   chosen_opt=$(tr '[:upper:]' '[:lower:]' <<<"$2")
   check_type=$3
   valid_opts=$4
+  echo -e "option: $option\tchosen_opt: $chosen_opt\tCHECK_TYPE: $check_type\tvalid_opts: $valid_opts"
   if [[ $check_type == regex ]]; then
     egrep -qs "$valid_opts" <<<"$chosen_opt" && return
     case $option in
@@ -390,6 +392,51 @@ _OPT_CHECK() {
   exit 64
 }
 
+SOSUNPACK(){
+  if [[ -f ${1} ]];then
+    # Set directory to be filename minus extension by default
+    _DIR=`echo ${1} | sed -e 's/\.tar.*$//g'`
+    _CWD=`pwd`
+    sosroot="${_CWD}/${_DIR}"
+
+    # Create directory to extract archive into if it does not already exist
+    if [[ ! -d ${_DIR} ]];then
+      mkdir ${_DIR}
+    else
+      echo -e "This sosreport has already been extracted." >&2
+      echo -e "You may examine the sosreport by running: xsos -a ${_DIR}" >&2
+      exit 3
+    fi
+
+    # Set _FTYPE to one of [x-tar:x-bzip2:x-gzip:x-xz] based on its `file` output
+    _FTYPE=`file -i ${1} | cut -f2 -d':' | cut -f1 -d';' | cut -f2 -d'/'`
+    if [[ ${_FTYPE} == "x-bzip2" ]];then
+      tar xfj ${1} -C ${_DIR} --no-same-owner 2> /dev/null
+    elif [[ ${_FTYPE} == "x-gzip" ]];then
+      tar xfz ${1} -C ${_DIR} --no-same-owner 2> /dev/null
+    elif [[ ${_FTYPE} == "x-tar" ]];then
+      tar xf ${1} -C ${_DIR} --no-same-owner 2> /dev/null
+    elif [[ ${_FTYPE} == "x-xz" ]];then
+      tar xfJ ${1} -C ${_DIR} --no-same-owner 2> /dev/null
+    fi
+
+    cd ${_DIR}
+    for SDIR in `find . -maxdepth 1 -type d | sed -e 's/^\.\///g' | grep -Ev '^\.$'`;do
+      # Some directories in sosreports are set dr-xr-xr-x making them immovable, fixing this
+      for _DIR in `find . -type d | grep -Ev '^\.$'`;do
+        chmod -R u+rwx ${_DIR}
+      done
+      # Move sosreport contents to current directory
+      mv ${SDIR}/* .
+      # Delete empty sosreport directory
+      rmdir ${SDIR}
+    done
+    cd ${_CWD}
+  else
+    echo -e "File does not exist!  File: ${1}"
+    exit 2
+  fi
+}
 
 # Parse command-line arguments
 PARSE() {
@@ -446,6 +493,7 @@ PARSE() {
       --G)  sfile[G]=$2; shift ;;
       --I)  sfile[I]=$2; shift ;;
       --P)  sfile[P]=$2; shift ;;
+      --X)  _SOSFILE=$2; shift ;;
     esac
     shift
   done
@@ -457,7 +505,12 @@ PARSE() {
 # Call the parser
 PARSE $(getopt -u --name=xsos -o $sopts -l $lopts -- "$@")
 
-# If any special option was used appropriately with a file, do that instead of other opts
+# If the --X special option was used appropriately with a file, do that first
+if [[ $BASH_VERSINFO -ge 4 && -n ${_SOSFILE} ]]; then
+  SOSUNPACK ${_SOSFILE}
+fi
+
+# If any other special option was used appropriately with a file, do that instead of other opts
 if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
   :
 # If BASH is not v4+ and special options were used, fail
@@ -3188,7 +3241,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
   # Redirect stderr to temp file
   exec 7>&2 2>$stderr_file
   
-  # If special options and files were provided ....
+  # If other special options and files were provided ....
   if [[ $BASH_VERSINFO -ge 4 && -n ${sfile[*]} ]]; then
     [[ -r ${sfile[B]} ]] && DMIDECODE "${sfile[B]}"
     [[ -r ${sfile[C]} ]] && CPUINFO   "${sfile[C]}"
