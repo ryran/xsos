@@ -357,7 +357,6 @@ _OPT_CHECK() {
   chosen_opt=$(tr '[:upper:]' '[:lower:]' <<<"$2")
   check_type=$3
   valid_opts=$4
-  echo -e "option: $option\tchosen_opt: $chosen_opt\tCHECK_TYPE: $check_type\tvalid_opts: $valid_opts"
   if [[ $check_type == regex ]]; then
     egrep -qs "$valid_opts" <<<"$chosen_opt" && return
     case $option in
