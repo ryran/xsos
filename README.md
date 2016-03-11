@@ -170,6 +170,7 @@ Special options (BASH v4+ required):
  --G=FILE  read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE  read from FILE containing `ip addr` dump
  --P=FILE  read from FILE containing `ps aux` dump
+ --X=FILE  extract sosreport from FILE prior to processing
 
 Run with "--help" to see full help page
 
