@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.8 last mod 2015/02/16
+# xsos v0.7.9 last mod 2015/04/05
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -174,6 +174,10 @@ fi
 #   Configures whether serial numbers should be removed from output
     : ${XSOS_SCRUB_SERIAL:="n"}
 
+# XSOS_SCRUB_PROXYUSERPASS (bool: y/n)
+#   Configures whether RHN/RHSM proxy user/pass should be removed from output
+    : ${XSOS_SCRUB_PROXYUSERPASS:="n"}
+
 # XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
     : ${XSOS_ETHTOOL_ERR_REGEX:="Missing ethtool_-S file|(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause).*: [^0]"}
@@ -232,7 +236,8 @@ HELP_OPTS_DISPLAY() {
 Display options:"
 # --rhsupport❚tweak os output to focus on RHEL-centric support issues
   echo "
-     --scrub❚remove IP/MAC addrs, hostnames, & serial numbers from output
+     --scrub❚remove from output: IP/MAC addrs, hostnames, serial numbers,
+            ❚proxy user & passwords
  -6, --ipv6❚parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID❚restrict dm-multipath output to a particular mpath device,
               ❚where ID is a wwid, friendly name, or LUN identifier
@@ -396,7 +401,7 @@ PARSE() {
   unset opts all bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq netdev bonding ip net sysctl ps
   until [[ $1 == -- ]]; do
     case $1 in
-      --scrub)      XSOS_SCRUB_IP_HN=y XSOS_SCRUB_MACADDR=y XSOS_SCRUB_SERIAL=y ;;
+      --scrub)      XSOS_SCRUB_IP_HN=y XSOS_SCRUB_MACADDR=y XSOS_SCRUB_SERIAL=y XSOS_SCRUB_PROXYUSERPASS=y ;;
       -6|--ipv6)    XSOS_IP_VERSION=6 ;;
       -q|--wwid)    _OPT_CHECK "wwid" "$2" anystring
                       XSOS_MULTIPATH_QUERY=$2; shift
@@ -930,14 +935,19 @@ OSINFO() {
   a="\n            "
   if rhn_serverURL=$(_get_rhn_cfg serverURL "$1"); then
     sURLtmp=$(egrep --color=always -si 'oracle' <<<"$serverURL") && rhn_serverURL=$sURLtmp
+    [[ $XSOS_SCRUB_IP_HN == y ]] && rhn_serverURL="serverURL = ${c[Warn2]}SCRUBBED${c[0]}"
     if rhn_enableProxy=$(_get_rhn_cfg enableProxy "$1") && [[ $rhn_enableProxy -eq 1 ]]; then
       rhnProxyStuff="${a}$rhn_enableProxy"
       if rhn_httpProxy=$(_get_rhn_cfg httpProxy "$1"); then
-        rhnProxyStuff+="${a}$rhn_httpProxy"
+        [[ $XSOS_SCRUB_IP_HN == y ]] && rhnProxyStuff+="${a}httpProxy = ${c[Warn2]}SCRUBBED${c[0]}" || rhnProxyStuff+="${a}$rhn_httpProxy"
         if rhn_enableProxyAuth=$(_get_rhn_cfg enableProxyAuth "$1") && [[ $rhn_enableProxyAuth -eq 1 ]]; then
           rhnProxyStuff+="${a}$rhn_enableProxyAuth"
-          rhn_proxyUser=$(_get_rhn_cfg proxyUser "$1")         && rhnProxyStuff+="${a}$rhn_proxyUser"
-          rhn_proxyPassword=$(_get_rhn_cfg proxyPassword "$1") && rhnProxyStuff+="${a}$rhn_proxyPassword"
+          if rhn_proxyUser=$(_get_rhn_cfg proxyUser "$1"); then
+            [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhnProxyStuff+="${a}proxyUser = ${c[Warn2]}SCRUBBED${c[0]}" || rhnProxyStuff+="${a}$rhn_proxyUser"
+          fi
+          if rhn_proxyPassword=$(_get_rhn_cfg proxyPassword "$1"); then
+            [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhnProxyStuff+="${a}proxyPassword = ${c[Warn2]}SCRUBBED${c[0]}" || rhnProxyStuff+="${a}$rhn_proxyPassword"
+          fi
         else
           rhnProxyStuff+="${a}$rhn_enableProxyAuth"
         fi
@@ -964,11 +974,18 @@ OSINFO() {
   }
   a="\n            "
   if rhsm_hostname=$(_get_rhsm_cfg hostname "$1"); then
+    [[ $XSOS_SCRUB_IP_HN == y ]] && rhsm_hostname="hostname = ${c[Warn2]}SCRUBBED${c[0]}"
     if rhsm_proxy_hostname=$(_get_rhsm_cfg proxy_hostname "$1"); then
-      rhsmProxyStuff="${a}$rhsm_proxy_hostname"
-      rhsm_proxy_port=$(_get_rhsm_cfg proxy_port "$1")          && rhsmProxyStuff+="${a}$rhsm_proxy_port"
-      rhsm_proxy_user=$(_get_rhsm_cfg proxy_user "$1")          && rhsmProxyStuff+="${a}$rhsm_proxy_user"
-      rhsm_proxy_password=$(_get_rhsm_cfg proxy_password "$1")  && rhsmProxyStuff+="${a}$rhsm_proxy_password"
+      [[ $XSOS_SCRUB_IP_HN == y ]] && rhsmProxyStuff+="${a}proxy_hostname = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff="${a}$rhsm_proxy_hostname"
+      if rhsm_proxy_port=$(_get_rhsm_cfg proxy_port "$1"); then
+        [[ $XSOS_SCRUB_IP_HN == y ]] && rhsmProxyStuff+="${a}proxy_port = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_port"
+      fi
+      if rhsm_proxy_user=$(_get_rhsm_cfg proxy_user "$1"); then
+        [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhsmProxyStuff+="${a}proxy_user = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_user"
+      fi
+      if rhsm_proxy_password=$(_get_rhsm_cfg proxy_password "$1"); then
+        [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhsmProxyStuff+="${a}proxy_password = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_password"
+      fi
     else
       rhsmProxyStuff="${a}proxy_hostname ="
     fi
@@ -1040,16 +1057,11 @@ OSINFO() {
         initdefault=unknown
   fi
   
-  if [[ $XSOS_SCRUB_IP_HN == y ]]; then
-    hntmp="${c[Warn2]}HOSTNAME SCRUBBED${c[0]}"
-    [[ $serverURL == "serverURL=https://xmlrpc.rhn.redhat.com/XMLRPC" ]] || serverURL="${c[Warn2]}SATELLITE URL SCRUBBED${c[0]}"
-  else
-    hntmp=$hostname
-  fi
+  [[ $XSOS_SCRUB_IP_HN == y ]] && hostname="${c[Warn2]}SCRUBBED${c[0]}"
   
   # Start printing stuff
   echo -e "${c[H1]}OS${c[0]}"
-  echo -e "  ${c[H2]}Hostname:${c[0]} $hntmp"
+  echo -e "  ${c[H2]}Hostname:${c[0]} $hostname"
   echo -e "  ${c[H2]}Distro:${c[0]}   $distro_release"
   echo -e "  ${c[H2]}RHN:${c[0]}      $rhn_serverURL$rhnProxyStuff"
   echo -e "  ${c[H2]}RHSM:${c[0]}     $rhsm_hostname$rhsmProxyStuff"
