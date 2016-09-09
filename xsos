@@ -1,8 +1,8 @@
 #!/bin/bash
-# xsos v0.7.9 last mod 2015/04/05
+# xsos v0.7.10 last mod 2016/09/09
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
-# Copyright 2012-2015 Ryan Sawhill Aroha <rsaw@redhat.com>
+# Copyright 2012-2016 Ryan Sawhill Aroha <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -612,12 +612,44 @@ DMIDECODE() {
   echo -e "${c[H2]}  Memory:${c[0]}"
   gawk 'BEGIN { RS="\nHandle" } /Physical Memory Array|Memory Device/' <<<"$dmidecode_input" |
     gawk -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
-      /Size:/ { NumDimmSlots ++; if ($2 ~ /^[0-9]/) { NumDimms ++; SumRam+=$2 } }
-      /Maximum Capacity:/ { MaxRam = $3" "$4 }
+      /Size:/ {
+        NumDimmSlots ++
+        if ($2 ~ /^[0-9]/) {
+          NumDimms ++
+          if ($3 ~ /^P/)
+            SumRam += $2 * 1024 * 1024 * 1024
+          else if ($3 ~ /^T/)
+            SumRam += $2 * 1024 * 1024
+          else if ($3 ~ /^G/)
+            SumRam += $2 * 1024
+          else if ($3 ~/^[kK]/)
+            SumRam += $2 / 1024
+          else if ($3 ~/^[bB]/)
+            SumRam += $2 / 1024 / 1024
+          else
+            SumRam += $2
+        }
+      }
+      /Maximum Capacity:/ {
+        if ($3 ~ /^[0-9]/) {
+          if ($4 ~ /^P/)
+            SumMaxRam += $3 * 1024 * 1024 * 1024
+          else if ($4 ~ /^T/)
+            SumMaxRam += $3 * 1024 * 1024
+          else if ($4 ~ /^G/)
+            SumMaxRam += $3 * 1024
+          else if ($4 ~/^[kK]/)
+            SumMaxRam += $3 / 1024
+          else if ($4 ~/^[bB]/)
+            SumMaxRam += $3 / 1024 / 1024
+          else
+            SumMaxRam += $3
+        }
+      }
       END {
-        printf "    %d MB (%.0f GB) total\n", SumRam, SumRam/1024
-        printf "    %d of %d DIMMs populated (system max capacity %s)\n",
-          NumDimms, NumDimmSlots, MaxRam
+        printf "    %sTotal:%s %d MiB (%.0f GiB)\n", H3, H0, SumRam, SumRam/1024
+        printf "    %sDIMMs:%s %d of %d populated\n", H3, H0, NumDimms, NumDimmSlots
+        printf "    %sMaxCapacity:%s %d MiB (%.0f GiB / %.2f TiB)\n", H3, H0, SumMaxRam, SumMaxRam/1024, SumMaxRam/1024/1024
       }
     '
   echo -en $XSOS_HEADING_SEPARATOR
