@@ -2952,9 +2952,13 @@ PSCHECK() {
       gawk '
         {
           if ($2=="-") {
-            $2 = pid; $11 = "[thread_of_pid_"pid"]"
+            $2 = pid; $11 = cmd
           }
-          else pid = $2
+          else {
+            pid = $2
+            cmd = $11
+            for(i=12;i<=NF;i++) cmd = cmd FS $i
+          }
           print
         }
       ' <<<"$ps_input_thrds_raw"
