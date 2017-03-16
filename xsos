@@ -2540,7 +2540,7 @@ SOFTIRQ() {
   
   gawk '{if (strtonum("0x" $3) > 0) exit 177}' "$softirq_input_file"
   if [[ $? -eq 177 ]]; then
-    echo -e "${XSOS_INDENT_H1}${c[Warn1]}Budget is not sufficient, needs to be increased!${c[0]}$budget"
+    echo -e "${XSOS_INDENT_H1}${c[Warn1]}Budget possibly insufficient${c[0]}$budget"
   else
     echo -e "${XSOS_INDENT_H1}Budget is sufficient${c[0]}$budget"
   fi
