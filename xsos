@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.10 last mod 2016/09/09
+# xsos v0.7.11 last mod 2017/03/17
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2016 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -14,6 +14,9 @@
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 #    General Public License <gnu.org/licenses/gpl.html> for more details.
 #-------------------------------------------------------------------------------
+
+# See https://github.com/ryran/xsos/issues/208
+export LC_ALL=en_US.UTF-8
 
 # Get version from line #2
 version=$(sed '2q;d' $0)
@@ -1522,7 +1525,7 @@ CPUINFO() {
   # Check important cpu flags
   # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
   # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
-  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc|rdrand" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
+  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc|rdrand|nx" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
   
   # Print it all out
