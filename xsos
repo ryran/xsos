@@ -1842,7 +1842,9 @@ MEMINFO() {
 
 STORAGE() {
   # Local vars:
-  local mpath_input scsi_blacklist bl partitions_input
+  local mpath_input scsi_blacklist bl partitions_input mount_input mountpoints df_output
+  
+  [[ -f $1 ]] && mount_input=$1 || mount_input=$1/etc/mtab
   
   echo -e "${c[H1]}STORAGE${c[0]}"
   
@@ -1939,6 +1941,23 @@ STORAGE() {
           printf "    %s \t%.0f\n", disk_sorted[i], disk[disk_sorted[i]]
       }
     '
+
+  echo -en $XSOS_HEADING_SEPARATOR
+  echo -e "${c[H1]}MOUNT POINTS${c[0]}"
+
+  # Find the actual mounted partitions in xfs and ext*
+  mountpoints=$(cat ${mount_input} | awk '{print $3 " " $1 " " $2}' | egrep "^xfs|^ext" | awk '{print $3}')
+
+  for mpoint in ${mountpoints}; do
+    df_output=( $(df -kh ${mpoint} | tail -1) )
+    # Print all the mount points and sizes
+    if [[ ${df_output[4]} > "80%" ]]; then
+      printf   "    %-20s Disk size = %s \tUsed = %s \tAvailable = %s \tCapacity = ${c[red]}%s${c[0]}\n" ${df_output[5]} ${df_output[1]} ${df_output[2]} ${df_output[3]} ${df_output[4]}
+    else
+      printf   "    %-20s Disk size = %s \tUsed = %s \tAvailable = %s \tCapacity = ${c[green]}%s${c[0]}\n" ${df_output[5]} ${df_output[1]} ${df_output[2]} ${df_output[3]} ${df_output[4]}
+    fi
+  done
+
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
