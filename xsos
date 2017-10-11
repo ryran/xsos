@@ -2218,7 +2218,7 @@ IPADDR() {
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
     ip_a_input=$(ip a)
-    brctl_show_input=$(brctl show)
+    brctl_show_input=$(brctl show 2>&1)
   # If passed a file (i.e. xsos --I <file>), use that
   elif [[ -f $1 ]]; then
     ip_a_input=$(<"${1}")
