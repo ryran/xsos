@@ -662,11 +662,34 @@ DMIDECODE() {
 _CHECK_DISTRO() {
   # Local vars:
   local OS_INDENT files file
-  
   OS_INDENT="            "
+
+  # I don't like blindly sourcing a file -- that provides a vector to screw with this script...
+  # But in modern Linux boxen this file is standard
+  # If able to source the new standard /etc/os-release, list it out
+  if source "$1/etc/os-release" 2>/dev/null; then
+    distro_release="${c[Imp]}[ID]${c[0]} $ID"
+    if [[ "$ID" == "rhel" || "$ID" == "fedora" || "$ID" == "centos" ]]; then 
+      packaging=rpm
+      _CHECK_REDHAT "$1"
+    elif [[ "$ID" == "ubuntu" || "$ID" == "debian" ]]; then
+      packaging=deb
+      distro_release="$distro_release\n$OS_INDENT${c[Imp]}[Version]${c[0]} $VERSION"
+    fi
+
+  else
+    _CHECK_REDHAT "$1"
+  fi
+}
+
+_CHECK_REDHAT() {
+  # Local vars:
+  local OS_INDENT files file
+  OS_INDENT="            "
+
   # Parse redhat-release if we have it
   if [[ ! -r $1/etc/redhat-release ]]; then
-    distro_release="${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
+    distro_release="$distro_release${c[Imp]}[redhat-release]${c[0]} ${c[RED]}(missing)${c[0]}"
     
   else
     # If release is RHEL 4,5,6,7 in standard expected format ...
@@ -716,15 +739,7 @@ _CHECK_DISTRO() {
       fi
     done
   fi
-  
-  # I don't like blindly sourcing a file -- that provides a vector to screw with this script...
-  # But in modern Linux boxen this file is standard
-  # If able to source the new standard /etc/os-release, list it out
-  if source "$1/etc/os-release" 2>/dev/null; then
-    distro_release="$distro_release\n$OS_INDENT${c[Imp]}[os-release]${c[0]} $PRETTY_NAME $VERSION"
-  fi
 }
-
 
 _CHECK_KERNELBUILD() {
   # Get kernel build version somehow or another, making sure not to use build offered by rescue mode kernel
@@ -1098,9 +1113,13 @@ OSINFO() {
   echo -e "${c[H1]}OS${c[0]}"
   echo -e "  ${c[H2]}Hostname:${c[0]} $hostname"
   echo -e "  ${c[H2]}Distro:${c[0]}   $distro_release"
-  echo -e "  ${c[H2]}RHN:${c[0]}      $rhn_serverURL$rhnProxyStuff"
-  echo -e "  ${c[H2]}RHSM:${c[0]}     $rhsm_hostname$rhsmProxyStuff"
-  echo -e "  ${c[H2]}YUM:${c[0]}      $yum_plugins"
+  if [ $ID = "rhel" ]; then
+    echo -e "  ${c[H2]}RHN:${c[0]}      $rhn_serverURL$rhnProxyStuff"
+    echo -e "  ${c[H2]}RHSM:${c[0]}     $rhsm_hostname$rhsmProxyStuff"
+  fi
+  if [ $packaging = yum ]; then
+    echo -e "  ${c[H2]}YUM:${c[0]}      $yum_plugins"
+  fi
   [[ -n $runlevel ]] &&
   echo -e "  ${c[H2]}Runlevel:${c[0]} $runlevel  (default $initdefault)"
   echo -e "  ${c[H2]}SELinux:${c[0]}  $(_CHECK_SELINUX "$1")"
