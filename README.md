@@ -77,6 +77,8 @@ osx has different getopt, sed, mktemp than Linux ver of this pkg, so we have to 
 brew install gnu-getopt
 echo 'export PATH="/usr/local/opt/gnu-getopt/bin:$PATH"' >> ~/.zshrc
 brew install gawk
+brew install coreutils
+ln -s /usr/local/bin/gtac /usr/local/bin/tac
 ```
 
 
