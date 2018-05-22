@@ -1,0 +1,40 @@
+name: xsos 
+version: "1.0"
+summary: Summarize system info from sosreports
+description:
+    The goal of xsos is to make it easy to instantaneously gather information
+    about a system together in an easy-to-read-summary, whether that system is the
+    localhost on which xsos is being run or a system for which you have an unpacked
+    sosreport.
+    .
+    There is tons of useful amazing instructive data available to normal users (not
+    to mention root) on a Linux system, but by design, this information is spread
+    out across myriad files. Some of it even requires commands to parse through.
+    .
+    xsos will attempt to make it easy, parsing and calculating and formatting data
+    from dozens of files (and commands) to give you a detailed overview about a
+    system, or -- if requested -- xsos will only parse one file (e.g. with --mem or
+    --cpu) or output from one command (e.g. with --ip or --ps).
+    .
+    New features are being added all the time -- see the tracker to have a look at
+    some of the things that are already in line to be worked on.
+confinement: strict 
+grade: stable
+
+apps:
+  xsos:
+    command: wrappers/xsos
+    plugs: [home]
+parts:
+  xsos:
+    source: .
+    plugin: dump
+    stage-packages: [bsdmainutils, coreutils, locales-all]
+  wrappers:
+    source: snap/
+    plugin: dump
+    stage-packages: [locales-all]
+    build-packages:
+    - lsb-release
+    after:
+    - xsos 

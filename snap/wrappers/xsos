@@ -1,0 +1,6 @@
+#!/bin/bash -eu
+export LOCPATH=$SNAP_USER_DATA
+export LC_ALL=C.UTF-8
+export LANG=en_GB.UTF-8
+export LANGUAGE=en_GB:en
+exec "$SNAP/xsos" "$@"

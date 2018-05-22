@@ -16,7 +16,7 @@
 #-------------------------------------------------------------------------------
 
 # See https://github.com/ryran/xsos/issues/208
-export LC_ALL=en_US.UTF-8
+export LC_ALL=${LC_ALL:-en_US.UTF-8}
 
 # Get version from line #2
 version=$(sed '2q;d' $0)
@@ -3932,8 +3932,11 @@ COND_RUN() {
 
 
 # Create sub tempdir in /dev/shm (tons of bash constructs use TMPDIR)
+export TMPDIR=${TMPDIR:-""}
+if [ -z '$TMPDIR' ]; then 
 [[ -d /dev/shm && -w /dev/shm ]] && parent=/dev/shm || parent=/tmp
 export TMPDIR=$(mktemp -d -p $parent)
+fi
 # Create tmp file for capturing stderr
 stderr_file=$TMPDIR/stderr
 # Remove temp dir when we're done
