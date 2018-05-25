@@ -2224,9 +2224,14 @@ IPADDR() {
     ip_a_input=$(<"${1}")
   # Otherwise, use file from $sosroot
   else
-    ip_a_input=$(<"${1}/sos_commands/networking/ip_address")
+    if [[ -f ${1}/sos_commands/networking/ip_address ]]; then 
+      ip_a_input=$(<"${1}/sos_commands/networking/ip_address")
+    else 
+    # sosreport 3.5 uses "ip -d address"
+      ip_a_input=$(<"${1}/sos_commands/networking/ip_-d_address")
+    fi
     brctl_show_input=$(cat "${1}/sos_commands/networking/brctl_show" 2>/dev/null)
-  fi
+ fi 
   
   # Prepare ip addr input for gawk by separating each interface block
   ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"${ip_a_input}")
@@ -3269,7 +3274,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     SOS_CHECKFILE softirq "proc/net/softnet_stat"              && SOFTIRQ   "$sosroot"
     SOS_CHECKFILE netdev  "proc/net/dev"                       && NETDEV    "$sosroot"
     SOS_CHECKFILE bonding "proc/net/bonding/"                  && BONDING   "$sosroot"
-    SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && {
+    SOS_CHECKFILE ip      "sos_commands/networking"            && {
                                                                   IPADDR    "$sosroot"
                                                                   XSOS_IP_VERSION=6
                                                                   IPADDR    "$sosroot"; }
