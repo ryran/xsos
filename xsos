@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.13 last mod 2017/10/11
+# xsos v0.7.14 last mod 2018/06/14
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2016 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2224,7 +2224,7 @@ IPADDR() {
     ip_a_input=$(<"${1}")
   # Otherwise, use file from $sosroot
   else
-    ip_a_input=$(<"${1}/sos_commands/networking/ip_address")
+    ip_a_input=$(cat "${1}/sos_commands/networking/ip_address" 2>/dev/null || cat "${1}/sos_commands/networking/ip_-d_address" 2>/dev/null)
     brctl_show_input=$(cat "${1}/sos_commands/networking/brctl_show" 2>/dev/null)
   fi
   
@@ -3269,7 +3269,8 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     SOS_CHECKFILE softirq "proc/net/softnet_stat"              && SOFTIRQ   "$sosroot"
     SOS_CHECKFILE netdev  "proc/net/dev"                       && NETDEV    "$sosroot"
     SOS_CHECKFILE bonding "proc/net/bonding/"                  && BONDING   "$sosroot"
-    SOS_CHECKFILE ip      "sos_commands/networking/ip_address" && {
+    SOS_CHECKFILE ip      sos_commands/networking/ip_{,-d_}address \
+                                                               && {
                                                                   IPADDR    "$sosroot"
                                                                   XSOS_IP_VERSION=6
                                                                   IPADDR    "$sosroot"; }
