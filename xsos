@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.14 last mod 2018/06/14
+# xsos v0.7.15 last mod 2018/08/22
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2016 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1027,7 +1027,7 @@ OSINFO() {
   else
     rhsm_hostname="${c[red]}(missing)${c[0]}"
   fi
-  
+
   # If running on localhost
   if [[ $1 == / ]]; then
     uname=$(uname -a | gawk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
@@ -1037,6 +1037,10 @@ OSINFO() {
     boottime=$(date --date=@$btime 2>/dev/null)
     [[ $(wc -w <<<"$boottime") == 6 ]] &&
       boottime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
+    [[ -r /etc/sysconfig/clock ]] &&
+      timezone=$(gawk -F= '/^ZONE=/{print $2}' "/etc/sysconfig/clock" 2>/dev/null | tr -d \")
+    [[ -x $(which timedatectl 2>/dev/null) ]] &&
+      timezone=$(timedatectl | gawk '/Time zone/ {print $3}' 2>/dev/null)
     uptime_input=$(uptime)
     runlevel=$(runlevel)
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
@@ -1076,8 +1080,12 @@ OSINFO() {
     systime=$(gawk '!/\/.*bin/ && NF!=0' "$1/date" 2>/dev/null)
     [[ $(wc -w <<<"$systime") == 6 ]] &&
       systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
-    
-    timezone=$(gawk -F= '/^ZONE=/{print $2}' "$1/etc/sysconfig/clock" 2>/dev/null | tr -d \")
+   
+    [[ -r "$1/etc/sysconfig/clock" ]] && 
+      timezone=$(gawk -F= '/^ZONE=/{print $2}' "$1/etc/sysconfig/clock" 2>/dev/null | tr -d \")
+    [[ -r "$1/sos_commands/systemd/timedatectl" ]] &&
+      timezone=$(gawk '/Time zone/ {print $3}' "$1/sos_commands/systemd/timedatectl" 2>/dev/null)
+
     [[ -n $timezone && -f /usr/share/zoneinfo/$timezone ]] &&
       boottime=$(echo -n $(TZ=$timezone date --date=@$btime 2>/dev/null)) ||
         boottime=$(echo -n $(TZ= date --date=@$btime 2>/dev/null))
@@ -1160,10 +1168,10 @@ OSINFO() {
   
   [[ -n $systime ]] &&
   echo -e "  ${c[H2]}Sys time:${c[0]}  $systime"
-  
+
   # Assuming have uptime input and detected num of cpus, print uptime, loadavg, etc
   [[ -n $uptime_input && -n $num_cpu ]] &&
-  gawk -vSYSTIME="$systime" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDBOLD="${c[RED]}" -vRED="${c[red]}" -vORANGE="${c[orange]}" -vGREEN="${c[green]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
+  gawk -vSYSTIME="$systime" -vTIMEZONE="$timezone" -vBTIME="$boottime" -vNUM_CPU="$num_cpu" -vREDBOLD="${c[RED]}" -vRED="${c[red]}" -vORANGE="${c[orange]}" -vGREEN="${c[green]}" -vH2="${c[H2]}" -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '
       !/load average/ { next }
       {
       Time = $1
@@ -1187,6 +1195,8 @@ OSINFO() {
       if (SYSTIME == "")
         printf "  %sSys time:%s  %s\n", H2, H0, Time
       printf   "  %sBoot time:%s %s\n", H2, H0, BTIME
+      if (TIMEZONE != "")
+        printf "  %sTime Zone:%s %s\n", H2, H0, TIMEZONE
       printf   "  %sUptime:%s    %s\n", H2, H0, Uptime
       printf   "  %sLoadAvg:%s   %s[%d CPU]%s %s (%s%.0f%%%s), %s (%s%.0f%%%s), %s (%s%.0f%%%s)\n",
         H2, H0, H_IMP, NUM_CPU, H0, Load[1], Color[1], LP[1], H0, Load[5], Color[5], LP[5], H0, Load[15], Color[15], LP[15], H0
@@ -3310,3 +3320,4 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
 
 # If output going to term (cat), print stderr tmp file contents to stderr
 [[ $XSOS_OUTPUT_HANDLER == cat ]] && cat $stderr_file >&2 || :
+
