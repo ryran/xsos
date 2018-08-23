@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.15 last mod 2018/08/22
+# xsos v0.7.16 last mod 2018/08/23
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2016 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1239,7 +1239,7 @@ OSINFO() {
 
 KDUMP() {
   # Local vars
-  local kexec_tools_vers kdump_initrd path kdump_cfg target MemTotal PathAvailableSpace ColorAvailable lsbootfile
+  local kexec_tools_vers kdump_initrd path kdump_cfg target MemTotal PathAvailableSpace ColorAvailable lsbootfile dfalfile
   
   # If the os module was called, grub config was already inspected; otherwise, we need to do it
   [[ -n $os ]] || _CHECK_GRUB "$1"
@@ -1340,9 +1340,12 @@ KDUMP() {
     __get_df_for_parent_fs_of_path() {
       local dfpath lastloop
       dfpath=$path
-      while [[ $(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | gawk -vP=$dfpath '{if ($6==P || $5==P) n+=1} END{if (n>0) print 0; else print 255}') -eq 255 ]]; do
+      [[ -r "$sosroot"/sos_commands/filesys/df_-al ]] && dfalfile="$sosroot"/sos_commands/filesys/df_-al
+      [[ -r "$sosroot"/sos_commands/filesys/df_-al_-x_autofs ]] && dfalfile="$sosroot"/sos_commands/filesys/df_-al_-x_autofs
+
+      while [[ $(grep -v ^rootfs "$dfalfile" 2>/dev/null | gawk -vP=$dfpath '{if ($6==P || $5==P) n+=1} END{if (n>0) print 0; else print 255}') -eq 255 ]]; do
         if [[ $lastloop == y ]]; then
-          echo "DEBUG: This should never happen unless sos_commands/filesys/df_-al is missing an entry for '/'"
+          echo "DEBUG: This should never happen unless the df_-al file is missing an entry for '/'"
           return 2
         fi
         dfpath=${dfpath%/*}
@@ -1351,7 +1354,7 @@ KDUMP() {
           lastloop=y
         fi
       done
-      df_output=$(grep -v ^rootfs "$sosroot"/sos_commands/filesys/df_-al | gawk -vP=$dfpath '{if (NF==6 && $6==P) print; else if (NF==1) {dev=$1; getline; if ($5==P) print dev $0} }')
+      df_output=$(grep -v ^rootfs "$dfalfile" | gawk -vP=$dfpath '{if (NF==6 && $6==P) print; else if (NF==1) {dev=$1; getline; if ($5==P) print dev $0} }')
     }
   fi
   
