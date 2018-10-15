@@ -1,8 +1,8 @@
 #!/bin/bash
-# xsos v0.7.16 last mod 2018/08/23
+# xsos v0.7.17 last mod 2018/10/15
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
-# Copyright 2012-2016 Ryan Sawhill Aroha <rsaw@redhat.com>
+# Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -187,11 +187,11 @@ fi
 
 # XSOS_LSPCI_NET_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Net" heading
-    : ${XSOS_LSPCI_NET_REGEX:="(Ethernet controller|Network controller|InfiniBand):"}
+    : ${XSOS_LSPCI_NET_REGEX:="(Ethernet controller|Network controller|InfiniBand)( \[[0-9]{4}\])?:"}
 
 # XSOS_LSPCI_STORAGE_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Storage" heading
-    : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller):"}
+    : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller)( \[[0-9]{4}\])?:"}
 
 # ==============================================================================
 
@@ -2021,7 +2021,7 @@ LSPCI() {
         split($1, slot, ":")
         $1 = ""
         sub(" ", "")
-        split($0, type, ":")
+        split($0, type, ": ")
         dev[type[2]] ++
         if (!(slot[1] SUBSEP type[2] in slots)) {
           slots[slot[1], type[2]]
@@ -2041,7 +2041,7 @@ LSPCI() {
             else if (numports == 4) numports = "quad"
             ports = " "slotc " " numports "-port"
           }
-          printf "   %s%s (%s)%s%s\n", H_IMP, ports, typec, H0, devtype
+          printf "   %s%s (%s) %s%s\n", H_IMP, ports, typec, H0, devtype
         }
       }
     ' <<<"$lspci_input"
@@ -2056,7 +2056,7 @@ LSPCI() {
   _parse_periphs "${XSOS_LSPCI_STORAGE_REGEX}"
   
   echo -e "${c[H2]}  VGA:${c[0]}"
-  gawk '/VGA compatible controller:/ {$1=$2=$3=$4=""; print}' <<<"$lspci_input"
+  gawk '/VGA compatible controller( \[[0-9]{4}\])?:/ {$1=$2=$3=$4=""; gsub(/ \[[0-9]{4}\]:/,""); print}' <<<"$lspci_input"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
