@@ -2223,7 +2223,7 @@ IPADDR() {
   fi
   
   # Local vars:
-  local ip_a_input brctl_show_input ipdevs bridge interface i i_substr n ipaddr scope alias
+  local ip_a_input brctl_show_input bridge_link_show bridge_list ipdevs bridge interface i i_substr n ipaddr scope alias
   
   # Declare our 7 associative arrays:
   local -A lookup_bridge iface_input slaveof state ipv4 ipv4_alias mtu mac
@@ -2231,6 +2231,7 @@ IPADDR() {
   # If localhost, use ip addr
   if [[ -z $1 ]]; then
     ip_a_input=$(ip a)
+    bridge_link_show=$(bridge -s -s -d link show 2>/dev/null)
     brctl_show_input=$(brctl show 2>/dev/null)
   # If passed a file (i.e. xsos --I <file>), use that
   elif [[ -f $1 ]]; then
@@ -2238,6 +2239,7 @@ IPADDR() {
   # Otherwise, use file from $sosroot
   else
     ip_a_input=$(cat "${1}/sos_commands/networking/ip_address" 2>/dev/null || cat "${1}/sos_commands/networking/ip_-d_address" 2>/dev/null)
+    bridge_link_show=$(cat "${1}/sos_commands/networking/bridge_-s_-s_d_link_show" 2>/dev/null)
     brctl_show_input=$(cat "${1}/sos_commands/networking/brctl_show" 2>/dev/null)
   fi
   
@@ -2247,14 +2249,25 @@ IPADDR() {
   # Grab a list of the interface names
   ipdevs=$(gawk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"${ip_a_input}" | egrep -v 'sit0')
   
-  # Prepare brctl input for gawk by separating each bridge block & filling in empty columns
-  brctl_show_input=$(sed -e 1d -e 's,^[[:graph:]],\n&,' <<<"${brctl_show_input}" | sed -r 's,^[[:space:]]+[[:graph:]]+,1 2 3&,')
+  # Prepare the list of bridges, using either bridge, or brctl input for gawk by separating each bridge block & filling in empty columns
+  if [[ -n $bridge_link_show ]]; then
+    bridge_list=$(awk '($9 == "master") {print $10}' <<<"${bridge_link_show}" | sort -u)
+  else
+    brctl_show_input=$(sed -e 1d -e 's,^[[:graph:]],\n&,' <<<"${brctl_show_input}" | sed -r 's,^[[:space:]]+[[:graph:]]+,1 2 3&,')
+    bridge_list=$(gawk 'BEGIN {RS="\n\n"} {print $1}' <<<"${brctl_show_input}")
+  fi
   
   # Populate a dict where each slave interface is key & value is the controlling bridge
-  for bridge in $(gawk 'BEGIN {RS="\n\n"} {print $1}' <<<"${brctl_show_input}"); do
-    for interface in $(gawk 'BEGIN {RS="\n\n"} $1=="'${bridge}'"' <<<"${brctl_show_input}" | gawk  '{print $4}'); do
-      lookup_bridge[$interface]=${bridge}
-    done
+  for bridge in $bridge_list; do
+    if [[ -n $bridge_link_show ]]; then
+      for interface in $(awk '($1 ~ "^[0-9]") {print $2}' <<<"${bridge_link_show}"); do
+        lookup_bridge[$interface]=${bridge}
+      done
+    else
+      for interface in $(gawk 'BEGIN {RS="\n\n"} $1=="'${bridge}'"' <<<"${brctl_show_input}" | gawk  '{print $4}'); do
+        lookup_bridge[$interface]=${bridge}
+      done
+    fi
   done
     
   # Begin ...
@@ -2284,7 +2297,7 @@ IPADDR() {
       slaveof[$i]=$(
         if egrep -q 'SLAVE|master' <<<"${iface_input[$i]}"; then
           egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | gawk '{print $2}'
-        elif [[ -n $brctl_show_input && -n ${lookup_bridge[$i_substr]} ]]; then
+        elif [[ -n ${lookup_bridge[$i_substr]} ]]; then
           echo ${lookup_bridge[$i_substr]}
         else
           echo "-"
