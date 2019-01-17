@@ -1,8 +1,8 @@
 #!/bin/bash
-# xsos v0.7.18 last mod 2018/10/18
+# xsos v0.7.19 last mod 2019/01/17
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
-# Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
+# Copyright 2012-2019 Ryan Sawhill Aroha <rsaw@redhat.com>
 #
 #    This program is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
@@ -2855,6 +2855,7 @@ SYSCTL() {
   __P kernel.random.entropy_avail "[bits] "
   __P kernel.hung_task_panic "[bool] "
   __Pa kernel.hung_task_timeout_secs ""  '{if ($1>0) printf "\"%s\"%s  (secs task must be D-state to trigger)", $1, H0; else printf "\"0\"%s  (khungtaskd disabled)", H0}'
+  __Pa kernel.hung_task_warnings "[0-10] "  '{if ($1==0) printf "\"%s\"%s  (hung has previously occurred for more than 10 times)", $1, H0; else if ($1<10) printf "\%s\%s  (hung has previously occurred more than once)", $1, H0; else if ($1>10) printf "\%s\%s  (Default hung_task_warnings value has changed)", $1, H0; else printf "\%s\%s  (hung has never occurred)", $1, H0}'
   __P kernel.msgmax "[bytes] "
   __P kernel.msgmnb "[bytes] "
   __P kernel.msgmni "[msg queues] "
@@ -2919,6 +2920,8 @@ SYSCTL() {
   __Pa vm.dirty_background_bytes ""  '{if ($1>0) printf "\"%s\"%s  (%.1f MiB)", $1, H0, $1/1024/1024; else printf "\"0\"%s  (disabled -- check dirty_background_ratio)", H0}'
   __P vm.dirty_expire_centisecs
   __P vm.dirty_writeback_centisecs
+  __P vm.max_map_count ""
+  __P vm.min_free_kbytes ""
   __Pa vm.nr_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
   __Pa vm.nr_overcommit_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
   __Pa vm.overcommit_memory "[0-2] "   '{if ($1==0) printf "\"0\"%s  (heuristic overcommit)", H0; else if ($1==1) printf "\"1\"%s  (always overcommit, never check)", H0; else if ($1==2) print "\"2\"%s  (always check, never overcommit)", H0}'
@@ -2926,8 +2929,8 @@ SYSCTL() {
   __Pa vm.oom_kill_allocating_task "[bool] "  '{if ($1==0) printf "\"0\"%s  (scan tasklist)", H0; else printf "\"1\"%s  (kill OOM-triggering task)", H0}'
   __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "\"0\"%s  (no panic)", H0; else if ($1==1) printf "\"1\"%s  (no panic if OOM-triggering task limited by mbind/cpuset)", H0; else if ($1==2) printf "\"2\"%s  (always panic)", H0}'
   __P vm.swappiness "[0-100] "
-  __P vm.min_free_kbytes ""
   __P vm.vfs_cache_pressure "[0-100] "
+  __P vm.zone_reclaim_mode "[0-4] "
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
