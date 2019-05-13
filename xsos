@@ -1855,7 +1855,7 @@ MEMINFO() {
 
 STORAGE() {
   # Local vars:
-  local mpath_input scsi_blacklist bl partitions_input lsblk_input
+  local mpath_input scsi_blacklist bl partitions_input lsblk_input lsblk_output df_input df_output
   
   echo -e "${c[H1]}STORAGE${c[0]}"
   
@@ -1909,6 +1909,16 @@ STORAGE() {
   fi
   if [[ -n $lsblk_input ]] ; then
     lsblk_output="$(echo -n "$lsblk_input" | sed "s,^,$XSOS_INDENT_H2,")"
+  fi
+
+  # disk usage information
+  if [[ $1 == / ]]; then
+    df_input="$(df -al -x autofs -TH)"
+  elif [[ -r $1/sos_commands/filesys/df_-al_-x_autofs ]]; then
+    df_input=$(<"$1/sos_commands/filesys/df_-al_-x_autofs")
+  fi
+  if [[ -n $df_input ]] ; then
+    df_output="$(echo -n "$df_input" | sed "s,^,$XSOS_INDENT_H2,")"
   fi
  
   # Yay, let's go.
@@ -1964,6 +1974,8 @@ STORAGE() {
     '
   echo -e "\n  ${c[H2]}lsblk disk layout information:${c[0]}"
   echo -e "$lsblk_output"
+  echo -e "\n  ${c[H2]}df disk usage information:${c[0]}"
+  echo -e "$df_output"
   echo -en $XSOS_HEADING_SEPARATOR
 
 }
