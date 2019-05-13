@@ -1855,7 +1855,7 @@ MEMINFO() {
 
 STORAGE() {
   # Local vars:
-  local mpath_input scsi_blacklist bl partitions_input
+  local mpath_input scsi_blacklist bl partitions_input lsblk_input
   
   echo -e "${c[H1]}STORAGE${c[0]}"
   
@@ -1900,7 +1900,17 @@ STORAGE() {
     # Append software raid component disks to the blacklist
     scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | gawk '{printf "%s|", $1}')
   fi
-  
+ 
+  # if we have lsblk
+  if [[ -x $1/$(which lsblk) ]]; then
+    lsblk_input="$("$(which lsblk)")"
+  elif [[ -r $1/sos_commands/block/lsblk ]]; then
+    lsblk_input=$(<"$1/sos_commands/block/lsblk")
+  fi
+  if [[ -n $lsblk_input ]] ; then
+    lsblk_output="$(echo -n "$lsblk_input" | sed "s,^,$XSOS_INDENT_H2,")"
+  fi
+ 
   # Yay, let's go.
   [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
   [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
@@ -1952,7 +1962,10 @@ STORAGE() {
           printf "    %s \t%.0f\n", disk_sorted[i], disk[disk_sorted[i]]
       }
     '
+  echo -e "\n  ${c[H2]}lsblk disk layout information:${c[0]}"
+  echo -e "$lsblk_output"
   echo -en $XSOS_HEADING_SEPARATOR
+
 }
 
 

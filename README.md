@@ -130,7 +130,7 @@ Content options:
  -k, --kdump    inspect kdump configuration
  -c, --cpu      show info from /proc/cpuinfo
  -m, --mem      show info from /proc/meminfo
- -d, --disks    show info from /proc/partitions + dm-multipath synopsis
+ -d, --disks    show storage info from /proc/partitions, dm-multipath, lsblk, df
  -t, --mpath    show info from dm-multipath
  -l, --lspci    show info from lspci
  -e, --ethtool  show info from ethtool
