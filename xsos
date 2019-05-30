@@ -1560,7 +1560,7 @@ INTERRUPT() {
     NR > 1 {
       printf "%'$indent's ", $1
       for (i=2; i <= NF; i++) {
-        if ($i ~ "[a-zA-Z]")
+        if ($i ~ "[^0-9]")
           printf " %s", $i
         else if($i > 0)
           printf "▊"
