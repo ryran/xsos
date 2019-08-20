@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.20 last mod 2019/08/20
+# xsos v0.7.21 last mod 2019/08/20
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1162,7 +1162,7 @@ OSINFO() {
   # Print kernel tainted-status
   echo -e "    ${c[H3]}Taint-check:${c[0]} $(CHECK_TAINTED --noquote "$1" H3)"
   # End the kernel section
-  echo -e "    ${c[DGREY]}- - - - - - - - - - - - - - - - - - -${c[0]}"
+  echo -e "    ${c[lgrey]}- - - - - - - - - - - - - - - - - - -${c[0]}"
   
   ##echo -e "  ${c[H2]}Supportability:${c[0]}"
   
@@ -1427,7 +1427,7 @@ KDUMP() {
         done
         
       else
-        echo -e "$XSOS_INDENT_H2${c[DGREY]}[All commented]${c[0]}"
+        echo -e "$XSOS_INDENT_H2${c[lgrey]}[All commented]${c[0]}"
         path=/var/crash
       fi
       
@@ -1906,7 +1906,7 @@ STORAGE() {
   [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
   echo -e "  ${c[H2]}Whole Disks from /proc/partitions:${c[0]}"
   egrep -v "${scsi_blacklist%?}" "$partitions_input" |
-    gawk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[DGREY]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
+    gawk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[lgrey]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
       # For starters, we search /proc/partitions for certain types of devices
       # These block types are from devices.txt in the linux kernel documentation
       # Updated 2015/08/18 from kernel-doc-3.10.0-229.7.2.el7
@@ -1994,7 +1994,7 @@ MULTIPATH() {
   if [[ -n $mpath_output ]]; then
     sed '1!s,^[[:alnum:]].*dm-,\n&,' <<<"$mpath_output" | $search_cmd | sed "s/^/$XSOS_INDENT_H1/"
   else
-    echo -e "${XSOS_INDENT_H1}${c[DGREY]}[No paths detected]${c[0]}"
+    echo -e "${XSOS_INDENT_H1}${c[lgrey]}[No paths detected]${c[0]}"
   fi
   
   echo -en $XSOS_HEADING_SEPARATOR
@@ -2196,7 +2196,7 @@ BONDING() {
           if (NR <= 2) print H2 $0 H0
           else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
         }' |
-          gawk -vU="${c[Up]}" -vH0="${c[0]}" -vgrey="${c[DGREY]}" '
+          gawk -vU="${c[Up]}" -vH0="${c[0]}" -vgrey="${c[lgrey]}" '
             {
               if (NR <= 2) print
               else if ($1 == "-") print grey $0 H0
@@ -2495,7 +2495,7 @@ ETHTOOL() {
       errsfound=
       ethindent=$(tr '[[:graph:]]'   ' ' <<<"$i ")
       if __ethtool_S $i | egrep -q "$XSOS_ETHTOOL_ERR_REGEX"; then
-        [[ -n $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}- - - - - - - - - - - - - - - - - - -"
+        [[ -n $count ]] && echo -e "${XSOS_INDENT_H2}${c[lgrey]}- - - - - - - - - - - - - - - - - - -"
         echo -en "${c[Warn1]}"
         errsfound=$(__ethtool_S $i |
           tac |
@@ -2516,7 +2516,7 @@ ETHTOOL() {
         count+=1
       fi
     done
-    [[ -z $count ]] && echo -e "${XSOS_INDENT_H2}${c[DGREY]}[None]"
+    [[ -z $count ]] && echo -e "${XSOS_INDENT_H2}${c[lgrey]}[None]"
     echo -en "${c[0]}"
     
     [[ -n $changedir ]] && popd &>/dev/null
@@ -2709,7 +2709,7 @@ NETDEV() {
         }
       }
     ' | column -ts❚ |
-      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" -vGREY="${c[DGREY]}" '
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" -vGREY="${c[lgrey]}" '
         {
           if (NR <= 2)
             print H2 $0 H0
@@ -3123,21 +3123,21 @@ PSCHECK() {
     top_threads_ps_header=$(head -n1 <<<"$top_threads")
     top_threads="${c[H3]}$top_threads_ps_header${c[0]}\n$(tail -n+2 <<<"$top_threads" | $(__conditional_head $num_process_lines))"
   else
-    top_threads="$XSOS_INDENT_H2${c[DGREY]}[No thread info]${c[0]}"
+    top_threads="$XSOS_INDENT_H2${c[lgrey]}[No thread info]${c[0]}"
   fi
   
   # Format and prepare sleeping/zombie processes
   Dsleepers=$(gawk -vcolor_warn="${c[Warn1]}" -vc_0="${c[0]}" '$8~/D/ {print color_warn $0 c_0}' <<<"$ps_input")
-  Zombies=$(gawk -vc_grey="${c[DGREY]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
+  Zombies=$(gawk -vc_grey="${c[lgrey]}" -vc_0="${c[0]}" '$8~/Z/ {print c_grey $0 c_0}' <<<"$ps_input")
   if [[ -n $Dsleepers ]]; then
     Dsleepers="${c[H3]}$ps_header${c[0]}\n$Dsleepers$msg_sleepers_thrds"
   else
-    Dsleepers="$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}$msg_sleepers_thrds"
+    Dsleepers="$XSOS_INDENT_H2${c[lgrey]}[None]${c[0]}$msg_sleepers_thrds"
   fi
   if [[ -n $Zombies ]]; then
     Zombies="${c[H3]}$ps_header${c[0]}\n$Zombies$msg_zombies_thrds"
   else
-    Zombies="$XSOS_INDENT_H2${c[DGREY]}[None]${c[0]}$msg_zombies_thrds"
+    Zombies="$XSOS_INDENT_H2${c[lgrey]}[None]${c[0]}$msg_zombies_thrds"
   fi
   
   # Calculate top cpu-using & mem-using users
