@@ -181,9 +181,9 @@ fi
 #   Configures whether RHN/RHSM proxy user/pass should be removed from output
     : ${XSOS_SCRUB_PROXYUSERPASS:="n"}
 
-# XSOS_ETHTOOL_ERR_REGEX (str: regular expression)
+# XSOS_ETHTOOL_ERR_REGEX (str: awk-syntax regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
-    : ${XSOS_ETHTOOL_ERR_REGEX:="Missing ethtool_-S file|(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause|lost).*: [^0]"}
+    : ${XSOS_ETHTOOL_ERR_REGEX:='/Missing ethtool_-S file|(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause|lost).*: [^0]/ && !/(fdir_|veb\.)/'}
 
 # XSOS_LSPCI_NET_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Net" heading
@@ -2494,14 +2494,14 @@ ETHTOOL() {
     for i in $ethdevs; do
       errsfound=
       ethindent=$(tr '[[:graph:]]'   ' ' <<<"$i ")
-      if __ethtool_S $i | egrep -q "$XSOS_ETHTOOL_ERR_REGEX"; then
+      if __ethtool_S $i | [[ $(gawk "$XSOS_ETHTOOL_ERR_REGEX" | wc -l) -gt 0 ]]; then
         [[ -n $count ]] && echo -e "${XSOS_INDENT_H2}${c[lgrey]}- - - - - - - - - - - - - - - - - - -"
         echo -en "${c[Warn1]}"
         errsfound=$(__ethtool_S $i |
           tac |
             gawk "
               BEGIN { found = 0 }
-              /$XSOS_ETHTOOL_ERR_REGEX/ {
+              $XSOS_ETHTOOL_ERR_REGEX {
                 print ; found = 1
               }
               /$multiqueue_header/ {
