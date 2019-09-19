@@ -1,5 +1,5 @@
 name: xsos 
-version: "1.0"
+version: "1.1"
 summary: Summarize system info from sosreports
 description:
     The goal of xsos is to make it easy to instantaneously gather information
@@ -24,7 +24,7 @@ grade: stable
 apps:
   xsos:
     command: wrappers/xsos
-    plugs: [home]
+    plugs: [home, removable-media]
 parts:
   xsos:
     source: .
