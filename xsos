@@ -227,7 +227,7 @@ Content options:"
  -e, --ethtool❚show info from ethtool
  -r, --softirq❚show info from /proc/net/softnet_stat
  -n, --netdev❚show info from /proc/net/dev
- -g, --bonding❚show info from /proc/net/bonding
+ -g, --bonding❚show bonding and teaming info
  -i, --ip❚show info from ip addr (BASH v4+ required)
      --net❚alias for: --lspci --ethtool --softirq --netdev --bonding --ip
  -s, --sysctl❚show important kernel sysctls
@@ -436,11 +436,11 @@ PARSE() {
       -e|--ethtool) opts=y ethtool=y ;;
       -r|--softirq) opts=y softirq=y ;;
       -n|--netdev)  opts=y netdev=y  ;;
-      -g|--bonding) opts=y bonding=y ;;
+      -g|--bonding) opts=y bonding=y teaming=y ;;
       -i|--ip)      opts=y ip=y      ;;
       -s|--sysctl)  opts=y sysctl=y  ;;
       -p|--ps)      opts=y ps=y      ;;
-      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y bonding=y ;;
+      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y bonding=y teaming=y ;;
       
       --B)  sfile[B]=$2; shift ;;
       --F)  sfile[F]=$2; shift ;;
@@ -2060,6 +2060,128 @@ LSPCI() {
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
+TEAMING() {
+  # Local vars:
+  local files netscriptsdir teamdevs team_input team_config runner mode active master ports port f s
+
+  # If localhost, find team interfaces...
+  if [[ -z $1 ]]; then
+    teamdevs=$(ip link show type team 2>/dev/null | awk -F ': ' '($1 ~ "^[0-9]") {print $2}')
+
+  # If an sosreport, look for sos_commands/teamd/ output...
+  else
+    files=("$1"/sos_commands/teamd/teamdctl_*_state_dump)
+    if [[ ! -r ${files[0]} ]]; then
+      echo -e "${c[Warn2]}Warning:${c[Warn1]} '/sos_commands/teamd/teamdctl_*_state_dump' files unreadable; skipping teaming check${c[0]}" >&2
+      echo -en $XSOS_HEADING_SEPARATOR >&2
+      return
+    fi
+    [[ -d "$1"/etc/sysconfig/network-scripts ]] && netscriptsdir="$1"/etc/sysconfig/network-scripts
+  fi
+
+  if [[ $XSOS_SCRUB_MACADDR == y ]]; then
+    __scrub_mac() { sed -r 's/[0-9abcdef]/⣿/g' ; }
+  else
+    __scrub_mac() { cat ; }
+  fi
+  
+  echo -e "${c[H1]}TEAMING${c[0]}"
+    
+  # The bracket here is like using parens to make a subshell -- allows to capture all stdout
+  {
+    # Header info ("❚" is used later by `column` to columnize the output)
+    echo "  Device❚Runner (mode) ❚ifcfg-File TEAM_CONFIG❚Partner MAC Addr❚Ports (*=active; [n]=AggID)"
+    echo "  ========❚=================❚========================❚==================❚==============================="
+    
+    f=0; for team_input in ${files[@]}; do
+      
+      team_name=$(gawk -F '"' '/team_device/,/^$/ {if ($2 == "ifname") {print $4}}' $team_input)
+      echo -n "  $team_name❚"
+      
+      runner=$(gawk -F '"' '($2 ~ "runner_name") {print $4}' $team_input)
+      mode=$(gawk -F '"' '($2 ~ "kernel_team_mode_name") {print $4}' $team_input)
+      echo -n "$runner ($mode)❚"
+      
+      team_config=$(gawk '/^TEAM_CONFIG=/' "$netscriptsdir/ifcfg-${team_name}" 2>/dev/null | tail -n1 | sed s/TEAM_INPUT=// | tr -d \"\')
+      # Remove backslashes to make the string human-readable
+      team_config=${team_config//\\/}
+      [[ -z $team_config ]] && team_config=-
+      echo -n "$team_config❚"
+      
+      if [[ ${runner} == "lacp" ]]; then
+        # The agg id of the first 'selected' port should be the id of the active aggregation
+        active=$(gawk '/aggregator/,/\}/ {gsub(/,$/, "", $0); if ($0 ~ "id" ) {getline selected; if (selected ~ "true") {print $NF; exit}}}' $team_input)
+	# The partner mac of the first selected port is the switch mac for the active aggregation 
+	partner_mac=$(gawk '/aggregator/,/system/' $team_input | gawk '/"selected": true/,/system/' | gawk -F '"' '($2 ~ "system") {print $4; exit}' | __scrub_mac)
+        echo -n "${partner_mac:--}❚"
+      else
+        echo -n "-❚"
+        active=$(gawk -F '"' '($2 ~ "active_port") {print $4}' $team_input)
+      fi
+      
+      ports=( $(gawk -F '"' '/ports/,/team_device/ {if ($2 == "ifname") {print $4}}' $team_input) )
+      
+      [[ ${#ports[@]} -eq 0 ]] && echo "[None]"
+      
+      s=0; until [[ $s -eq ${#ports[@]} ]]; do
+        if [[ ${runner} == "lacp" ]]; then
+	  agg_id=$(gawk '/'"${ports[s]}"'/,/selected}/ {gsub(/,$/, "", $0); if ($0 ~ "id" ) {print $NF; exit}}' $team_input)
+        fi
+        # First line
+        if [[ $s -eq 0 ]]; then
+          if [[ ${runner} == "lacp" ]]; then
+            if [[ $active == $agg_id ]]; then
+              echo -n "* [$agg_id] ${ports[s]}"
+            else
+              echo -n "  [$agg_id] ${ports[s]}"
+            fi
+          elif [[ $active == ${ports[s]} ]]; then
+            echo -n "* ${ports[s]}"
+          else
+            echo -n "  ${ports[s]}"
+          fi
+        # Not first line
+        else
+          if [[ ${runner} == "lacp" ]]; then
+            if [[ $active == $agg_id ]]; then
+              echo -n " ❚ ❚ ❚ ❚* [$agg_id] ${ports[s]}"
+            else
+              echo -n " ❚ ❚ ❚ ❚  [$agg_id] ${ports[s]}"
+            fi
+          elif [[ $active == ${ports[s]} ]]; then
+            echo -n " ❚ ❚ ❚ ❚* ${ports[s]}"
+          else
+            echo -n " ❚ ❚ ❚ ❚  ${ports[s]}"
+          fi
+        fi
+        
+	# There is nothing in an SOS Report which shows the original MAC of a team port :(. But if it did it could go here...
+	# echo " ($port_mac)"
+        s=$((s+1))
+        echo
+      done
+    f=$((f+1))
+    [[ $f -lt ${#files[@]} ]] && echo " ❚ ❚ ❚ ❚- - - - - - - - - - - - - - - -"
+    done
+  } |
+    column -ts❚ |
+    
+      # And then we need to do some color funness!
+      # This colorizes the first 2 lines with the H2 color and the interfaces with H3
+      gawk -vH0="${c[0]}" -vH2="${c[H2]}" -vH3="${c[H3]}" '
+        {
+          if (NR <= 2) print H2 $0 H0
+          else printf gensub(/(^  [[:graph:]]+ )/,   H3"\\1"H0, 1)"\n"
+        }' |
+          gawk -vU="${c[Up]}" -vH0="${c[0]}" -vgrey="${c[DGREY]}" '
+            {
+              if (NR <= 2) print
+              else if ($1 == "-") print grey $0 H0
+              else printf gensub(/( \*.*)/,   U"\\1"H0, 1)"\n"
+            }'
+        
+  echo -en $XSOS_HEADING_SEPARATOR
+}
 
 BONDING() {
   # Local vars:
@@ -3211,8 +3333,8 @@ SOS_CHECKFILE() {
   # If module needs to be called, check for files
   if [[ $(eval echo \$$module) == y ]]; then
     while [[ $# -gt 0 ]]; do
-      # If ethtool module being called, do something specific
-      if [[ $module == ethtool ]] && ls "$sosroot"/$1 &>/dev/null; then
+      # If ethtool or teaming module being called, do something specific
+      if [[ $module == ethtool || $module == teaming ]] && ls "$sosroot"/$1 &>/dev/null; then
           return  # Return successfully if ethtool files found
       # If file ends in slash, look for dir
       elif [[ $1 =~ /$ ]]; then
@@ -3290,6 +3412,8 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     SOS_CHECKFILE softirq "proc/net/softnet_stat"              && SOFTIRQ   "$sosroot"
     SOS_CHECKFILE netdev  "proc/net/dev"                       && NETDEV    "$sosroot"
     SOS_CHECKFILE bonding "proc/net/bonding/"                  && BONDING   "$sosroot"
+    SOS_CHECKFILE teaming "sos_commands/teamd/teamdctl_*_state_dump" \
+                                                               && TEAMING   "$sosroot"
     SOS_CHECKFILE ip      sos_commands/networking/ip_{,-d_}address \
                                                                && {
                                                                   IPADDR    "$sosroot"
@@ -3313,6 +3437,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $softirq ]] && SOFTIRQ /
     [[ -n $netdev ]]  && NETDEV /
     [[ -n $bonding ]] && BONDING /
+    [[ -n $teaming ]] && TEAMING /
     [[ -n $ip ]]      && IPADDR
     [[ -n $all ]]     && XSOS_IP_VERSION=6 IPADDR
     [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
