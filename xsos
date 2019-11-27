@@ -1636,6 +1636,7 @@ MEMINFO() {
     /^Hugepagesize:/    { Hugepagesize   = $2 }
     /^HugePages_Total:/ { HugepagesTotal = $2 }
     /^HugePages_Free:/  { HugepagesFree  = $2 }
+    /^AnonHugePages:/   { Anonhugepages  = $2 }
     
     END {
       
@@ -1833,6 +1834,13 @@ MEMINFO() {
         printf  "    %s%s of HugePages (%s%%) in-use by applications\n", HP_Used, Unit, HP_Used_Percent
       }
       
+      printf    "  %sTHP:%s\n", H2, H0
+      if (Anonhugepages == 0)
+        printf  "    THP Disabled\n"
+      else {
+        printf  "    %s kB allocated to THP %s\n", Anonhugepages, H0
+      }
+
       printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
       if (SHOW_Lowmem == 1)
         printf  "    %s%s (%s%%) of %s%s LowMem in-use\n", LowUsed, Unit, LowUsed_Percent, LowTotal, Unit
