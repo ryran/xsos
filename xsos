@@ -1329,8 +1329,9 @@ KDUMP() {
     __initrd_file_check() {
       [[ -r "$sosroot"/sos_commands/bootloader/ls_-laR_.boot ]] && lsbootfile="$sosroot"/sos_commands/bootloader/ls_-laR_.boot
       [[ -r "$sosroot"/sos_commands/boot/ls_-lanR_.boot ]] && lsbootfile="$sosroot"/sos_commands/boot/ls_-lanR_.boot
+      [[ -r "$sosroot"/sos_commands/grub2/ls_-lanR_.boot ]] && lsbootfile="$sosroot"/sos_commands/grub2/ls_-lanR_.boot
       if [[ -z $lsbootfile ]]; then
-        echo -e "${c[Warn1]}missing '$sosroot/sos_commands/bootloader/ls_-laR_.boot' & '$sosroot/sos_commands/boot/ls_-lanR_.boot'${c[0]}"
+        echo -e "${c[Warn1]}missing '$sosroot/sos_commands/bootloader/ls_-laR_.boot' & '$sosroot/sos_commands/boot/ls_-lanR_.boot' & '$sosroot/sos_commands/grub2/ls_-lanR_.boot'${c[0]}"
       else
         kdump_initrd=$(grep 'initr.*kdump.img$' "$lsbootfile") \
           && sed -r 's@^........... +[0-9]+ \w+ *\w+ *([0-9]+ .*)@\1@' <<<"$kdump_initrd" | sed -r 's,/+boot/,,' \
