@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.21 last mod 2019/08/20
+# xsos v0.7.22 last mod 2020-12-01
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -2437,7 +2437,7 @@ IPADDR() {
       )
       
       # Get MTU for $i
-      mtu[$i]=$(egrep -o 'mtu [0-9]+' <<<"${iface_input[$i]}" | gawk '{print $2}')
+      mtu[$i]=$(egrep -o ' mtu [0-9]+' <<<"${iface_input[$i]}" | gawk '{print $2}')
       
       # Get up/down state for $i
       state[$i]=$(grep -q "${i}: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
