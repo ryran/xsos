@@ -1838,7 +1838,7 @@ MEMINFO() {
       
       printf    "  %sTHP:%s\n", H2, H0
       if (Anonhugepages == 0)
-        printf  "    THP Disabled\n"
+        printf  "    THP not currently in use\n"
       else {
         printf  "    %s kB allocated to THP %s\n", Anonhugepages, H0
       }
