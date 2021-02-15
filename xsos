@@ -193,6 +193,10 @@ fi
 #   Configures what LSPCI() uses to search for peripherals under the "Storage" heading
     : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller)( \[[0-9]{4}\])?:"}
 
+# XSOS_SS_CHECK_FIELDS (str: pipe separated field names)
+#   Configures what SSCHECK() uses to filter fields whose value is > 0.
+    : ${XSOS_SS_CHECK_FIELDS:="sock_drop|app_limited|dsack_dups|lost|reord_seen|back_log|retrans_total|rq|tq"}
+
 # ==============================================================================
 
 
@@ -3359,6 +3363,7 @@ SSCHECK(){
     -e 's/ delivery_rate / delivery_rate:/' |
 
     gawk -vpid_list="$pids" -vcmd_list="$cmds" -vmem_list="$mems" -vcpu_list="$cpus" \
+    -vcheck_fields_str="${XSOS_SS_CHECK_FIELDS}" \
     -vI="$XSOS_INDENT_H1" -vcH1="${c[H1]}" -vcH2="${c[H2]}" -vcH3="${c[H3]}" -vc0="${c[0]}" '
 
     BEGIN{
@@ -3379,18 +3384,7 @@ SSCHECK(){
       #  print("PID", pid, "CMD", pidcmd[pid])
       #}
 
-      split(\
-        "sock_drop|"\
-        "app_limited|"\
-        "dsack_dups|"\
-        "lost|"\
-        "reord_seen|"\
-        "back_log|"\
-        "retrans_total|"\
-        "bytes_retrans|"\
-        "rq|"\
-        "tq|"\
-        "back_log", check_fields, "|")
+      split(check_fields_str, check_fields, "|") 
 
     }
 
