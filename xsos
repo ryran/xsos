@@ -118,7 +118,7 @@ fi
 
 # XSOS_ALL_VIEW (str of variables, space-separated)
 #   Controls what content modules to run when -a/--all switch is used
-    : ${XSOS_ALL_VIEW:="bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq bonding ip netdev sysctl ps"}
+    : ${XSOS_ALL_VIEW:="bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq bonding ip netdev sysctl ps ss firewall"}
 
 # XSOS_DEFAULT_VIEW (str of variables, space-separated)
 #   Controls default content modules, i.e. what to run when none are specififed
@@ -235,8 +235,9 @@ Content options:"
  -i, --ip❚show info from ip addr (BASH v4+ required)
      --net❚alias for: --lspci --ethtool --softirq --netdev --bonding --ip
  -s, --sysctl❚show important kernel sysctls
+ -p, --ps❚inspect running processes via ps
  -S, --ss❚inspect running processes via ss
- -p, --ps❚inspect running processes via ps" | column -ts❚
+ -F, --firewall❚show firewall status" | column -ts❚
 }
 
 HELP_OPTS_DISPLAY() {
@@ -276,7 +277,8 @@ Special options (BASH v4+ required):"
  --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
  --P=FILE❚read from FILE containing \`ps aux\` dump
- --S=FILE❚read from FILE containing \`ss -peaonmi\` dump" | column -ts❚
+ --S=FILE❚read from FILE containing \`ss -peaonmi\` dump
+ --F=FILE❚read from FILE containing \`systemctl_status_--all\` dump" | column -ts❚
 }
 
 HELP_SHORT() {
@@ -353,8 +355,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='6q:u:v:w:xyzabokcfmdtlerngispS'
-lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,ss,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+sopts='6q:u:v:w:xyzabokcfmdtlerngispSF'
+lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,ss,firewall,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=xsos -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -447,7 +449,8 @@ PARSE() {
       -s|--sysctl)  opts=y sysctl=y  ;;
       -p|--ps)      opts=y ps=y      ;;
       -S|--ss)      opts=y ss=y      ;;
-      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y bonding=y teaming=y ;;
+      -F|--firewall)opts=y firewall=y ;;
+      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y firewall=y bonding=y teaming=y ss=y ;;
       
       --B)  sfile[B]=$2; shift ;;
       --F)  sfile[F]=$2; shift ;;
@@ -3699,6 +3702,43 @@ SSCHECK(){
   }'
 }
 
+FIREWALL(){
+
+  iptables_vnxL="$1/sos_commands/networking/iptables_-vnxL"
+  firewallcmd_state="$1/sos_commands/firewalld/firewall-cmd_--state"
+  nft_list_ruleset="$1/sos_commands/*/nft_list_ruleset"
+  systemctl_list_unit_files="$1/sos_commands/systemd/systemctl_list-unit-files"
+  systemctl_status_all="$1/sos_commands/systemd/systemctl_status_--all"
+
+  __retrieve_service_status(){
+      egrep -A 2 "^\* $1.service" <$systemctl_status_all | xargs echo |
+        sed 's#\* .*Loaded: \([^ ]*\)[^;]*; \?\([^;]*\);.*Active: \([^ ]*\) (\([^)]*\)).*#([loaded]=\1 [enabled]=\2 [active]=\3 [running]=\4)#g'
+  }
+
+  get_active_loaded_enabled='s#\* .*Loaded: \([^ ]*\)[^;]*; \?\([^;]*\);.*Active: \([^ ]*\) (\([^)]*\)).*#\1 \2 \3#g'
+
+  declare -A iptables=$(__retrieve_service_status iptables)
+  declare -A nftables=$(__retrieve_service_status nftables)
+  declare -A firewalld=$(__retrieve_service_status firewalld)
+
+  iptables[rules]=$(cat $iptables_vnxL 2>/dev/null | egrep -v '^$|^Chain|pkts *bytes' | wc -l)
+
+  nftables[rules]=$(cat $nft_list_ruleset 2>/dev/null | egrep -v '^table|^$|\t*chain.*{$|\t*}$' | wc -l)
+
+  echo -e "${c[H1]}FIREWALL${c[0]}"
+  if echo ${iptables[enabled]} ${nftables[enabled]} ${firewalld[enabled]} | grep enabled >/dev/null; then
+    echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
+    if [ "${iptables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}iptables (${iptables[active]}, ${iptables[running]})"; fi
+    if [ "${firewalld[enabled]}" = "enabled" ]; then echo -e "${XSOS_INDENT_H2}firewalld (${firewalld[active]}, ${firewalld[running]})"; fi
+    if [ "${nftables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}nftables (${nftables[active]}, ${nftables[running]})"; fi
+    echo -e "\n$XSOS_INDENT_H1${c[H2]}Rules loaded:${c[0]}"
+    if [ "${iptables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}iptables: ${iptables[rules]}"; fi
+    if [ "${nftables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}nftables: ${nftables[rules]}"; fi
+
+  else
+    echo "No firewall services enabled."
+  fi
+}
 
 #-------------------------------------------------------------------------------
 # BLEH
@@ -3777,6 +3817,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
     [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
     [[ -r ${sfile[S]} ]] && SSCHECK   "${sfile[S]}"
+    [[ -r ${sfile[F]} ]] && FIREWALL  "${sfile[F]}"
 
   # If SOSREPORT-ROOT provided, use that
   elif [[ -n $sosroot ]]; then
@@ -3803,7 +3844,8 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
                                                                   IPADDR    "$sosroot"; }
     SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
     SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
-    SOS_CHECKFILE ss      "sos_commands/networking/ss_-peaonmi"&& SSCHECK   "$sosroot"
+    SOS_CHECKFILE ss      "sos_commands/networking/ss_-peaonmi" && SSCHECK  "$sosroot"
+    SOS_CHECKFILE firewall "sos_commands/systemd/systemctl_status_--all" && FIREWALL   "$sosroot"
     
   # If no SOSREPORT-ROOT provided, run checks against local system
   else
@@ -3825,6 +3867,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $all ]]     && XSOS_IP_VERSION=6 IPADDR
     [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
     [[ -n $ss ]]      && SSCHECK
+    [[ -n $firewall ]]&& FIREWALL
 
   fi
   
