@@ -3351,11 +3351,18 @@ $XSOS_INDENT_H1${c[H2]}Top thread-spawning processes:${c[0]} \n$top_threads"
 
 SSCHECK(){
 
+  # These are used later to print the name, cpu and mem of the process owner of the socket.
   pids=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f2)
   cmds=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f11)
   cpus=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f3)
   mems=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f4)
 
+  # Used later by column to right align them
+  num_fields=$(tr "|" " " <<<${XSOS_SS_CHECK_FIELDS} | wc -w)
+  num_fields=$((${num_fields} + 7))
+  
+
+  # These fields have format "name value". Add them a ":" so they have the same format as the other fields
   cat "$1/sos_commands/networking/ss_-peaonmi" | sed \
     -e 's/ send / send:/' \
     -e 's/ pacing_rate / pacing_rate:/' \
@@ -3388,6 +3395,7 @@ SSCHECK(){
 
     }
 
+    # Returns the value part of a key-value pair with format "key: value"
     function valueof(keyvalue){
       split(keyvalue, splitted, ":")
       #print("SPLITTED", keyvalue, splitted[1], splitted[2])
@@ -3405,8 +3413,9 @@ SSCHECK(){
     #print("LINE", $0)
     #if (/^{tcp,udp,nl}.*/){
     if (/^[^\t].*/){
-      # Next is new session. Clear everything
       #print_stream_summary(params)
+
+      # New session starts. Clear everything
       delete params
 
       params["proto"] = $1
@@ -3416,22 +3425,28 @@ SSCHECK(){
       params["local"] = $5
       params["peer"] = $6
 
-      # bools
+      # Initialize bools
       params["ts"] = 0
       params["sack"] = 0
       params["htcp"] = 0
       params["app_limited"] = 0
       params["v6only"] = 0
 
+      # Index for everything related to this stream, Used later when printing
       params["string"] = sprintf("%s❚%s❚%s" , params["proto"], params["local"], params["peer"])
 
       #print $0 NF
+
+      # Figure out what the other info provided is and parse it.
       for (i=7; i<NF; i++){
         switch($i){
           case /^users/:
+            # Format: users:(("user1",pid=PID,fd=FD),"user2",pid=PID2,fd=FD2, ...)
+            # First we extract all the definitions
             match($i, /^users:\(\((.*)\)$/, users0);
             user_list_n = split(users0[1], user_list, /\),?\(?/)
 
+            # split each user definition and add it
             for (j=1; j<user_list_n; j++){
               userdef_n = split(user_list[j], userdef ,",")
               #print("USERDEF1", userdef[1])
@@ -3447,31 +3462,37 @@ SSCHECK(){
             break
 
           case /^"timer"/:
+            # Format: timer:(<timer_name>,<expire_time>,<retrans>)
             match($i, /^timer:\(\)$/, timer)
             split(timer, ",", timer_params)
             params["timer_name"] =     timer_params[1]
             params["timer_expire"] =   timer_params[2]
-            params["timer_retrans"] = timer_params[3];                            break
+            params["timer_retrans"] =  timer_params[3];                            break
 
 
-          case /^ino/:                params["ino"] =           valueof($i);      break
+          case /^ino:/:               params["ino"] =           valueof($i);      break
           case /^sk:/:                params["cookie"] =        valueof($i);      break
           case /^uid:/:               params["uid"] =           valueof($i);      break
-          case /^v6only:/:            params["v6only"] =         valueof($i);      break
+          case /^v6only:/:            params["v6only"] =         valueof($i);     break
         }
       }
       #print("IFTCP LEN", length(params))
     }
     else if (/^\t/){
+      # The second line provides more fields. We keep parsing them and adding them to "params"
+
       for (i=1; i<=NF; i++){
         #print("I", $i)
         switch($i){
+
+          # Boolean fields. We only check for the presence of these ones.
           case /^cubic$/:             params["congestion"] =     "cubic";         break
           case /^ts$/:                params["ts"] =             1;               break
           case /^sack$/:              params["sack"] =           1;               break
           case /^htcp$/:              params["htcp"] =           1;               break
           case /^app_limited$/:       params["app_limited"] =    1;               break
 
+          # Most of the other fields have format "name: value"
           case /^send:/:              params["send"] =          valueof($i);      break
           case /^delivered:/:         params["delivered"] =     valueof($i);      break
           case /^pacing_rate:/:       params["pacing_rate"] =   valueof($i);      break
@@ -3509,40 +3530,56 @@ SSCHECK(){
           case /^backoff:/:           params["backoff"] =       valueof($i);      break
           case /^reord_seen:/:        params["reord_seen"] =    valueof($i);      break
           case /^notsent:/:           params["notsent"] =       valueof($i);      break
+
+          # Some exceptions with a completely different format:
+          #
+          #skmem:(r<rmem_alloc>,rb<rcv_buf>,t<wmem_alloc>,tb<snd_buf>,
+          #              f<fwd_alloc>,w<wmem_queued>,o<opt_mem>,
+          #              bl<back_log>,d<sock_drop>)
           case /^skmem:/:
-                                      match($i, /^skmem:\(r([0-9]+),rb([0-9]+),t([0-9]+),tb([0-9]+),f([0-9]+),w([0-9]+),o([0-9]+),bl([0-9]+),d([0-9]+)/, skmem)
 
-                                      params["rmem_alloc"] =     skmem[1]
-                                      params["rmem_buf"] =       skmem[2]
-                                      params["wmem_alloc"] =     skmem[3]
-                                      params["snd_buf"] =       skmem[4]
-                                      params["fwd_alloc"] =     skmem[5]
-                                      params["wmem_queued"] =   skmem[6]
-                                      params["ropt_mem"] =       skmem[7]
-                                      params["back_log"] =       skmem[8]
-                                      params["sock_drop"] =     skmem[9];          break
+            match($i, /^skmem:\(r([0-9]+),rb([0-9]+),t([0-9]+),tb([0-9]+),f([0-9]+),w([0-9]+),o([0-9]+),bl([0-9]+),d([0-9]+)/, skmem)
 
+            params["rmem_alloc"] =    skmem[1]
+            params["rmem_buf"] =      skmem[2]
+            params["wmem_alloc"] =    skmem[3]
+            params["snd_buf"] =       skmem[4]
+            params["fwd_alloc"] =     skmem[5]
+            params["wmem_queued"] =   skmem[6]
+            params["ropt_mem"] =      skmem[7]
+            params["back_log"] =      skmem[8]
+            params["sock_drop"] =     skmem[9];          break
+
+          # busy:NNN.NNms
           case /^busy:/:              match($i, /^busy:([0-9]+)ms/,   busyms)
                                       params["busyms"] =         busyms[1];        break
 
+          # wscale:<snd_wscale>:<rcv_wscale>
           case /^wscale:/:            #split ($i, wscale, ",")
                                       match($i, /^wscale:([0-9]+),([0-9]+)/, wscale)
                                       params["snd_wscale"] =     wscale[1]
                                       params["rcv_wscale"] =     wscale[2];         break
 
+          # rtt:<rtt>/<rttvar>
           case /^rtt:/:                split ($i, rtt, "/")
                                       params["rtt"] =           rtt[1]
                                       params["rttvar"] =         rtt[2];           break
 
+          # retrans:<retrans_current>/<retrans_total>
           case /^retrans:/:            split ($i, retrans, "/")
                                       params["retrans_current"] = retrans[1]
                                       params["retrans_total"] =   retrans[2];     break
         } # switch
       } # for
 
+      # Next line will be a new session, so here we save the interesting fields of the session
+
+      # Increment global counters for the protocol and the state
       counters["proto"][ params["proto"] ] += 1
       counters["state"][ params["state"] ] += 1
 
+
+      # Check fields provided via XSOS_SS_CHECK_FIELDS. If any of them is >0, then we add this session to be printed later
       added = 0
       for(x in check_fields){
         key = check_fields[x]
@@ -3554,6 +3591,8 @@ SSCHECK(){
         }
       }
 
+
+      # If this session will be printed, then we want to have some extra info
       if (added == 1){
         if(typeof(params["users"]) == "array"){
           for (user_n in params["users"]){
@@ -3564,9 +3603,6 @@ SSCHECK(){
         }else{
           #print("NOT AN ARRAY", string)
         }
-
-        sessions[string]["bytes_sent"] = params["bytes_sent"]
-        sessions[string]["bytes_received"] = params["bytes_received"]
       }
     } # else if (^\t /)
   }
@@ -3620,7 +3656,7 @@ SSCHECK(){
     print_table()
   #printf(I""cH2"Counters:"c0"\n")
   #  print_totals()
-  }'  | column -ts'❚' | sed 's/^/\t/'
+  }' | column -R $(seq -s, 1 $num_fields) -ts'❚' | sed 's/^/\t/'
 }
 
 
