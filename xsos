@@ -3600,6 +3600,10 @@ SSCHECK(){
             sessions[string]["cmd"][user_n]["pid"] = params["users"][user_n]["pid"]
             sessions[string]["cmd"][user_n]["name"] = params["users"][user_n]["name"]
           }
+          sessions[string]["proto"] = params["proto"]
+          sessions[string]["local"] = params["local"]
+          sessions[string]["peer"] = params["peer"]
+
         }else{
           #print("NOT AN ARRAY", string)
         }
@@ -3642,6 +3646,40 @@ SSCHECK(){
     }
   }
 
+  function dump_table(){
+
+    table = ""
+
+    # Print table header
+    table = table sprintf(I""cH3"\n")
+    table = table sprintf(I""I"%s❚%s❚%s","Protocol", "Local", "Peer")
+    for(x in check_fields){
+      key = check_fields[x]
+      table = table sprintf("❚%s", key)
+    }
+    table = table "❚User❚Command❚PCPU❚PMEM"c0"\n"
+
+    # Check all stored sessions
+    for (string in sessions){
+      
+      table = table sprintf(I""I"%s", string)
+
+      for (x in check_fields){
+        key = check_fields[x]
+        table = table sprintf("❚%s",sessions[string][key]["val"])
+      }
+
+      table = table sprintf("❚%s", sessions[string]["cmd"][1]["name"])
+      pid = sessions[string]["cmd"][1]["pid"]
+      table = table sprintf("❚%s", pidcmd[pid]["cmd"])
+      table = table sprintf("❚%s", pidcmd[pid]["cpu"])
+      table = table sprintf("❚%s", pidcmd[pid]["mem"])
+      table = table "\n"
+
+    }
+    return table
+  }
+
   function print_totals(){
     for (by in session_c){
       for (key in counters[by]){
@@ -3652,11 +3690,13 @@ SSCHECK(){
 
   END{
   printf(cH1"%s"c0"\n", "SS CHECK")
-  printf(I""cH2"Sessions:")
-    print_table()
+  printf(I""cH2"Sessions:\n"c0)
+    table = dump_table()
+    ("seq -s, 4 "length(check_fields)+3 | getline align_right )
+    print table | "column -ts❚ -R" align_right
   #printf(I""cH2"Counters:"c0"\n")
   #  print_totals()
-  }' | column -R $(seq -s, 1 $num_fields) -ts'❚' | sed 's/^/\t/'
+  }'
 }
 
 
