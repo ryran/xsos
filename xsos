@@ -207,7 +207,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngisp] [SOSREPORT ROOT]
+  echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngispSFI] [SOSREPORT ROOT]
   or:  xsos [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
   or:  xsos [-?|-h|--help]
 
@@ -237,7 +237,8 @@ Content options:"
  -s, --sysctl❚show important kernel sysctls
  -p, --ps❚inspect running processes via ps
  -S, --ss❚inspect running processes via ss
- -F, --firewall❚show firewall status" | column -ts❚
+ -F, --firewall❚show firewall status
+ -I, --ifcfg❚|show ifcfg files summary" | column -ts❚
 }
 
 HELP_OPTS_DISPLAY() {
@@ -355,8 +356,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='6q:u:v:w:xyzabokcfmdtlerngispSF'
-lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,ss,firewall,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+sopts='6q:u:v:w:xyzabokcfmdtlerngispSFI'
+lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,ss,firewall,ifcfg,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=xsos -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -450,7 +451,8 @@ PARSE() {
       -p|--ps)      opts=y ps=y      ;;
       -S|--ss)      opts=y ss=y      ;;
       -F|--firewall)opts=y firewall=y ;;
-      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y firewall=y bonding=y teaming=y ss=y ;;
+      -I|--ifcfg)   opts=y ifcfg=y   ;;
+      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y firewall=y bonding=y teaming=y ss=y ifcfg=y ;;
       
       --B)  sfile[B]=$2; shift ;;
       --F)  sfile[F]=$2; shift ;;
@@ -3727,17 +3729,53 @@ FIREWALL(){
 
   echo -e "${c[H1]}FIREWALL${c[0]}"
   if echo ${iptables[enabled]} ${nftables[enabled]} ${firewalld[enabled]} | grep enabled >/dev/null; then
+
     echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
     if [ "${iptables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}iptables (${iptables[active]}, ${iptables[running]})"; fi
     if [ "${firewalld[enabled]}" = "enabled" ]; then echo -e "${XSOS_INDENT_H2}firewalld (${firewalld[active]}, ${firewalld[running]})"; fi
     if [ "${nftables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}nftables (${nftables[active]}, ${nftables[running]})"; fi
-    echo -e "\n$XSOS_INDENT_H1${c[H2]}Rules loaded:${c[0]}"
-    if [ "${iptables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}iptables: ${iptables[rules]}"; fi
-    if [ "${nftables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}nftables: ${nftables[rules]}"; fi
 
+    echo -e "\n$XSOS_INDENT_H1${c[H2]}Rules loaded:${c[0]}"
+    if [ -z ${iptables[rules]}${nftables[rules]} ]; then
+      if [ "${iptables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}iptables: ${iptables[rules]}"; fi
+      if [ "${nftables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}nftables: ${nftables[rules]}"; fi
+    else
+      echo -e "${XSOS_INDENT_H2}No rules loaded."
+    fi
   else
     echo "No firewall services enabled."
   fi
+}
+
+IFCFG(){
+  files=$(echo $1/etc/sysconfig/network-scripts/ifcfg-*)
+  (
+   echo "FILE❚TYPE❚DEVICE❚NAME❚HWADDR❚ONBOOT❚DEFROUTE❚GATEWAY❚NM_CONTROLLED❚BOND/TEAM❚MASTER❚BRIDGE❚ETHTOOL❚PHYSDEV❚PEERDNS❚ZONE❚MTU"
+   for f in $files; do
+     fname="$(basename $f)"
+     name=${fname//ifcfg-/}
+
+     declare -A ifcfg="("$(grep -v '^[check_link_down|return 1|^}|#|$]' <$f | sed 's/^\([^=]\+\)=\(.*\)$/[\1]=\2/g' )")"
+     echo -n $fname❚
+     echo -n ${ifcfg[TYPE]:- }❚
+     echo -n ${ifcfg[DEVICE]:- }❚
+     echo -n ${ifcfg[NAME]:- }❚
+     echo -n ${ifcfg[HWADDR]:- }❚
+     echo -n ${ifcfg[ONBOOT]:- }❚
+     echo -n ${ifcfg[DEFROUTE]:- }❚
+     echo -n ${ifcfg[GATEWAY]:- }❚
+     echo -n ${ifcfg[NM_CONTROLLED]:- }❚
+     echo -n ${ifcfg[BONDING_OPTS]:-${ifcfg[TEAM_CONFIG]} }❚
+     echo -n ${ifcfg[BONDING_MASTER]:-${ifcfg[TEAM_MASTER]}}${ifcfg[MASTER]} ❚
+     echo -n ${ifcfg[BRIDGE]:- }❚
+     echo -n ${ifcfg[ETHTOOL_OPTS]:- }❚
+     echo -n ${ifcfg[PHYSDEV]:- }❚
+     echo -n ${ifcfg[PEERDNS]:- }❚
+     echo -n ${ifcfg[ZONE]:- }❚
+     echo -n ${ifcfg[MTU]:- }❚
+     echo
+   done
+  ) | column -ts❚ 
 }
 
 #-------------------------------------------------------------------------------
@@ -3846,6 +3884,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
     SOS_CHECKFILE ss      "sos_commands/networking/ss_-peaonmi" && SSCHECK  "$sosroot"
     SOS_CHECKFILE firewall "sos_commands/systemd/systemctl_status_--all" && FIREWALL   "$sosroot"
+    SOS_CHECKFILE ifcfg   "etc/sysconfig/network-scripts" && IFCFG  "$sosroot"
     
   # If no SOSREPORT-ROOT provided, run checks against local system
   else
@@ -3868,6 +3907,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
     [[ -n $ss ]]      && SSCHECK
     [[ -n $firewall ]]&& FIREWALL
+    [[ -n $ifcfg ]]   && IFCFG
 
   fi
   
