@@ -3362,12 +3362,7 @@ SSCHECK(){
   cpus=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f3)
   mems=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f4)
 
-  # Used later by column to right align them
-  num_fields=$(tr "|" " " <<<${XSOS_SS_CHECK_FIELDS} | wc -w)
-  num_fields=$((${num_fields} + 7))
-  
-
-  # These fields have format "name value". Add them a ":" so they have the same format as the other fields
+  # These fields have format "name value". Add them a ":" so they have the same format as the other fields (name: value)
   cat "$1/sos_commands/networking/ss_-peaonmi" | sed \
     -e 's/ send / send:/' \
     -e 's/ pacing_rate / pacing_rate:/' \
@@ -3392,10 +3387,6 @@ SSCHECK(){
         pidcmd[pid]["cpu"] = cpus[i]
       }
 
-      #for (pid in pidcmd){
-      #  print("PID", pid, "CMD", pidcmd[pid])
-      #}
-
       split(check_fields_str, check_fields, "|") 
 
     }
@@ -3403,7 +3394,6 @@ SSCHECK(){
     # Returns the value part of a key-value pair with format "key: value"
     function valueof(keyvalue){
       split(keyvalue, splitted, ":")
-      #print("SPLITTED", keyvalue, splitted[1], splitted[2])
       return splitted[2]
     }
 
@@ -3415,10 +3405,7 @@ SSCHECK(){
     }
 
     {
-    #print("LINE", $0)
-    #if (/^{tcp,udp,nl}.*/){
     if (/^[^\t].*/){
-      #print_stream_summary(params)
 
       # New session starts. Clear everything
       delete params
@@ -3440,8 +3427,6 @@ SSCHECK(){
       # Index for everything related to this stream, Used later when printing
       params["string"] = sprintf("%s❚%s❚%s" , params["proto"], params["local"], params["peer"])
 
-      #print $0 NF
-
       # Figure out what the other info provided is and parse it.
       for (i=7; i<NF; i++){
         switch($i){
@@ -3462,7 +3447,6 @@ SSCHECK(){
               params["users"][j]["fd"] = userdef[3]
             }
 
-            #print params["string"], $i, length(params["users"])
             break
 
           case /^"timer"/:
@@ -3471,22 +3455,20 @@ SSCHECK(){
             split(timer, ",", timer_params)
             params["timer_name"] =     timer_params[1]
             params["timer_expire"] =   timer_params[2]
-            params["timer_retrans"] =  timer_params[3];                            break
+            params["timer_retrans"] =  timer_params[3];                           break
 
 
           case /^ino:/:               params["ino"] =           valueof($i);      break
           case /^sk:/:                params["cookie"] =        valueof($i);      break
           case /^uid:/:               params["uid"] =           valueof($i);      break
-          case /^v6only:/:            params["v6only"] =         valueof($i);     break
+          case /^v6only:/:            params["v6only"] =        valueof($i);      break
         }
       }
-      #print("IFTCP LEN", length(params))
     }
     else if (/^\t/){
       # The second line provides more fields. We keep parsing them and adding them to "params"
 
       for (i=1; i<=NF; i++){
-        #print("I", $i)
         switch($i){
 
           # Boolean fields. We only check for the presence of these ones.
@@ -3658,10 +3640,11 @@ SSCHECK(){
     }
 
     # Print headers + underscores
+    # Columns containing numbers are right aligned for clarity
     printf(I""I""cH3)
     for (i in _col_names){
       if (_values[1][i] + 0 == _values[1][i]){ 
-        # First row has a number, we assume all rows are numbers
+        # First row has a number, we assume the same col in all rows are numbers.
         printf("%*s ", _col_widths[i], _col_names[i])
       }else{
         printf("%*-s ", _col_widths[i], _col_names[i])
@@ -3682,7 +3665,7 @@ SSCHECK(){
       printf("\n"I""I)
       for(j in _values[i]){
         if (_values[i][j] + 0 == _values[i][j]){
-          # its a number
+          # its a number, align: right
           printf("%*s ", _col_widths[j], _values[i][j])
         }else{
           printf("%*-s ", _col_widths[j], _values[i][j])
