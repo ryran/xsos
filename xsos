@@ -3454,7 +3454,6 @@ SSCHECK(){
             # split each user definition and add it
             for (j=1; j<user_list_n; j++){
               userdef_n = split(user_list[j], userdef ,",")
-              #print("USERDEF1", userdef[1])
               gsub(/"/, "", userdef[1])
               gsub(/pid=/, "", userdef[2])
               gsub(/fd=/, "", userdef[3])
@@ -3537,7 +3536,7 @@ SSCHECK(){
           case /^notsent:/:           params["notsent"] =       valueof($i);      break
 
           # Some exceptions with a completely different format:
-          #
+          
           #skmem:(r<rmem_alloc>,rb<rcv_buf>,t<wmem_alloc>,tb<snd_buf>,
           #              f<fwd_alloc>,w<wmem_queued>,o<opt_mem>,
           #              bl<back_log>,d<sock_drop>)
@@ -3599,7 +3598,6 @@ SSCHECK(){
       if (added == 1){
         if(typeof(params["users"]) == "array"){
           for (user_n in params["users"]){
-            #print("USERN", params["string"], user_n)
             sessions[string]["cmd"][user_n]["pid"] = params["users"][user_n]["pid"]
             sessions[string]["cmd"][user_n]["name"] = params["users"][user_n]["name"]
           }
@@ -3639,10 +3637,10 @@ SSCHECK(){
       }
 
       _pid = sessions[string]["cmd"][1]["pid"]
-      _values[i][length(_values[i])+1] = pidcmd[pid]["cpu"]
-      _values[i][length(_values[i])+1] = pidcmd[pid]["mem"]
+      _values[i][length(_values[i])+1] = pidcmd[_pid]["cpu"]
+      _values[i][length(_values[i])+1] = pidcmd[_pid]["mem"]
       _values[i][length(_values[i])+1] = sessions[string]["cmd"][1]["name"]
-      _values[i][length(_values[i])+1] = pidcmd[pid]["cmd"]
+      _values[i][length(_values[i])+1] = pidcmd[_pid]["cmd"]
       i++
     }
 
