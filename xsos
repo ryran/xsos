@@ -3603,13 +3603,12 @@ SSCHECK(){
             sessions[string]["cmd"][user_n]["pid"] = params["users"][user_n]["pid"]
             sessions[string]["cmd"][user_n]["name"] = params["users"][user_n]["name"]
           }
-          sessions[string]["proto"] = params["proto"]
-          sessions[string]["local"] = params["local"]
-          sessions[string]["peer"] = params["peer"]
-
         }else{
           #print("NOT AN ARRAY", string)
         }
+        sessions[string]["proto"] = params["proto"]
+        sessions[string]["local"] = params["local"]
+        sessions[string]["peer"] = params["peer"]
       }
     } # else if (^\t /)
   }
