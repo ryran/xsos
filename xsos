@@ -3583,7 +3583,6 @@ SSCHECK(){
       counters["proto"][ params["proto"] ] += 1
       counters["state"][ params["state"] ] += 1
 
-
       # Check fields provided via XSOS_SS_CHECK_FIELDS. If any of them is >0, then we add this session to be printed later
       added = 0
       for(x in check_fields){
@@ -3595,7 +3594,6 @@ SSCHECK(){
           added = 1
         }
       }
-
 
       # If this session will be printed, then we want to have some extra info
       if (added == 1){
@@ -3680,6 +3678,8 @@ SSCHECK(){
       printf(" ")
     }
 
+    printf(c0)
+
     # Finally, print the values
     for (i in _values){
       printf("\n"I""I)
@@ -3707,8 +3707,6 @@ SSCHECK(){
   printf(cH1"%s"c0"\n", "SS CHECK")
   printf(I""cH2"Sessions:\n"c0)
     print_table()
-  #printf(I""cH2"Counters:"c0"\n")
-  #  print_totals()
   }'
 }
 
