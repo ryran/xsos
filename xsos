@@ -3734,13 +3734,17 @@ FIREWALL(){
 
 IFCFG(){
   files=$(echo $1/etc/sysconfig/network-scripts/ifcfg-*)
+  echo -e "${c[H1]}IFCFG${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
   (
-   echo "FILE❚TYPE❚DEVICE❚NAME❚HWADDR❚ONBOOT❚DEFROUTE❚GATEWAY❚NM_CONTROLLED❚BOND/TEAM❚MASTER❚BRIDGE❚ETHTOOL❚PHYSDEV❚PEERDNS❚ZONE❚MTU"
+   echo -e "FILE❚TYPE❚DEVICE❚NAME❚HWADDR❚ONBOOT❚DEFROUTE❚GATEWAY❚NM_CONTROLLED❚BOND/TEAM❚MASTER❚BRIDGE❚ETHTOOL❚PHYSDEV❚PEERDNS❚ZONE❚MTU"
    for f in $files; do
      fname="$(basename $f)"
      name=${fname//ifcfg-/}
 
+     # Just fill the array ifcfg with all key=value entries found
      declare -A ifcfg="("$(grep -v '^[check_link_down|return 1|^}|#|$]' <$f | sed 's/^\([^=]\+\)=\(.*\)$/[\1]=\2/g' )")"
+
      echo -n $fname❚
      echo -n ${ifcfg[TYPE]:- }❚
      echo -n ${ifcfg[DEVICE]:- }❚
@@ -3760,7 +3764,7 @@ IFCFG(){
      echo -n ${ifcfg[MTU]:- }❚
      echo
    done
-  ) | column -ts❚ 
+  ) | column -ts❚ | sed -e "s,^\(FILE.*\)$,$(printf ${c[H3]})&$(printf ${c[0]})," -e "s,^,${XSOS_INDENT_H2},"
 }
 
 #-------------------------------------------------------------------------------
