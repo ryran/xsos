@@ -3398,7 +3398,6 @@ SSCHECK(){
     }
 
     function print_stream_summary(params){
-      print "STREAM SUMMARY"
       for (key in params){
         print "KEY "key, params[key]
       }
@@ -3556,8 +3555,8 @@ SSCHECK(){
           case /^retrans:/:            split ($i, retrans, "/")
                                       params["retrans_current"] = retrans[1]
                                       params["retrans_total"] =   retrans[2];     break
-        } # switch
-      } # for
+        } # end switch
+      } # end for
 
       # Next line will be a new session, so here we save the interesting fields of the session
 
@@ -3702,10 +3701,8 @@ FIREWALL(){
 
   __retrieve_service_status(){
       egrep -A 2 "^\* $1.service" <$systemctl_status_all | xargs echo |
-        sed 's#\* .*Loaded: \([^ ]*\)[^;]*; \?\([^;]*\);.*Active: \([^ ]*\) (\([^)]*\)).*#([loaded]=\1 [enabled]=\2 [active]=\3 [running]=\4)#g'
+        sed 's,\* .*Loaded: \([^ ]*\)[^;]*; \?\([^;]*\);.*Active: \([^ ]*\) (\([^)]*\)).*,([loaded]=\1 [enabled]=\2 [active]=\3 [running]=\4),g'
   }
-
-  get_active_loaded_enabled='s#\* .*Loaded: \([^ ]*\)[^;]*; \?\([^;]*\);.*Active: \([^ ]*\) (\([^)]*\)).*#\1 \2 \3#g'
 
   declare -A iptables=$(__retrieve_service_status iptables)
   declare -A nftables=$(__retrieve_service_status nftables)
