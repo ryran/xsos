@@ -3473,6 +3473,7 @@ SSCHECK(){
 
           # Boolean fields. We only check for the presence of these ones.
           case /^cubic$/:             params["congestion"] =     "cubic";         break
+          case /^vegas$/:             params["congestion"] =     "vegas";         break
           case /^ts$/:                params["ts"] =             1;               break
           case /^sack$/:              params["sack"] =           1;               break
           case /^htcp$/:              params["htcp"] =           1;               break
@@ -3694,7 +3695,8 @@ FIREWALL(){
 
   iptables_vnxL="$1/sos_commands/networking/iptables_-vnxL"
   firewallcmd_state="$1/sos_commands/firewalld/firewall-cmd_--state"
-  nft_list_ruleset="$1/sos_commands/*/nft_list_ruleset"
+  nft_list_ruleset="$(echo $1/sos_commands/*/nft_list_ruleset)"
+  nft_list_ruleset=${nft_list_ruleset%% *}
   systemctl_list_unit_files="$1/sos_commands/systemd/systemctl_list-unit-files"
   systemctl_status_all="$1/sos_commands/systemd/systemctl_status_--all"
 
@@ -3722,7 +3724,7 @@ FIREWALL(){
     if [ "${nftables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}nftables (${nftables[active]}, ${nftables[running]})"; fi
 
     echo -e "\n$XSOS_INDENT_H1${c[H2]}Rules loaded:${c[0]}"
-    if [ -z ${iptables[rules]}${nftables[rules]} ]; then
+    if [ "${iptables[rules]}${nftables[rules]}" -gt 0 ]; then
       if [ "${iptables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}iptables: ${iptables[rules]}"; fi
       if [ "${nftables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}nftables: ${nftables[rules]}"; fi
     else
