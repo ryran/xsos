@@ -3745,26 +3745,30 @@ IFCFG(){
      # Just fill the array ifcfg with all key=value entries found
      declare -A ifcfg="("$(grep -v '^[check_link_down|return 1|^}|#|$]' <$f | sed 's/^\([^=]\+\)=\(.*\)$/[\1]=\2/g' )")"
 
+
+     master=${ifcfg[BONDING_MASTER]}${ifcfg[TEAM_MASTER]}${ifcfg[MASTER]}
+     bond_team_cfg=${ifcfg[BONDING_OPTS]}${ifcfg[TEAM_CONFIG]}
+
      echo -n $fname❚
-     echo -n ${ifcfg[TYPE]:- }❚
-     echo -n ${ifcfg[DEVICE]:- }❚
-     echo -n ${ifcfg[NAME]:- }❚
-     echo -n ${ifcfg[HWADDR]:- }❚
-     echo -n ${ifcfg[ONBOOT]:- }❚
-     echo -n ${ifcfg[DEFROUTE]:- }❚
-     echo -n ${ifcfg[GATEWAY]:- }❚
-     echo -n ${ifcfg[NM_CONTROLLED]:- }❚
-     echo -n ${ifcfg[BONDING_OPTS]:-${ifcfg[TEAM_CONFIG]} }❚
-     echo -n ${ifcfg[BONDING_MASTER]:-${ifcfg[TEAM_MASTER]}}${ifcfg[MASTER]} ❚
-     echo -n ${ifcfg[BRIDGE]:- }❚
-     echo -n ${ifcfg[ETHTOOL_OPTS]:- }❚
-     echo -n ${ifcfg[PHYSDEV]:- }❚
-     echo -n ${ifcfg[PEERDNS]:- }❚
-     echo -n ${ifcfg[ZONE]:- }❚
-     echo -n ${ifcfg[MTU]:- }❚
+     echo -n ${ifcfg[TYPE]:--}❚
+     echo -n ${ifcfg[DEVICE]:--}❚
+     echo -n ${ifcfg[NAME]:--}❚
+     echo -n ${ifcfg[HWADDR]:--}❚
+     echo -n ${ifcfg[ONBOOT]:--}❚
+     echo -n ${ifcfg[DEFROUTE]:--}❚
+     echo -n ${ifcfg[GATEWAY]:--}❚
+     echo -n ${ifcfg[NM_CONTROLLED]:--}❚
+     echo -n ${bonding_team_cfg:--}❚
+     echo -n ${master:--}❚
+     echo -n ${ifcfg[BRIDGE]:--}❚
+     echo -n ${ifcfg[ETHTOOL_OPTS]:--}❚
+     echo -n ${ifcfg[PHYSDEV]:--}❚
+     echo -n ${ifcfg[PEERDNS]:--}❚
+     echo -n ${ifcfg[ZONE]:--}❚
+     echo -n ${ifcfg[MTU]:--}❚
      echo
    done
-  ) | column -ts❚ | sed -e "s,^\(FILE.*\)$,$(printf ${c[H3]})&$(printf ${c[0]})," -e "s,^,${XSOS_INDENT_H2},"
+  ) | column -ts"❚" | sed -e "s,^\(FILE.*\)$,$(printf ${c[H3]})&$(printf ${c[0]})," -e "s,^,${XSOS_INDENT_H2},"
 }
 
 #-------------------------------------------------------------------------------
