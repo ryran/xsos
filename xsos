@@ -3404,7 +3404,8 @@ SSCHECK(){
     }
 
     {
-    if (/^[^\t].*/){
+    #if (/^[^\t].*/){
+    if (/^(tcp|udp|sctp)/){
 
       # New session starts. Clear everything
       delete params
@@ -3464,7 +3465,7 @@ SSCHECK(){
         }
       }
     }
-    else if (/^\t/){
+    else if (/^\t/ && params["proto"]){
       # The second line provides more fields. We keep parsing them and adding them to "params"
 
       for (i=1; i<=NF; i++){
