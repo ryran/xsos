@@ -197,6 +197,14 @@ fi
 #   Configures what SSCHECK() uses to filter fields whose value is > 0.
     : ${XSOS_SS_CHECK_FIELDS:="sock_drop|app_limited|dsack_dups|lost|reord_seen|back_log|retrans_total|rq|tq"}
 
+# XSOS_NETSTAT_FILTER_REGEX (str: bash-syntax regular expression)
+#   Configures what NETSTAT() keys will be printed if their value is > 0 
+    : ${XSOS_NETSTAT_FILTER_REGEX:=""}
+
+# XSOS_NETSTAT_HIGHLIGHT_REGEX (str: bash-syntax regular expression)
+#   Configures what NETSTAT() keys will be highlighted.
+    : ${XSOS_NETSTAT_HIGHLIGHT_REGEX:="drop|err|reset|rst|delay|bad|fail|pause|time|miss|loss"}
+
 # ==============================================================================
 
 
@@ -207,7 +215,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngispSFI] [SOSREPORT ROOT]
+  echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngispSFIN] [SOSREPORT ROOT]
   or:  xsos [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
   or:  xsos [-?|-h|--help]
 
@@ -238,7 +246,8 @@ Content options:"
  -p, --ps❚inspect running processes via ps
  -S, --ss❚inspect running processes via ss
  -F, --firewall❚show firewall status
- -I, --ifcfg❚|show ifcfg files summary" | column -ts❚
+ -I, --ifcfg❚|show ifcfg files summary
+ -N, --netstat❚|show ifcfg files summary" | column -ts❚
 }
 
 HELP_OPTS_DISPLAY() {
@@ -356,8 +365,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='6q:u:v:w:xyzabokcfmdtlerngispSFI'
-lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,ss,firewall,ifcfg,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+sopts='6q:u:v:w:xyzabokcfmdtlerngispSFIN'
+lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,ss,firewall,ifcfg,netstat,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=xsos -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -452,7 +461,8 @@ PARSE() {
       -S|--ss)      opts=y ss=y      ;;
       -F|--firewall)opts=y firewall=y ;;
       -I|--ifcfg)   opts=y ifcfg=y   ;;
-      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y firewall=y bonding=y teaming=y ss=y ifcfg=y ;;
+      -N|--netstat) opts=y netstat=y ;;
+      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y firewall=y bonding=y teaming=y ss=y ifcfg=y netstat=y ;;
       
       --B)  sfile[B]=$2; shift ;;
       --F)  sfile[F]=$2; shift ;;
@@ -3772,6 +3782,41 @@ IFCFG(){
   ) | column -ts"❚" | sed -e "s,^\(FILE.*\)$,$(printf ${c[H3]})&$(printf ${c[0]})," -e "s,^,${XSOS_INDENT_H2},"
 }
 
+NETSTAT(){
+  declare -A _netstat_data
+    while read line; do
+      if [ -z "${__netstat_hdrs}" ];then
+        __netstat_hdrs=($line)
+      else
+        __netstat_vals=($line)
+        __hdr_count=${#__netstat_hdrs[@]}
+        __val_count=${#__netstat_vals[@]}
+        if [ "$__hdr_count" != "$__val_count" ]; then
+          echo -e "${c[Warn1]} WARNING: Number of headers and values in netstat file don\'t match"
+        fi
+
+        for i in $(seq 1 $__hdr_count); do
+          hdr=${__netstat_hdrs[$i]}
+          test -z "$hdr" && continue
+          val=${__netstat_vals[$i]}
+          _netstat_data[$hdr]=$val
+        done
+
+        __netstat_hdrs=""
+      fi
+    done <<<"$(sed 's/[^:]*: //g' < $1/proc/net/netstat)"
+
+    # Print all key:value pairs where the value is > 0
+    for hdr in ${!_netstat_data[@]}; do
+      val="${_netstat_data[$hdr]}"
+      [ "$val" -eq "0" ] && continue
+      [ ! -z "${XSOS_NETSTAT_FILTER_REGEX}" ] && [[ ! ${hdr,,} =~ ${XSOS_NETSTAT_FILTER_REGEX,,} ]] && continue
+      [[ "${hdr,,}" =~ ${XSOS_NETSTAT_HIGHLIGHT_REGEX,,} ]] && hdr=${c[red]}${hdr}${c[0]}
+
+      echo -e $hdr: $val
+    done
+}
+
 #-------------------------------------------------------------------------------
 # BLEH
 # Eventually I'll probably replace all of this with a python loader.
@@ -3878,7 +3923,8 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
     SOS_CHECKFILE ss      "sos_commands/networking/ss_-peaonmi" && SSCHECK  "$sosroot"
     SOS_CHECKFILE firewall "sos_commands/systemd/systemctl_status_--all" && FIREWALL   "$sosroot"
-    SOS_CHECKFILE ifcfg   "etc/sysconfig/network-scripts" && IFCFG  "$sosroot"
+    SOS_CHECKFILE ifcfg   "etc/sysconfig/network-scripts"      && IFCFG     "$sosroot"
+    SOS_CHECKFILE netstat "/proc/net/netstat"                  && NETSTAT   "$sosroot"
     
   # If no SOSREPORT-ROOT provided, run checks against local system
   else
@@ -3902,6 +3948,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $ss ]]      && SSCHECK
     [[ -n $firewall ]]&& FIREWALL
     [[ -n $ifcfg ]]   && IFCFG
+    [[ -n $netstat ]] && NETSTAT
 
   fi
   
