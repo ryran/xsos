@@ -3828,10 +3828,10 @@ NETSTAT(){
   (
   # Print all key:value pairs where the value is > 0
   # LC_ALL=C is set for `sort` to make sure it uses natural sorting
-  _print_proc_net_array "($(_parse_proc_net_file $1/proc/net/netstat))"
-  _print_proc_net_array "($(_parse_proc_net_file $1/proc/net/snmp))"
+  [ -f "$1/proc/net/netstat" ] && _print_proc_net_array "($(_parse_proc_net_file $1/proc/net/netstat))"
+  [ -f "$1/proc/net/snmp"    ] && _print_proc_net_array "($(_parse_proc_net_file $1/proc/net/snmp))"
+  [ -f "$1/proc/net/snmp6" ]   && _print_proc_net_array "($(cat proc/net/snmp6 | awk '{ printf "[%s]=%d ", $1, $2}'))"
   ) | LC_ALL=C sort -k 1.9
-  #[ -f "$1/proc/net/snmp6" ] && declare -A 
   
 }
 
