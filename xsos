@@ -205,6 +205,10 @@ fi
 #   Configures what NETSTAT() keys will be highlighted.
     : ${XSOS_NETSTAT_HIGHLIGHT_REGEX:="drop|err|reset|rst|delay|bad|fail|pause|time|miss|loss"}
 
+# XSOS_NETSTAT_IGNORE_ZERO (bool: y/n)
+#   Configures whether or not NETSTAT() will ignore fields whose value is 0
+    : ${XSOS_NETSTAT_IGNORE_ZERO:="y"}
+
 # ==============================================================================
 
 
@@ -3783,38 +3787,52 @@ IFCFG(){
 }
 
 NETSTAT(){
-  declare -A _netstat_data
-    while read line; do
-      if [ -z "${__netstat_hdrs}" ];then
-        __netstat_hdrs=($line)
+  _parse_proc_net_file(){
+    __path="$1"; __hdrs=""; __vals=""; __prefix="";
+    while read line; do 
+      if [ -z "${__hdrs}" ];then
+        __prefix="${line%:*}"; __hdrs=(${line#*: });
       else
-        __netstat_vals=($line)
-        __hdr_count=${#__netstat_hdrs[@]}
-        __val_count=${#__netstat_vals[@]}
+        __vals=(${line#*: })
+        __hdr_count=${#__hdrs[@]}
+        __val_count=${#__vals[@]}
+
         if [ "$__hdr_count" != "$__val_count" ]; then
-          echo -e "${c[Warn1]} WARNING: Number of headers and values in netstat file don\'t match"
+          echo -e "${c[Warn1]} WARNING: Number of headers and values in ${__path} file don\'t match"
         fi
 
         for i in $(seq 1 $__hdr_count); do
-          hdr=${__netstat_hdrs[$i]}
+          hdr=${__hdrs[$i]}
           test -z "$hdr" && continue
-          val=${__netstat_vals[$i]}
-          _netstat_data[$hdr]=$val
+          val=${__vals[$i]}
+          echo -n "[${__prefix}.${hdr}]=${val} "
         done
 
-        __netstat_hdrs=""
+        __hdrs=""
       fi
-    done <<<"$(sed 's/[^:]*: //g' < $1/proc/net/netstat)"
+    
+    done < "$1" 
+  }
+  _print_proc_net_array(){
+    declare -A __array="$*"
+    for hdr in ${!__array[@]}; do
+      val="${__array[$hdr]}"
+      [ "${XSOS_NETSTAT_IGNORE_ZERO}" == "y" ]   && [ "$val" -eq "0" ] && continue
+      [ ! -z "${XSOS_NETSTAT_FILTER_REGEX}" ]    && [[ ! ${hdr,,} =~ ${XSOS_NETSTAT_FILTER_REGEX,,} ]]    && continue
+      [ ! -z "${XSOS_NETSTAT_HIGHLIGHT_REGEX}" ] && [[ "${hdr,,}" =~ ${XSOS_NETSTAT_HIGHLIGHT_REGEX,,} ]] && __color="${c[red]}" || __color="\033[0;00m" #hdr=${c[red]}${hdr}${c[0]}
 
-    # Print all key:value pairs where the value is > 0
-    for hdr in ${!_netstat_data[@]}; do
-      val="${_netstat_data[$hdr]}"
-      [ "$val" -eq "0" ] && continue
-      [ ! -z "${XSOS_NETSTAT_FILTER_REGEX}" ] && [[ ! ${hdr,,} =~ ${XSOS_NETSTAT_FILTER_REGEX,,} ]] && continue
-      [[ "${hdr,,}" =~ ${XSOS_NETSTAT_HIGHLIGHT_REGEX,,} ]] && hdr=${c[red]}${hdr}${c[0]}
-
-      echo -e $hdr: $val
+      printf "${__color}%-34s %d%b\n" $hdr: $val ${c[0]}
     done
+  }
+
+  (
+  # Print all key:value pairs where the value is > 0
+  # LC_ALL=C is set for `sort` to make sure it uses natural sorting
+  _print_proc_net_array "($(_parse_proc_net_file $1/proc/net/netstat))"
+  _print_proc_net_array "($(_parse_proc_net_file $1/proc/net/snmp))"
+  ) | LC_ALL=C sort -k 1.9
+  #[ -f "$1/proc/net/snmp6" ] && declare -A 
+  
 }
 
 #-------------------------------------------------------------------------------
