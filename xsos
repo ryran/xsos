@@ -3818,8 +3818,8 @@ NETSTAT(){
     for hdr in ${!__array[@]}; do
       val="${__array[$hdr]}"
       [ "${XSOS_NETSTAT_IGNORE_ZERO}" == "y" ]   && [ "$val" -eq "0" ] && continue
-      [ ! -z "${XSOS_NETSTAT_FILTER_REGEX}" ]    && [[ ! ${hdr,,} =~ ${XSOS_NETSTAT_FILTER_REGEX,,} ]]    && continue
-      [ ! -z "${XSOS_NETSTAT_HIGHLIGHT_REGEX}" ] && [[ "${hdr,,}" =~ ${XSOS_NETSTAT_HIGHLIGHT_REGEX,,} ]] && __color="${c[red]}" || __color="\033[0;00m" #hdr=${c[red]}${hdr}${c[0]}
+      [ "${XSOS_NETSTAT_FILTER_REGEX}" != "" ]    && [[ ! ${hdr,,} =~ ${XSOS_NETSTAT_FILTER_REGEX,,} ]]    && continue
+      [ "${XSOS_NETSTAT_HIGHLIGHT_REGEX}" != "" ] && [[ "${hdr,,}" =~ ${XSOS_NETSTAT_HIGHLIGHT_REGEX,,} ]] && __color="${c[red]}" || __color="\033[0;00m" #hdr=${c[red]}${hdr}${c[0]}
 
       printf "${__color}%-34s %d%b\n" $hdr: $val ${c[0]}
     done
