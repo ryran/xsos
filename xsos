@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.23 last mod 2021-03-01
+# xsos v0.7.24 last mod 2021-03-01
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -544,6 +544,8 @@ DMIDECODE() {
     dmidecode_input=$(<"$1/dmidecode")
   elif [[ -r $1/sos_commands/kernel.dmidecode ]]; then
     dmidecode_input=$(<"$1/sos_commands/kernel.dmidecode")
+  elif [[ -r $1/sos_commands/hardware/dmidecode ]]; then
+    dmidecode_input=$(<"$1/sos_commands/hardware/dmidecode")
   fi
   
   # If bad dmidecode input, return
@@ -1107,7 +1109,10 @@ OSINFO() {
     [[ $(wc -w <<<"$boottime") == 6 ]] &&
       boottime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" -vbtime=$btime '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s  (epoch: %s)\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6,btime}' <<<"$boottime")
     
-    uptime_input=$(gawk '!/\/.*bin/ && NF!=0' "$1/uptime")
+    uptime_input=$(gawk '!/\/.*bin/ && NF!=0' "$1/uptime" 2>/dev/null) ||
+      uptime_input=$(gawk '!/\/.*bin/ && NF!=0' "$1/sos_commands/general/uptime" 2>/dev/null) ||
+        uptime_input=$(gawk '!/\/.*bin/ && NF!=0' "$1/sos_commands/host/uptime" 2>/dev/null)
+
     [[ -r $1/sos_commands/startup/runlevel ]] && runlevel=$(<"$1/sos_commands/startup/runlevel")
     [[ -r $1/etc/inittab ]] &&
       initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' <"$1/etc/inittab") ||
@@ -3853,7 +3858,8 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
 
   # If SOSREPORT-ROOT provided, use that
   elif [[ -n $sosroot ]]; then
-    SOS_CHECKFILE bios    {,sos_commands/kernel.}dmidecode     && DMIDECODE "$sosroot"
+    SOS_CHECKFILE bios    {,sos_commands/{kernel.,hardware/}}dmidecode \
+                                                               && DMIDECODE "$sosroot"
     SOS_CHECKFILE os      "proc/"                              && OSINFO    "$sosroot"
     SOS_CHECKFILE kdump   ""                                   && KDUMP     "$sosroot"
     SOS_CHECKFILE cpu     "proc/cpuinfo"                       && CPUINFO   "$sosroot"
