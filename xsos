@@ -3822,7 +3822,7 @@ NETSTAT(){
       [ "${XSOS_NETSTAT_FILTER_REGEX}" != "" ]    && [[ ! ${hdr,,} =~ ${XSOS_NETSTAT_FILTER_REGEX,,} ]]    && continue
       [ "${XSOS_NETSTAT_HIGHLIGHT_REGEX}" != "" ] && [[ "${hdr,,}" =~ ${XSOS_NETSTAT_HIGHLIGHT_REGEX,,} ]] && __color="${c[red]}" || __color="\033[0;00m" #hdr=${c[red]}${hdr}${c[0]}
 
-      printf "${__color}%-34s %d%b\n" $hdr: $val ${c[0]}
+      printf "${__color}%-34s % 10d%b\n" $hdr: $val ${c[0]}
     done
   }
 
