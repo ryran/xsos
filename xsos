@@ -118,7 +118,7 @@ fi
 
 # XSOS_ALL_VIEW (str of variables, space-separated)
 #   Controls what content modules to run when -a/--all switch is used
-    : ${XSOS_ALL_VIEW:="bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq bonding ip netdev sysctl ps"}
+    : ${XSOS_ALL_VIEW:="bios os kdump cpu intrupt mem disks mpath lspci ethtool softirq bonding ip netdev sysctl ps ss firewall"}
 
 # XSOS_DEFAULT_VIEW (str of variables, space-separated)
 #   Controls default content modules, i.e. what to run when none are specififed
@@ -193,6 +193,10 @@ fi
 #   Configures what LSPCI() uses to search for peripherals under the "Storage" heading
     : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller)( \[[0-9]{4}\])?:"}
 
+# XSOS_SS_CHECK_FIELDS (str: pipe separated field names)
+#   Configures what SSCHECK() uses to filter fields whose value is > 0.
+    : ${XSOS_SS_CHECK_FIELDS:="sock_drop|app_limited|dsack_dups|lost|reord_seen|back_log|retrans_total|rq|tq"}
+
 # ==============================================================================
 
 
@@ -203,7 +207,7 @@ See <github.com/ryran/xsos> to report bugs or suggestions"
 }
 
 HELP_USAGE() {
-  echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngisp] [SOSREPORT ROOT]
+  echo "Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngispSFI] [SOSREPORT ROOT]
   or:  xsos [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
   or:  xsos [-?|-h|--help]
 
@@ -231,7 +235,10 @@ Content options:"
  -i, --ip❚show info from ip addr (BASH v4+ required)
      --net❚alias for: --lspci --ethtool --softirq --netdev --bonding --ip
  -s, --sysctl❚show important kernel sysctls
- -p, --ps❚inspect running processes via ps" | column -ts❚
+ -p, --ps❚inspect running processes via ps
+ -S, --ss❚inspect running processes via ss
+ -F, --firewall❚show firewall status
+ -I, --ifcfg❚|show ifcfg files summary" | column -ts❚
 }
 
 HELP_OPTS_DISPLAY() {
@@ -270,7 +277,9 @@ Special options (BASH v4+ required):"
  --N=FILE❚read from FILE containing /proc/net/dev dump
  --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
- --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
+ --P=FILE❚read from FILE containing \`ps aux\` dump
+ --S=FILE❚read from FILE containing \`ss -peaonmi\` dump
+ --F=FILE❚read from FILE containing \`systemctl_status_--all\` dump" | column -ts❚
 }
 
 HELP_SHORT() {
@@ -347,8 +356,8 @@ case $1 in
 esac
 
 # GNU getopt short and long options:
-sopts='6q:u:v:w:xyzabokcfmdtlerngisp'
-lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
+sopts='6q:u:v:w:xyzabokcfmdtlerngispSFI'
+lopts='scrub,ipv6,rhsupport,wwid:,unit:,threads,verbose:,width:,nocolor,less,more,all,bios,os,kdump,cpu,intrupt,mem,disks,mpath,lspci,ethtool,softirq,netdev,bonding,ip,net,sysctl,ps,ss,firewall,ifcfg,B:,C:,F:,M:,D:,T:,L:,R:,N:,G:,I:,P:'
 
 # Check for bad switches
 getopt -Q --name=xsos -o $sopts -l $lopts -- "$@" || { HELP_USAGE; exit 64; }
@@ -440,7 +449,10 @@ PARSE() {
       -i|--ip)      opts=y ip=y      ;;
       -s|--sysctl)  opts=y sysctl=y  ;;
       -p|--ps)      opts=y ps=y      ;;
-      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y bonding=y teaming=y ;;
+      -S|--ss)      opts=y ss=y      ;;
+      -F|--firewall)opts=y firewall=y ;;
+      -I|--ifcfg)   opts=y ifcfg=y   ;;
+      --net)        opts=y lspci=y ethtool=y softirq=y netdev=y ip=y firewall=y bonding=y teaming=y ss=y ifcfg=y ;;
       
       --B)  sfile[B]=$2; shift ;;
       --F)  sfile[F]=$2; shift ;;
@@ -454,6 +466,7 @@ PARSE() {
       --G)  sfile[G]=$2; shift ;;
       --I)  sfile[I]=$2; shift ;;
       --P)  sfile[P]=$2; shift ;;
+      --S)  sfile[S]=$2; shift ;;
     esac
     shift
   done
@@ -2121,8 +2134,8 @@ TEAMING() {
       if [[ ${runner} == "lacp" ]]; then
         # The agg id of the first 'selected' port should be the id of the active aggregation
         active=$(gawk '/aggregator/,/\}/ {gsub(/,$/, "", $0); if ($0 ~ "id" ) {getline selected; if (selected ~ "true") {print $NF; exit}}}' $team_input)
-	# The partner mac of the first selected port is the switch mac for the active aggregation 
-	partner_mac=$(gawk '/aggregator/,/system/' $team_input | gawk '/"selected": true/,/system/' | gawk -F '"' '($2 ~ "system") {print $4; exit}' | __scrub_mac)
+        # The partner mac of the first selected port is the switch mac for the active aggregation 
+        partner_mac=$(gawk '/aggregator/,/system/' $team_input | gawk '/"selected": true/,/system/' | gawk -F '"' '($2 ~ "system") {print $4; exit}' | __scrub_mac)
         echo -n "${partner_mac:--}❚"
       else
         echo -n "-❚"
@@ -2135,7 +2148,7 @@ TEAMING() {
       
       s=0; until [[ $s -eq ${#ports[@]} ]]; do
         if [[ ${runner} == "lacp" ]]; then
-	  agg_id=$(gawk '/'"${ports[s]}"'/,/selected}/ {gsub(/,$/, "", $0); if ($0 ~ "id" ) {print $NF; exit}}' $team_input)
+         agg_id=$(gawk '/'"${ports[s]}"'/,/selected}/ {gsub(/,$/, "", $0); if ($0 ~ "id" ) {print $NF; exit}}' $team_input)
         fi
         # First line
         if [[ $s -eq 0 ]]; then
@@ -2165,8 +2178,8 @@ TEAMING() {
           fi
         fi
         
-	# There is nothing in an SOS Report which shows the original MAC of a team port :(. But if it did it could go here...
-	# echo " ($port_mac)"
+        # There is nothing in an SOS Report which shows the original MAC of a team port :(. But if it did it could go here...
+        # echo " ($port_mac)"
         s=$((s+1))
         echo
       done
@@ -3341,6 +3354,423 @@ $XSOS_INDENT_H1${c[H2]}Top thread-spawning processes:${c[0]} \n$top_threads"
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
+SSCHECK(){
+
+  # These are used later to print the name, cpu and mem of the process owner of the socket.
+  pids=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f2)
+  cmds=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f11)
+  cpus=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f3)
+  mems=$(cat $1/ps | tr -d '()[]' | tr -s ' ' | cut -d' ' -f4)
+
+  # These fields have format "name value". Add them a ":" so they have the same format as the other fields (name: value)
+  cat "$1/sos_commands/networking/ss_-peaonmi" | sed \
+    -e 's/ send / send:/' \
+    -e 's/ pacing_rate / pacing_rate:/' \
+    -e 's/ delivered / delivered:/' \
+    -e 's/ delivery_rate / delivery_rate:/' |
+
+    gawk -vpid_list="$pids" -vcmd_list="$cmds" -vmem_list="$mems" -vcpu_list="$cpus" \
+    -vcheck_fields_str="${XSOS_SS_CHECK_FIELDS}" \
+    -vI="$XSOS_INDENT_H1" -vcH1="${c[H1]}" -vcH2="${c[H2]}" -vcH3="${c[H3]}" -vc0="${c[0]}" '
+
+    BEGIN{
+
+      split(pid_list, pids, " ")
+      split(cmd_list, cmds, " ")
+      split(mem_list, mems, " ")
+      split(cpu_list, cpus, " ")
+
+      for(i in pids){
+        pid = pids[i]
+        pidcmd[pid]["cmd"] = cmds[i]
+        pidcmd[pid]["mem"] = mems[i]
+        pidcmd[pid]["cpu"] = cpus[i]
+      }
+
+      split(check_fields_str, check_fields, "|") 
+
+    }
+
+    # Returns the value part of a key-value pair with format "key: value"
+    function valueof(keyvalue){
+      split(keyvalue, splitted, ":")
+      return splitted[2]
+    }
+
+    function print_stream_summary(params){
+      for (key in params){
+        print "KEY "key, params[key]
+      }
+    }
+
+    {
+    #if (/^[^\t].*/){
+    if (/^(tcp|udp|sctp)/){
+
+      # New session starts. Clear everything
+      delete params
+
+      params["proto"] = $1
+      params["state"] = $2
+      params["rq"] = $3
+      params["tq"] = $4
+      params["local"] = $5
+      params["peer"] = $6
+
+      # Initialize bools
+      params["ts"] = 0
+      params["sack"] = 0
+      params["htcp"] = 0
+      params["app_limited"] = 0
+      params["v6only"] = 0
+
+      # Index for everything related to this stream, Used later when printing
+      params["string"] = sprintf("%s❚%s❚%s" , params["proto"], params["local"], params["peer"])
+
+      # Figure out what the other info provided is and parse it.
+      for (i=7; i<NF; i++){
+        switch($i){
+          case /^users/:
+            # Format: users:(("user1",pid=PID,fd=FD),"user2",pid=PID2,fd=FD2, ...)
+            # First we extract all the definitions
+            match($i, /^users:\(\((.*)\)$/, users0);
+            user_list_n = split(users0[1], user_list, /\),?\(?/)
+
+            # split each user definition and add it
+            for (j=1; j<user_list_n; j++){
+              userdef_n = split(user_list[j], userdef ,",")
+              gsub(/"/, "", userdef[1])
+              gsub(/pid=/, "", userdef[2])
+              gsub(/fd=/, "", userdef[3])
+              params["users"][j]["name"] = userdef[1]
+              params["users"][j]["pid"] = userdef[2]
+              params["users"][j]["fd"] = userdef[3]
+            }
+
+            break
+
+          case /^"timer"/:
+            # Format: timer:(<timer_name>,<expire_time>,<retrans>)
+            match($i, /^timer:\(\)$/, timer)
+            split(timer, ",", timer_params)
+            params["timer_name"] =     timer_params[1]
+            params["timer_expire"] =   timer_params[2]
+            params["timer_retrans"] =  timer_params[3];                           break
+
+
+          case /^ino:/:               params["ino"] =           valueof($i);      break
+          case /^sk:/:                params["cookie"] =        valueof($i);      break
+          case /^uid:/:               params["uid"] =           valueof($i);      break
+          case /^v6only:/:            params["v6only"] =        valueof($i);      break
+        }
+      }
+    }
+    else if (/^\t/ && params["proto"]){
+      # The second line provides more fields. We keep parsing them and adding them to "params"
+
+      for (i=1; i<=NF; i++){
+        switch($i){
+
+          # Boolean fields. We only check for the presence of these ones.
+          case /^cubic$/:             params["congestion"] =     "cubic";         break
+          case /^vegas$/:             params["congestion"] =     "vegas";         break
+          case /^ts$/:                params["ts"] =             1;               break
+          case /^sack$/:              params["sack"] =           1;               break
+          case /^htcp$/:              params["htcp"] =           1;               break
+          case /^app_limited$/:       params["app_limited"] =    1;               break
+
+          # Most of the other fields have format "name: value"
+          case /^send:/:              params["send"] =          valueof($i);      break
+          case /^delivered:/:         params["delivered"] =     valueof($i);      break
+          case /^pacing_rate:/:       params["pacing_rate"] =   valueof($i);      break
+          case /^delivery_rate:/:     params["delivery_rate"] = valueof($i);      break
+          case /^rto:/:               params["rto"] =           valueof($i);      break
+          case /^ato:/:               params["ato"] =           valueof($i);      break
+          case /^mss:/:               params["mss"] =           valueof($i);      break
+          case /^pmtu:/:              params["pmtu"] =          valueof($i);      break
+          case /^rcvmss/:             params["rcvmss"] =        valueof($i);      break
+          case /^advmss:/:            params["advmss"] =        valueof($i);      break
+          case /^cwnd:/:              params["cwnd"] =          valueof($i);      break
+          case /^ssthresh:/:          params["ssthresh"] =      valueof($i);      break
+          case /^bytes_sent:/:        params["bytes_sent"] =    valueof($i);      break
+          case /^bytes_retrans:/:     params["bytes_retrans"] = valueof($i);      break
+          case /^bytes_acked:/:       params["bytes_acked"] =   valueof($i);      break
+          case /^bytes_received:/:    params["bytes_received"] =valueof($i);      break
+          case /^segs_out:/:          params["segs_out"] =      valueof($i);      break
+          case /^segs_in:/:           params["segs_in"] =       valueof($i);      break
+          case /^data_segs_out:/:     params["data_segs_out"] = valueof($i);      break
+          case /^data_segs_in:/:      params["data_segs_in"] =  valueof($i);      break
+          case /^delivered:/:         params["delivered"] =     valueof($i);      break
+          case /^rwnd_limited:/:      params["rwnd_limited"] =  valueof($i);      break
+          case /^dsack_dups:/:        params["dsack_dups"] =    valueof($i);      break
+          case /^rcv_rtt:/:           params["rcv_rtt"] =       valueof($i);      break
+          case /^rcv_space:/:         params["rcv_space"] =     valueof($i);      break
+          case /^rcv_ssthresh:/:      params["rcv_sshthresh"] = valueof($i);      break
+          case /^rcv_notsent:/:       params["rcv_notsent"] =   valueof($i);      break
+          case /^minrtt:/:            params["minrtt"] =        valueof($i);      break
+          case /^lastsnd:/:           params["lastsnd"] =       valueof($i);      break
+          case /^lastrcv:/:           params["lastrcv"] =       valueof($i);      break
+          case /^lastack:/:           params["lastack"] =       valueof($i);      break
+          case /^reordering:/:        params["reordering"] =    valueof($i);      break
+          case /^unacked:/:           params["unacked"] =       valueof($i);      break
+          case /^lost:/:              params["lost"] =          valueof($i);      break
+          case /^backoff:/:           params["backoff"] =       valueof($i);      break
+          case /^reord_seen:/:        params["reord_seen"] =    valueof($i);      break
+          case /^notsent:/:           params["notsent"] =       valueof($i);      break
+
+          # Some exceptions with a completely different format:
+          
+          #skmem:(r<rmem_alloc>,rb<rcv_buf>,t<wmem_alloc>,tb<snd_buf>,
+          #              f<fwd_alloc>,w<wmem_queued>,o<opt_mem>,
+          #              bl<back_log>,d<sock_drop>)
+          case /^skmem:/:
+
+            match($i, /^skmem:\(r([0-9]+),rb([0-9]+),t([0-9]+),tb([0-9]+),f([0-9]+),w([0-9]+),o([0-9]+),bl([0-9]+),d([0-9]+)/, skmem)
+
+            params["rmem_alloc"] =    skmem[1]
+            params["rmem_buf"] =      skmem[2]
+            params["wmem_alloc"] =    skmem[3]
+            params["snd_buf"] =       skmem[4]
+            params["fwd_alloc"] =     skmem[5]
+            params["wmem_queued"] =   skmem[6]
+            params["ropt_mem"] =      skmem[7]
+            params["back_log"] =      skmem[8]
+            params["sock_drop"] =     skmem[9];          break
+
+          # busy:NNN.NNms
+          case /^busy:/:              match($i, /^busy:([0-9]+)ms/,   busyms)
+                                      params["busyms"] =         busyms[1];        break
+
+          # wscale:<snd_wscale>:<rcv_wscale>
+          case /^wscale:/:            #split ($i, wscale, ",")
+                                      match($i, /^wscale:([0-9]+),([0-9]+)/, wscale)
+                                      params["snd_wscale"] =     wscale[1]
+                                      params["rcv_wscale"] =     wscale[2];         break
+
+          # rtt:<rtt>/<rttvar>
+          case /^rtt:/:                split ($i, rtt, "/")
+                                      params["rtt"] =           rtt[1]
+                                      params["rttvar"] =         rtt[2];           break
+
+          # retrans:<retrans_current>/<retrans_total>
+          case /^retrans:/:            split ($i, retrans, "/")
+                                      params["retrans_current"] = retrans[1]
+                                      params["retrans_total"] =   retrans[2];     break
+        } # end switch
+      } # end for
+
+      # Next line will be a new session, so here we save the interesting fields of the session
+
+      # Increment global counters for the protocol and the state
+      counters["proto"][ params["proto"] ] += 1
+      counters["state"][ params["state"] ] += 1
+
+      # Check fields provided via XSOS_SS_CHECK_FIELDS. If any of them is >0, then we add this session to be printed later
+      added = 0
+      for(x in check_fields){
+        key = check_fields[x]
+
+        if(params[key] > 0){
+          string = params["string"]
+          sessions[string][key]["val"] = params[key]
+          added = 1
+        }
+      }
+
+      # If this session will be printed, then we want to have some extra info
+      if (added == 1){
+        if(typeof(params["users"]) == "array"){
+          for (user_n in params["users"]){
+            sessions[string]["cmd"][user_n]["pid"] = params["users"][user_n]["pid"]
+            sessions[string]["cmd"][user_n]["name"] = params["users"][user_n]["name"]
+          }
+        }else{
+          #print("NOT AN ARRAY", string)
+        }
+        sessions[string]["proto"] = params["proto"]
+        sessions[string]["local"] = params["local"]
+        sessions[string]["peer"] = params["peer"]
+      }
+    } # else if (^\t /)
+  }
+  function print_table(){
+
+    # Prepare column names
+    _col_names[1] = "Proto"
+    _col_names[2] = "Local"
+    _col_names[3] = "Peer"
+    for (x in check_fields){
+      _col_names[length(_col_names)+1] = check_fields[x]
+    }
+    _col_names[length(_col_names)+1] = "%CPU"
+    _col_names[length(_col_names)+1] = "%MEM"
+    _col_names[length(_col_names)+1] = "User"
+    _col_names[length(_col_names)+1] = "Command"
+
+    # Prepare values
+    i = 1
+    for (string in sessions){
+      _values[i][1] = sessions[string]["proto"]
+      _values[i][2] = sessions[string]["local"]
+      _values[i][3] = sessions[string]["peer"]
+
+      for (j in check_fields){
+        key = check_fields[j]
+        _values[i][length(_values[i])+1] = sessions[string][key]["val"]
+      }
+
+      _pid = sessions[string]["cmd"][1]["pid"]
+      _values[i][length(_values[i])+1] = pidcmd[_pid]["cpu"]
+      _values[i][length(_values[i])+1] = pidcmd[_pid]["mem"]
+      _values[i][length(_values[i])+1] = sessions[string]["cmd"][1]["name"]
+      _values[i][length(_values[i])+1] = pidcmd[_pid]["cmd"]
+      i++
+    }
+
+    # Compute initial widths based on the column names
+    for (i in _col_names){
+      _col_widths[i] = length(_col_names[i])
+    }
+ 
+    # Compute final widths based on the actual row values
+    for (i in _values){
+      for (j in _values[i]){
+        __value_len = length(_values[i][j])
+        if(__value_len > _col_widths[j]){ _col_widths[j] = __value_len }
+      }
+    }
+
+    # Print headers + underscores
+    # Columns containing numbers are right aligned for clarity
+    printf(I""I""cH3)
+    for (i in _col_names){
+      if (_values[1][i] + 0 == _values[1][i]){ 
+        # First row has a number, we assume the same col in all rows are numbers.
+        printf("%*s ", _col_widths[i], _col_names[i])
+      }else{
+        printf("%*-s ", _col_widths[i], _col_names[i])
+      }
+    }
+    printf("\n"I""I)
+    for (i in _col_widths){
+      for(j=1; j<= _col_widths[i]; j++){
+          printf("-")
+      }
+      printf(" ")
+    }
+
+    printf(c0)
+
+    # Finally, print the values
+    for (i in _values){
+      printf("\n"I""I)
+      for(j in _values[i]){
+        if (_values[i][j] + 0 == _values[i][j]){
+          # its a number, align: right
+          printf("%*s ", _col_widths[j], _values[i][j])
+        }else{
+          printf("%*-s ", _col_widths[j], _values[i][j])
+        }
+      }
+    }
+    printf("\n")
+  }
+
+  function print_totals(){
+    for (by in session_c){
+      for (key in counters[by]){
+        printf("%s=%s: %d \n", by, key, counters[by][key])
+      }
+    }
+  }
+
+  END{
+  printf(cH1"%s"c0"\n", "SS CHECK")
+  printf(I""cH2"Sessions:\n"c0)
+    print_table()
+  }'
+}
+
+FIREWALL(){
+
+  iptables_vnxL="$1/sos_commands/networking/iptables_-vnxL"
+  firewallcmd_state="$1/sos_commands/firewalld/firewall-cmd_--state"
+  nft_list_ruleset="$(echo $1/sos_commands/*/nft_list_ruleset)"
+  nft_list_ruleset=${nft_list_ruleset%% *}
+  systemctl_list_unit_files="$1/sos_commands/systemd/systemctl_list-unit-files"
+  systemctl_status_all="$1/sos_commands/systemd/systemctl_status_--all"
+
+  __retrieve_service_status(){
+      egrep -A 2 "^\* $1.service" <$systemctl_status_all | xargs echo |
+        sed 's,\* .*Loaded: \([^ ]*\)[^;]*; \?\([^;]*\);.*Active: \([^ ]*\) (\([^)]*\)).*,([loaded]=\1 [enabled]=\2 [active]=\3 [running]=\4),g'
+  }
+
+  declare -A iptables=$(__retrieve_service_status iptables)
+  declare -A nftables=$(__retrieve_service_status nftables)
+  declare -A firewalld=$(__retrieve_service_status firewalld)
+
+  iptables[rules]=$(cat $iptables_vnxL 2>/dev/null | egrep -v '^$|^Chain|pkts *bytes' | wc -l)
+
+  nftables[rules]=$(cat $nft_list_ruleset 2>/dev/null | egrep -v '^table|^$|\t*chain.*{$|\t*}$' | wc -l)
+
+  echo -e "${c[H1]}FIREWALL${c[0]}"
+  if echo ${iptables[enabled]} ${nftables[enabled]} ${firewalld[enabled]} | grep enabled >/dev/null; then
+
+    echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
+    if [ "${iptables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}iptables (${iptables[active]}, ${iptables[running]})"; fi
+    if [ "${firewalld[enabled]}" = "enabled" ]; then echo -e "${XSOS_INDENT_H2}firewalld (${firewalld[active]}, ${firewalld[running]})"; fi
+    if [ "${nftables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}nftables (${nftables[active]}, ${nftables[running]})"; fi
+
+    echo -e "\n$XSOS_INDENT_H1${c[H2]}Rules loaded:${c[0]}"
+    if [ "${iptables[rules]}${nftables[rules]}" -gt 0 ]; then
+      if [ "${iptables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}iptables: ${iptables[rules]}"; fi
+      if [ "${nftables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}nftables: ${nftables[rules]}"; fi
+    else
+      echo -e "${XSOS_INDENT_H2}No rules loaded."
+    fi
+  else
+    echo "No firewall services enabled."
+  fi
+}
+
+IFCFG(){
+  files=$(echo $1/etc/sysconfig/network-scripts/ifcfg-*)
+  echo -e "${c[H1]}IFCFG${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
+  (
+   echo -e "FILE❚TYPE❚DEVICE❚NAME❚HWADDR❚ONBOOT❚DEFROUTE❚GATEWAY❚NM_CONTROLLED❚BOND/TEAM❚MASTER❚BRIDGE❚ETHTOOL❚PHYSDEV❚PEERDNS❚ZONE❚MTU"
+   for f in $files; do
+     fname="$(basename $f)"
+     name=${fname//ifcfg-/}
+
+     # Just fill the array ifcfg with all key=value entries found
+     declare -A ifcfg="("$(grep -v '^[check_link_down|return 1|^}|#|$]' <$f | sed 's/^\([^=]\+\)=\(.*\)$/[\1]=\2/g' )")"
+
+
+     master=${ifcfg[BONDING_MASTER]}${ifcfg[TEAM_MASTER]}${ifcfg[MASTER]}
+     bond_team_cfg=${ifcfg[BONDING_OPTS]}${ifcfg[TEAM_CONFIG]}
+
+     echo -n $fname❚
+     echo -n ${ifcfg[TYPE]:--}❚
+     echo -n ${ifcfg[DEVICE]:--}❚
+     echo -n ${ifcfg[NAME]:--}❚
+     echo -n ${ifcfg[HWADDR]:--}❚
+     echo -n ${ifcfg[ONBOOT]:--}❚
+     echo -n ${ifcfg[DEFROUTE]:--}❚
+     echo -n ${ifcfg[GATEWAY]:--}❚
+     echo -n ${ifcfg[NM_CONTROLLED]:--}❚
+     echo -n ${bonding_team_cfg:--}❚
+     echo -n ${master:--}❚
+     echo -n ${ifcfg[BRIDGE]:--}❚
+     echo -n ${ifcfg[ETHTOOL_OPTS]:--}❚
+     echo -n ${ifcfg[PHYSDEV]:--}❚
+     echo -n ${ifcfg[PEERDNS]:--}❚
+     echo -n ${ifcfg[ZONE]:--}❚
+     echo -n ${ifcfg[MTU]:--}❚
+     echo
+   done
+  ) | column -ts"❚" | sed -e "s,^\(FILE.*\)$,$(printf ${c[H3]})&$(printf ${c[0]})," -e "s,^,${XSOS_INDENT_H2},"
+}
 
 #-------------------------------------------------------------------------------
 # BLEH
@@ -3418,6 +3848,8 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -r ${sfile[G]} ]] && BONDING   "${sfile[G]}"
     [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
     [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
+    [[ -r ${sfile[S]} ]] && SSCHECK   "${sfile[S]}"
+    [[ -r ${sfile[F]} ]] && FIREWALL  "${sfile[F]}"
 
   # If SOSREPORT-ROOT provided, use that
   elif [[ -n $sosroot ]]; then
@@ -3444,6 +3876,9 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
                                                                   IPADDR    "$sosroot"; }
     SOS_CHECKFILE sysctl  "proc/sys/"                          && SYSCTL    "$sosroot" 2>/dev/null
     SOS_CHECKFILE ps      "ps"                                 && PSCHECK   "$sosroot"
+    SOS_CHECKFILE ss      "sos_commands/networking/ss_-peaonmi" && SSCHECK  "$sosroot"
+    SOS_CHECKFILE firewall "sos_commands/systemd/systemctl_status_--all" && FIREWALL   "$sosroot"
+    SOS_CHECKFILE ifcfg   "etc/sysconfig/network-scripts" && IFCFG  "$sosroot"
     
   # If no SOSREPORT-ROOT provided, run checks against local system
   else
@@ -3464,7 +3899,9 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $ip ]]      && IPADDR
     [[ -n $all ]]     && XSOS_IP_VERSION=6 IPADDR
     [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
-    [[ -n $ps ]]      && PSCHECK
+    [[ -n $ss ]]      && SSCHECK
+    [[ -n $firewall ]]&& FIREWALL
+    [[ -n $ifcfg ]]   && IFCFG
 
   fi
   
