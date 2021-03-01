@@ -199,7 +199,7 @@ fi
 
 # XSOS_NETSTAT_FILTER_REGEX (str: bash-syntax regular expression)
 #   Configures what NETSTAT() keys will be printed if their value is > 0 
-    : ${XSOS_NETSTAT_FILTER_REGEX:="drop|err|reset|rst|delay|bad|fail|pause|time|miss|loss"}
+    : ${XSOS_NETSTAT_FILTER_REGEX:="drop|err|reset|rst|delay|bad|fail|pause|time|miss|loss|listen|PAWS"}
 
 # XSOS_NETSTAT_HIGHLIGHT_REGEX (str: bash-syntax regular expression)
 #   Configures what NETSTAT() keys will be highlighted.
