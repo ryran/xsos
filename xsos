@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.25 last mod 2021-03-03
+# xsos v0.7.26 last mod 2021-03-03
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -238,7 +238,7 @@ Content options:"
  -c, --cpu❚show info from /proc/cpuinfo
  -f, --intrupt❚show info from /proc/interrupts
  -m, --mem❚show info from /proc/meminfo
- -d, --disks❚show info from /proc/partitions + dm-multipath synopsis
+ -d, --disks❚show info from /proc/partitions, dm-multipath, lsblk, df
  -t, --mpath❚show info from dm-multipath
  -l, --lspci❚show info from lspci
  -e, --ethtool❚show info from ethtool
@@ -1898,7 +1898,7 @@ MEMINFO() {
 
 STORAGE() {
   # Local vars:
-  local mpath_input scsi_blacklist bl partitions_input
+  local mpath_input scsi_blacklist bl partitions_input lsblk_input df_input
   
   echo -e "${c[H1]}STORAGE${c[0]}"
   
@@ -1943,7 +1943,23 @@ STORAGE() {
     # Append software raid component disks to the blacklist
     scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | gawk '{printf "%s|", $1}')
   fi
-  
+
+  # If localhost, grab output from lsblk
+  if [[ $1 == / ]]; then
+    lsblk_input=$(lsblk 2>/dev/null)
+  # If directory, assume sosreport and look for lsblk output
+  elif [[ -d $1 ]]; then
+    lsblk_input=$(cat "$1"/sos_commands/block/lsblk 2>/dev/null)
+  fi
+
+  # If localhost, grab output from df, exclude autofs as sos does
+  if [[ $1 == / ]]; then
+    df_input=$(df -al -x autofs 2>/dev/null)
+  # If directory, assume sosreport and look for df output
+  elif [[ -d $1 ]]; then
+    df_input=$(cat "$1"/sos_commands/filesys/df_-al{,_-x_autofs} 2>/dev/null)
+  fi
+
   # Yay, let's go.
   [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
   [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
@@ -1995,6 +2011,26 @@ STORAGE() {
           printf "    %s \t%.0f\n", disk_sorted[i], disk[disk_sorted[i]]
       }
     '
+
+    if [[ -n $lsblk_input ]]; then
+      echo -e "\n  ${c[H2]}Disk layout from lsblk:${c[0]}"
+      echo -en "$lsblk_input" | gawk -vH_IMP="${c[Imp]}" -vH0="${c[0]}" '
+                                  # for lines after the first, print normal output 
+                                  (NR > 1) {print}
+                                  # print bold header on the first line
+                                  (NR == 1) {printf "%s%s%s\n", H_IMP, $0, H0}
+                                ' | sed "s,^,$XSOS_INDENT_H2,"
+    fi
+    if [[ -n $df_input ]]; then
+      echo -e "\n  ${c[H2]}Filesystem usage from df:${c[0]}"
+      echo -en "$df_input" | gawk -vH_IMP="${c[Imp]}" -vH0="${c[0]}" '
+                               # for lines after the first, print normal output 
+                               # match filesystems with a "/" in the name to avoid noise like tmpfs, cgroup, proc, sysfs, etc
+                               (NR > 1) && ($1 ~ /\//) {print}
+                               # print bold header on the first line
+                               (NR == 1) {printf "%s%s%s\n", H_IMP, $0, H0}
+                             ' | sed "s,^,$XSOS_INDENT_H2,"
+    fi
   echo -en $XSOS_HEADING_SEPARATOR
 }
 
