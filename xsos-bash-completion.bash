@@ -32,12 +32,12 @@ _xsos()  {
   
   # Short and long options
   shrtopts="-h -V
-            -a -b -o -k -c -f -m -d -t -l -e -r -n -g -i -s -p
+            -a -b -o -k -c -f -m -d -t -l -e -r -n -g -i -s -p -S -F -I -N
             -6 -q -u -v -w
             -x -y -z"
             
   longopts="--help --version
-            --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps
+            --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps -ss --firewall --ifcfg --netstat
             --B --C --F --M --D --T --L --R --N --G --I --P
             --scrub --ipv6 --wwid --unit --threads --verbose --width
             --nocolor --less --more"
