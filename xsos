@@ -3725,26 +3725,24 @@ FIREWALL(){
   declare -A firewalld=$(__retrieve_service_status firewalld)
 
   iptables[rules]=$(cat $iptables_vnxL 2>/dev/null | egrep -v '^$|^Chain|pkts *bytes' | wc -l)
-
   nftables[rules]=$(cat $nft_list_ruleset 2>/dev/null | egrep -v '^table|^$|\t*chain.*{$|\t*}$' | wc -l)
 
   echo -e "${c[H1]}FIREWALL${c[0]}"
+  echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
   if echo ${iptables[enabled]} ${nftables[enabled]} ${firewalld[enabled]} | grep enabled >/dev/null; then
-
-    echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
     if [ "${iptables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}iptables (${iptables[active]}, ${iptables[running]})"; fi
     if [ "${firewalld[enabled]}" = "enabled" ]; then echo -e "${XSOS_INDENT_H2}firewalld (${firewalld[active]}, ${firewalld[running]})"; fi
     if [ "${nftables[enabled]}"  = "enabled" ]; then echo -e "${XSOS_INDENT_H2}nftables (${nftables[active]}, ${nftables[running]})"; fi
-
-    echo -e "\n$XSOS_INDENT_H1${c[H2]}Rules loaded:${c[0]}"
-    if [ "${iptables[rules]}${nftables[rules]}" -gt 0 ]; then
-      if [ "${iptables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}iptables: ${iptables[rules]}"; fi
-      if [ "${nftables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}nftables: ${nftables[rules]}"; fi
-    else
-      echo -e "${XSOS_INDENT_H2}No rules loaded."
-    fi
   else
-    echo "No firewall services enabled."
+    echo "${XSOS_INDENT_H2}No firewall services enabled."
+  fi
+
+  echo -e "\n$XSOS_INDENT_H1${c[H2]}Rules loaded:${c[0]}"
+  if [ "${iptables[rules]}${nftables[rules]}" -gt 0 ]; then
+    if [ "${iptables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}iptables: ${iptables[rules]}"; fi
+    if [ "${nftables[rules]}" -gt 0 ]; then echo -e "${XSOS_INDENT_H2}nftables: ${nftables[rules]}"; fi
+  else
+    echo -e "${XSOS_INDENT_H2}No rules loaded."
   fi
 }
 
