@@ -1636,6 +1636,7 @@ MEMINFO() {
     /^Hugepagesize:/    { Hugepagesize   = $2 }
     /^HugePages_Total:/ { HugepagesTotal = $2 }
     /^HugePages_Free:/  { HugepagesFree  = $2 }
+    /^AnonHugePages:/   { THP            = $2 }
     
     END {
       
@@ -1653,7 +1654,8 @@ MEMINFO() {
       PT_Percent      = PageTables * 100 / MemTotal
       HP              = Hugepagesize * HugepagesTotal
       HP_PercentRam   = HP * 100 / MemTotal
-      
+      THP             = THP/1024/1024
+   
       # If have hugepages, calculate in-use
       
       if (HugepagesTotal > 0) {
@@ -1815,6 +1817,7 @@ MEMINFO() {
       Shmem       = round(Shmem,       Prec_BytesHi)
       SwapUsed    = round(SwapUsed,    Prec_BytesLo)
       SwapTotal   = round(SwapTotal,   Prec_BytesLo)
+      THP         = round(THP,         Prec_BytesHi)
               
       printf    "  %sRAM:%s\n", H2, H0
       printf    "    %s%s%s total ram%s\n", H_IMP, MemTotal, Unit, H0
@@ -1833,6 +1836,13 @@ MEMINFO() {
         printf  "    %s%s of HugePages (%s%%) in-use by applications\n", HP_Used, Unit, HP_Used_Percent
       }
       
+      printf    "  %sTHP:%s\n", H2, H0
+      if (THP == 0)
+        printf  "    No ram allocated to THP\n"
+      else {
+        printf  "    %s GiB allocated to THP %s\n", THP, H0
+      }
+
       printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
       if (SHOW_Lowmem == 1)
         printf  "    %s%s (%s%%) of %s%s LowMem in-use\n", LowUsed, Unit, LowUsed_Percent, LowTotal, Unit
