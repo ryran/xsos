@@ -1041,19 +1041,22 @@ OSINFO() {
   a="\n            "
   if rhsm_hostname=$(_get_rhsm_cfg hostname "$1"); then
     [[ $XSOS_SCRUB_IP_HN == y ]] && rhsm_hostname="hostname = ${c[Warn2]}SCRUBBED${c[0]}"
-    if rhsm_proxy_hostname=$(_get_rhsm_cfg proxy_hostname "$1"); then
-      [[ $XSOS_SCRUB_IP_HN == y ]] && rhsmProxyStuff+="${a}proxy_hostname = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff="${a}$rhsm_proxy_hostname"
-      if rhsm_proxy_port=$(_get_rhsm_cfg proxy_port "$1"); then
-        [[ $XSOS_SCRUB_IP_HN == y ]] && rhsmProxyStuff+="${a}proxy_port = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_port"
+    if rhsm_port=$(_get_rhsm_cfg port "$1"); then
+      [[ $XSOS_SCRUB_IP_HN == y ]] && rhsm_port="Port = ${c[Warn2]}SCRUBBED${c[0]}" || rhsm_port="${a}$rhsm_port"
+      if rhsm_proxy_hostname=$(_get_rhsm_cfg proxy_hostname "$1"); then
+        [[ $XSOS_SCRUB_IP_HN == y ]] && rhsmProxyStuff+="${a}proxy_hostname = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff="${a}$rhsm_proxy_hostname"
+        if rhsm_proxy_port=$(_get_rhsm_cfg proxy_port "$1"); then
+          [[ $XSOS_SCRUB_IP_HN == y ]] && rhsmProxyStuff+="${a}proxy_port = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_port"
+        fi
+        if rhsm_proxy_user=$(_get_rhsm_cfg proxy_user "$1"); then
+          [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhsmProxyStuff+="${a}proxy_user = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_user"
+        fi
+        if rhsm_proxy_password=$(_get_rhsm_cfg proxy_password "$1"); then
+          [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhsmProxyStuff+="${a}proxy_password = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_password"
+        fi
+      else
+        rhsmProxyStuff="${a}proxy_hostname ="
       fi
-      if rhsm_proxy_user=$(_get_rhsm_cfg proxy_user "$1"); then
-        [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhsmProxyStuff+="${a}proxy_user = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_user"
-      fi
-      if rhsm_proxy_password=$(_get_rhsm_cfg proxy_password "$1"); then
-        [[ $XSOS_SCRUB_PROXYUSERPASS == y ]] && rhsmProxyStuff+="${a}proxy_password = ${c[Warn2]}SCRUBBED${c[0]}" || rhsmProxyStuff+="${a}$rhsm_proxy_password"
-      fi
-    else
-      rhsmProxyStuff="${a}proxy_hostname ="
     fi
   else
     rhsm_hostname="${c[red]}(missing)${c[0]}"
@@ -1141,7 +1144,7 @@ OSINFO() {
   echo -e "  ${c[H2]}Hostname:${c[0]} $hostname"
   echo -e "  ${c[H2]}Distro:${c[0]}   $distro_release"
   echo -e "  ${c[H2]}RHN:${c[0]}      $rhn_serverURL$rhnProxyStuff"
-  echo -e "  ${c[H2]}RHSM:${c[0]}     $rhsm_hostname$rhsmProxyStuff"
+  echo -e "  ${c[H2]}RHSM:${c[0]}     $rhsm_hostname$rhsm_port$rhsmProxyStuff"
   echo -e "  ${c[H2]}YUM:${c[0]}      $yum_plugins"
   [[ -n $runlevel ]] &&
   echo -e "  ${c[H2]}Runlevel:${c[0]} $runlevel  (default $initdefault)"
