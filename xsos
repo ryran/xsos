@@ -4001,7 +4001,7 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -n $softirq ]] && SOFTIRQ /
     [[ -n $netdev ]]  && NETDEV /
     [[ -n $bonding ]] && BONDING /
-    [[ -n $teaming ]] && TEAMING /
+    [[ -n $teaming ]] && TEAMING
     [[ -n $ip ]]      && IPADDR
     [[ -n $all ]]     && XSOS_IP_VERSION=6 IPADDR
     [[ -n $sysctl ]]  && SYSCTL / 2>/dev/null
