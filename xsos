@@ -1063,6 +1063,7 @@ OSINFO() {
   if [[ $1 == / ]]; then
     uname=$(uname -a | gawk '{printf "mach=%s  cpu=%s  platform=%s\n", $(NF-3), $(NF-2), $(NF-1)}')
     systime=$(date)
+    virtwhat=$(/sbi/virt-what)
     [[ $(wc -w <<<"$systime") == 6 ]] &&
       systime=$(gawk -vH0="${c[0]}" -vH_IMP="${c[Imp]}" '{if ($3 < 10) space=" "; printf "%s %s %s%s %s %s%s%s %s\n", $1,$2,space,$3,$4,H_IMP,$5,H0,$6}' <<<"$systime")
     boottime=$(date --date=@$btime 2>/dev/null)
@@ -1148,6 +1149,7 @@ OSINFO() {
   echo -e "  ${c[H2]}SELinux:${c[0]}  $(_CHECK_SELINUX "$1")"
   echo -e "  ${c[H2]}Arch:${c[0]}     $uname"
   echo -e "  ${c[H2]}Kernel:${c[0]}"
+  echo -e "  ${c[H2]}VIRT-WHAT:${c[0]} $virtwhat"
   echo -e "    ${c[H3]}Booted kernel:${c[0]}  $kernel"
   echo -e "    ${c[H3]}GRUB default:${c[0]}   $bad_grubcfg$grub_kernel  $default_missing"
   
