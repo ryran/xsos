@@ -1498,6 +1498,7 @@ KDUMP() {
   __P kernel.panic_on_io_nmi
   __P kernel.panic_on_unrecovered_nmi
   __P kernel.panic_on_stackoverflow
+  __P kernel.panic_on_warn
   __P kernel.softlockup_panic
   __P kernel.unknown_nmi_panic
   __P kernel.nmi_watchdog
@@ -3086,6 +3087,7 @@ SYSCTL() {
   __P kernel.panic_on_unrecovered_nmi "[bool] "
   __P kernel.unknown_nmi_panic "[bool] "
   __P kernel.panic_on_stackoverflow "[bool] "
+  __P kernel.panic_on_warn "[bool] "
   __P kernel.softlockup_panic "[bool] "
   __P kernel.softlockup_thresh "[secs] "
   __P kernel.pid_max
