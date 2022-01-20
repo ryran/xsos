@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.27 last mod 2021-03-12
+# xsos v0.7.28 last mod 2022-01-21
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1498,6 +1498,7 @@ KDUMP() {
   __P kernel.panic_on_io_nmi
   __P kernel.panic_on_unrecovered_nmi
   __P kernel.panic_on_stackoverflow
+  __P kernel.panic_on_warn
   __P kernel.softlockup_panic
   __P kernel.unknown_nmi_panic
   __P kernel.nmi_watchdog
@@ -1671,7 +1672,7 @@ MEMINFO() {
     /^Hugepagesize:/    { Hugepagesize   = $2 }
     /^HugePages_Total:/ { HugepagesTotal = $2 }
     /^HugePages_Free:/  { HugepagesFree  = $2 }
-    /^AnonHugePages:/   { Anonhugepages  = $2 }
+    /^AnonHugePages:/   { THP_Used       = $2 }
     
     END {
       
@@ -1753,6 +1754,7 @@ MEMINFO() {
         Slab        *= 1024
         PageTables  *= 1024
         HP          *= 1024
+        THP_Used    *= 1024
         if (HugepagesTotal > 0) HP_Used *= 1024
         if (LowTotal > 0) { LowUsed *= 1024; LowTotal *= 1024 }
         if (SwapTotal > 0) { SwapUsed *= 1024; SwapTotal *= 1024 }
@@ -1775,6 +1777,7 @@ MEMINFO() {
         Slab        /= divisor
         PageTables  /= divisor
         HP          /= divisor
+        THP_Used    /= divisor
         if (HugepagesTotal > 0) HP_Used /= divisor
         if (LowTotal > 0)  { LowUsed  /= divisor; LowTotal  /= divisor }
         if (SwapTotal > 0) { SwapUsed /= divisor; SwapTotal /= divisor }
@@ -1851,6 +1854,7 @@ MEMINFO() {
       Shmem       = round(Shmem,       Prec_BytesHi)
       SwapUsed    = round(SwapUsed,    Prec_BytesLo)
       SwapTotal   = round(SwapTotal,   Prec_BytesLo)
+      THP_Used    = round(THP_Used,    Prec_BytesHi)
               
       printf    "  %sRAM:%s\n", H2, H0
       printf    "    %s%s%s total ram%s\n", H_IMP, MemTotal, Unit, H0
@@ -1870,10 +1874,10 @@ MEMINFO() {
       }
       
       printf    "  %sTHP:%s\n", H2, H0
-      if (Anonhugepages == 0)
-        printf  "    THP not currently in use\n"
+      if (THP_Used == 0)
+        printf  "    No ram allocated to THP\n"
       else {
-        printf  "    %s kB allocated to THP %s\n", Anonhugepages, H0
+        printf  "    %s%s allocated to THP %s\n", THP_Used, Unit, H0
       }
 
       printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
@@ -3083,6 +3087,7 @@ SYSCTL() {
   __P kernel.panic_on_unrecovered_nmi "[bool] "
   __P kernel.unknown_nmi_panic "[bool] "
   __P kernel.panic_on_stackoverflow "[bool] "
+  __P kernel.panic_on_warn "[bool] "
   __P kernel.softlockup_panic "[bool] "
   __P kernel.softlockup_thresh "[secs] "
   __P kernel.pid_max
