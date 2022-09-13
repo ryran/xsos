@@ -388,7 +388,7 @@ _OPT_CHECK() {
   check_type=$3
   valid_opts=$4
   if [[ $check_type == regex ]]; then
-    egrep -qs "$valid_opts" <<<"$chosen_opt" && return
+    grep -E -qs "$valid_opts" <<<"$chosen_opt" && return
     case $option in
       width)
         echo "xsos: option '$option' expects a positive number or 'w' (auto-detect width) or '0' (disable wrapping)"
@@ -404,7 +404,7 @@ _OPT_CHECK() {
     echo "xsos: option '$option' expects number from range: { ${valid_opts// /-} }"
     
   elif [[ $check_type == naturalnumber ]]; then
-    egrep -qs '^[0-9]+$' <<<"$chosen_opt" && return
+    grep -E -qs '^[0-9]+$' <<<"$chosen_opt" && return
     echo "xsos: option '$option' expects any natural number, including zero"
     
   elif [[ $check_type == string ]]; then
@@ -564,7 +564,7 @@ DMIDECODE() {
   fi
   
   # If bad dmidecode input, return
-  if head -n3 <<<"$dmidecode_input" | egrep -qs 'No such file or directory|No SMBIOS nor DMI entry point found'; then
+  if head -n3 <<<"$dmidecode_input" | grep -E -qs 'No such file or directory|No SMBIOS nor DMI entry point found'; then
     echo -e "${c[Warn2]}Warning:${c[Warn1]} dmidecode input invalid; skipping bios check${c[0]}" >&2
     echo -en $XSOS_HEADING_SEPARATOR >&2
     return 1
@@ -700,7 +700,7 @@ _CHECK_DISTRO() {
     
   else
     # If release is RHEL 4,5,6,7,8 in standard expected format ...
-    if egrep -e 'Red Hat Enterprise Linux (AS|ES|Desktop|WS) release 4 \((Nahant|Nahant Update [1-9])\)' \
+    if grep -E -e 'Red Hat Enterprise Linux (AS|ES|Desktop|WS) release 4 \((Nahant|Nahant Update [1-9])\)' \
              -e 'Red Hat Enterprise Linux (Client|Server) release 5\.?[0-9]* \(Tikanga\)' \
              -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 6\.?[0-9]* \(Santiago\)' \
              -e 'Red Hat Enterprise Linux (Client|Workstation|Server) release 7\.[0-9] \(Maipo\)' \
@@ -723,7 +723,7 @@ _CHECK_DISTRO() {
       if grep -qi fedora <<<"$distro_release"; then
         distro_release=${c[bg_BLUE]}$distro_release
       
-      elif egrep -qi 'alpha|beta' <<<"$distro_release"; then
+      elif grep -E -qi 'alpha|beta' <<<"$distro_release"; then
         distro_release=${c[bg_RED]}${c[ORANGE]}$distro_release
         
       else
@@ -735,7 +735,7 @@ _CHECK_DISTRO() {
   fi
 
   # Check for any /etc/*-release or /etc/*_version files and add their content to the distro_release variable
-  files=$(ls "$1"/etc/*{-release,_version} 2>/dev/null | egrep -sv '/etc/(os|redhat|system|lsb)-release')
+  files=$(ls "$1"/etc/*{-release,_version} 2>/dev/null | grep -E -sv '/etc/(os|redhat|system|lsb)-release')
   if [[ -n $files ]]; then
     for file in $files; do
       if [[ -r $file ]]; then
@@ -812,7 +812,7 @@ _CHECK_SELINUX() {
   # Else, from $sosroot/sestatus or $sosroot/sos_commands/selinux/sestatus_-b & dmesg
   else
     input_sestatus=$(gawk '!/\/.*bin/ && NF!=0' "$1/sestatus" 2>/dev/null; gawk '!/\/.*bin/ && NF!=0' "$1/sos_commands/selinux/sestatus_-b" 2>/dev/null)
-    cat "$1"/var/log/dmesg "$1"/sos_commands/general/dmesg* "$1"/sos_commands/kernel/dmesg 2>/dev/null | egrep -qis '^SELinux: *Disabled at (boot|runtime)' && selinux_dmesg=disabled
+    cat "$1"/var/log/dmesg "$1"/sos_commands/general/dmesg* "$1"/sos_commands/kernel/dmesg 2>/dev/null | grep -E -qis '^SELinux: *Disabled at (boot|runtime)' && selinux_dmesg=disabled
     # Could also check /var/log/messages, but it would be too expensive and complicated
     # to ensure any hits were for the current boot-cycle
   fi
@@ -821,7 +821,7 @@ _CHECK_SELINUX() {
   input_seconfig=$(cat "$1"/etc/selinux/config 2>/dev/null)
   
   # Set "selinux" and "enforcing" variables per kernel args
-  eval $(egrep -ios 'selinux=.|enforcing=.' "$1"/proc/cmdline | tr '[:upper:]' '[:lower:]')
+  eval $(grep -E -ios 'selinux=.|enforcing=.' "$1"/proc/cmdline | tr '[:upper:]' '[:lower:]')
   
   # Check /etc/selinux/config input
   if [[ -n $input_seconfig ]]; then
@@ -931,7 +931,7 @@ _CHECK_GRUB() {
         default=0; default_missing="${c[Warn1]}(Warning: grub.conf lacks \"default=\"; showing title 0)${c[0]}"
       }
       # Get the full kernel line for the default title statement
-      grub_cmdline=$(gawk /^title/,G "$grubcfg" | egrep -v '^#|^ *#' | sed '1!s/^title.*/\n&/' | gawk -vDEFAULT=$((default+1)) -vRS="\n\n" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
+      grub_cmdline=$(gawk /^title/,G "$grubcfg" | grep -E -v '^#|^ *#' | sed '1!s/^title.*/\n&/' | gawk -vDEFAULT=$((default+1)) -vRS="\n\n" 'NR==DEFAULT' | grep -o '/vmlinuz-.*')
       ;;
     grub.cfg)
       # Otherwise, if we have a grub2 config (grub.cfg), use that
@@ -1000,7 +1000,7 @@ OSINFO() {
   }
   a="\n            "
   if rhn_serverURL=$(_get_rhn_cfg serverURL "$1"); then
-    sURLtmp=$(egrep --color=always -si 'oracle' <<<"$serverURL") && rhn_serverURL=$sURLtmp
+    sURLtmp=$(grep -E --color=always -si 'oracle' <<<"$serverURL") && rhn_serverURL=$sURLtmp
     [[ $XSOS_SCRUB_IP_HN == y ]] && rhn_serverURL="serverURL = ${c[Warn2]}SCRUBBED${c[0]}"
     if rhn_enableProxy=$(_get_rhn_cfg enableProxy "$1") && [[ $rhn_enableProxy -eq 1 ]]; then
       rhnProxyStuff="${a}$rhn_enableProxy"
@@ -1397,7 +1397,7 @@ KDUMP() {
   __get_crashkernel_proc_cmdline() {
     local out
     if [[ -r "$sosroot"/proc/cmdline ]]; then
-      out=$(egrep -o 'crashkernel=[[:graph:]]+' "$sosroot"/proc/cmdline)
+      out=$(grep -E -o 'crashkernel=[[:graph:]]+' "$sosroot"/proc/cmdline)
     else
       out="${c[Warn1]}file missing${c[0]}"
     fi
@@ -1408,7 +1408,7 @@ KDUMP() {
     if [[ -n $bad_grubcfg ]]; then
       out="$bad_grubcfg"
     else
-      out=$(egrep -o 'crashkernel=[[:graph:]]+' <<<"$grub_cmdline")
+      out=$(grep -E -o 'crashkernel=[[:graph:]]+' <<<"$grub_cmdline")
     fi
     [[ -n $out ]] && echo -e "$out" || echo -e "${c[Warn1]}crashkernel param not present${c[0]}"
   }
@@ -1448,7 +1448,7 @@ KDUMP() {
   echo -e "$XSOS_INDENT_H1${c[H2]}kdump.conf:${c[0]}"
   
     if [[ -r "$sosroot"/etc/kdump.conf ]]; then
-      kdump_cfg=$(egrep -v '^[[:space:]]*$|^#' "$sosroot"/etc/kdump.conf)
+      kdump_cfg=$(grep -E -v '^[[:space:]]*$|^#' "$sosroot"/etc/kdump.conf)
       if [[ -n $kdump_cfg ]]; then
         sed "s,^,$XSOS_INDENT_H2," <<<"$kdump_cfg"
         path=$(gawk '/^path / {print$2}' <<<"$kdump_cfg" | tail -n1)
@@ -1574,7 +1574,7 @@ CPUINFO() {
   # Check important cpu flags
   # pae=physical address extensions  *  lm=64-bit  *  vmx=Intel hw-virt  *  svm=AMD hw-virt
   # ht=hyper-threading  *  aes=AES-NI  *  constant_tsc=Constant Time Stamp Counter
-  cpu_flags=$(egrep -o "pae|lm|vmx|svm|ht|aes|constant_tsc|rdrand|nx" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
+  cpu_flags=$(grep -E -o "pae|lm|vmx|svm|ht|aes|constant_tsc|rdrand|nx" <"$cpuinfo_input" | sort -u | sed ':a;N;$!ba;s/\n/,/g')
   [[ -n $cpu_flags ]] && cpu_flags="(flags: $cpu_flags)"
   
   # Print it all out
@@ -1918,11 +1918,11 @@ STORAGE() {
   fi
   
   # If have good mpath data ..
-  if [[ -n $mpath_input ]] && ! egrep -q 'no.paths|multipath.conf.*not.exist' <<<"$mpath_input"; then
+  if [[ -n $mpath_input ]] && ! grep -E -q 'no.paths|multipath.conf.*not.exist' <<<"$mpath_input"; then
     echo -e "${c[H2]}  Multipath:${c[0]}"
     
     # Print out names & sizes of each multipath map
-    egrep -B1 '^\[?size=' <<<"$mpath_input" |
+    grep -E -B1 '^\[?size=' <<<"$mpath_input" |
       gawk -vRS="--" '
         {
           printf "    %s;%s\n",
@@ -1945,7 +1945,7 @@ STORAGE() {
   # If we have linux swraid info, let's use it to expand our blacklist
   if [[ -r $1/proc/mdstat ]]; then
     # Append software raid component disks to the blacklist
-    scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | egrep -o '[[:alpha:]]+' | sort -u | gawk '{printf "%s|", $1}')
+    scsi_blacklist=$scsi_blacklist$(grep -s ^md "$1/proc/mdstat" | cut -d\  -f5- | grep -E -o '[[:alpha:]]+' | sort -u | gawk '{printf "%s|", $1}')
   fi
 
   # If localhost, grab output from lsblk
@@ -1968,7 +1968,7 @@ STORAGE() {
   [[ -n $scsi_blacklist ]] && bl=y || { bl=n; scsi_blacklist=NULL; }
   [[ -f $1 ]] && partitions_input=$1 || partitions_input=$1/proc/partitions
   echo -e "  ${c[H2]}Whole Disks from /proc/partitions:${c[0]}"
-  egrep -v "${scsi_blacklist%?}" "$partitions_input" |
+  grep -E -v "${scsi_blacklist%?}" "$partitions_input" |
     gawk -vblacklisted=$bl -vblacklist_devcount=$(wc -w <<<"${scsi_blacklist//|/ }") -vcolor_grey="${c[lgrey]}" -vH_IMP="${c[Imp]}" -vH3="${c[H3]}" -vH2="${c[H2]}" -vH0="${c[0]}" '
       # For starters, we search /proc/partitions for certain types of devices
       # These block types are from devices.txt in the linux kernel documentation
@@ -2452,7 +2452,7 @@ IPADDR() {
   ip_a_input=$(sed -e 's,^[0-9]*: ,\n&,' -e '1s,^,\n,' <<<"${ip_a_input}")
   
   # Grab a list of the interface names
-  ipdevs=$(gawk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"${ip_a_input}" | egrep -v 'sit0')
+  ipdevs=$(gawk -F: 'BEGIN {RS="\n\n"} {print $2}' <<<"${ip_a_input}" | grep -E -v 'sit0')
   
   # Prepare the list of bridges, using either bridge, or brctl input for gawk by separating each bridge block & filling in empty columns
   if [[ -n $bridge_link_show ]]; then
@@ -2500,8 +2500,8 @@ IPADDR() {
 
       # Figure out if $i_substr is a slave of some bond / bridge device
       slaveof[$i]=$(
-        if egrep -q 'SLAVE|master' <<<"${iface_input[$i]}"; then
-          egrep -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | gawk '{print $2}'
+        if grep -E -q 'SLAVE|master' <<<"${iface_input[$i]}"; then
+          grep -E -o 'master [[:graph:]]+' <<<"${iface_input[$i]}" | gawk '{print $2}'
         elif [[ -n ${lookup_bridge[$i_substr]} ]]; then
           echo ${lookup_bridge[$i_substr]}
         else
@@ -2510,13 +2510,13 @@ IPADDR() {
       )
       
       # Get MTU for $i
-      mtu[$i]=$(egrep -o ' mtu [0-9]+' <<<"${iface_input[$i]}" | gawk '{print $2}')
+      mtu[$i]=$(grep -E -o ' mtu [0-9]+' <<<"${iface_input[$i]}" | gawk '{print $2}')
       
       # Get up/down state for $i
       state[$i]=$(grep -q "${i}: <.*,UP.*>"  <<<"${iface_input[$i]}" && echo up || echo DOWN)
       
       # Get macaddr for $i (don't show if all zeros)
-      mac[$i]=$(egrep -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" &&
+      mac[$i]=$(grep -E -q 'link/[[:graph:]]+ ..:..:..:..:..:..' <<<"${iface_input[$i]}" &&
                 gawk -v scrub="${XSOS_SCRUB_MACADDR}" '
                     /link\/[[:graph:]]+ ..:..:..:..:..:../ {
                         if ($2 == "00:00:00:00:00:00") print "-"
@@ -2630,7 +2630,7 @@ ETHTOOL() {
   
   # If localhost, grab interfaces from /sys
   if [[ -z $1 ]]; then
-    ethdevs=$(ls /sys/class/net | egrep -v 'lo|sit0|bonding_masters')
+    ethdevs=$(ls /sys/class/net | grep -E -v 'lo|sit0|bonding_masters')
     # Setup local functions for ethtool & ethtool -i & ethtool -S
     __ethtool()   { ethtool $1; }
     __ethtool_i() { ethtool -i $1; }
@@ -2793,7 +2793,7 @@ NETDEV() {
   [[ -f $1 ]] && netdev_input_file=$1 || netdev_input_file=$1/proc/net/dev
   
   echo -e "${c[H1]}NETDEV${c[0]}"
-  tail -n+3 "$netdev_input_file" | egrep -v 'lo:|sit0:' | sed 's,:, ,' |
+  tail -n+3 "$netdev_input_file" | grep -E -v 'lo:|sit0:' | sed 's,:, ,' |
     gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<$XSOS_NET_UNIT) '
       function round(num, places) {
         places = 10 ^ places
@@ -3762,7 +3762,7 @@ FIREWALL(){
   systemctl_status_all="$1/sos_commands/systemd/systemctl_status_--all"
 
   __retrieve_service_status(){
-      egrep -A 2 "^\* $1.service" <$systemctl_status_all | xargs echo |
+      grep -E -A 2 "^\* $1.service" <$systemctl_status_all | xargs echo |
         sed 's,\* .*Loaded: \([^ ]*\)[^;]*; \?\([^;]*\);.*Active: \([^ ]*\) (\([^)]*\)).*,([loaded]=\1 [enabled]=\2 [active]=\3 [running]=\4),g'
   }
 
@@ -3770,8 +3770,8 @@ FIREWALL(){
   declare -A nftables=$(__retrieve_service_status nftables)
   declare -A firewalld=$(__retrieve_service_status firewalld)
 
-  iptables[rules]=$(cat $iptables_vnxL 2>/dev/null | egrep -v '^$|^Chain|pkts *bytes' | wc -l)
-  nftables[rules]=$(cat $nft_list_ruleset 2>/dev/null | egrep -v '^table|^$|\t*chain.*{$|\t*}$' | wc -l)
+  iptables[rules]=$(cat $iptables_vnxL 2>/dev/null | grep -E -v '^$|^Chain|pkts *bytes' | wc -l)
+  nftables[rules]=$(cat $nft_list_ruleset 2>/dev/null | grep -E -v '^table|^$|\t*chain.*{$|\t*}$' | wc -l)
 
   echo -e "${c[H1]}FIREWALL${c[0]}"
   echo -e "$XSOS_INDENT_H1${c[H2]}Services enabled:${c[0]}"
