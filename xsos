@@ -15,6 +15,22 @@
 #    General Public License <gnu.org/licenses/gpl.html> for more details.
 #-------------------------------------------------------------------------------
 
+# GNU version prefixed by g
+if [[ "$(uname -s)" =~ Darwin ]]; then
+  if [[ -d "${HOMEBREW_PREFIX}" ]] \
+  && [[ -x "${HOMEBREW_PREFIX}/bin/bash" ]] \
+  && [[ -d "${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnubin" ]] \
+  && [[ -d "${HOMEBREW_PREFIX}/opt/gnu-getopt/bin" ]] \
+  && [[ -d "${HOMEBREW_PREFIX}/opt/gawk/libexec/gnubin" ]] \
+  && ! [[ "${PATH}" =~ ^${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnubin ]]; then
+    exec env PATH="${HOMEBREW_PREFIX}/opt/coreutils/libexec/gnubin:${HOMEBREW_PREFIX}/opt/gnu-getopt/bin:${HOMEBREW_PREFIX}/opt/gawk/libexec/gnubin:${PATH}" "${HOMEBREW_PREFIX}/bin/bash" "${0}" "${@}"
+  else
+    echo Darwin is not officially supported >&2
+    echo You can give a try by installing brew and brew packages: bash, coreutils, gawk, gnu-getopt >&2
+    exit
+  fi
+fi
+
 # See https://github.com/ryran/xsos/issues/208
 export LC_ALL=en_US.UTF-8
 
