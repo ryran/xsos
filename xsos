@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.30 last mod 2023-11-28
+# xsos v0.7.31 last mod 2024-03-06
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -3105,6 +3105,7 @@ SYSCTL() {
   __Pa fs.nr_open  "[fds] "  '{printf "\"%s\"%s  (per-process limit for num open files [see also RLIMIT_NOFILE])", $1,H0}'
   __Pa fs.file-nr "[fds] "  '{printf "\"%s  %s  %s\"%s  (num allocated fds, N/A, num free fds)", $1,$2,$3,H0 }'
   __Pa fs.inode-nr "[inodes] "  '{printf "\"%s  %s\"%s  (nr_inodes allocated, nr_free_inodes)", $1,$2,H0}'
+  __Pa fs.dentry-state "[dentries] "  '{printf "\"%s  %s  %s  %s  %s  %s\"%s  (nr_dentry, nr_unused, age_limit, want_pages, nr_negative, dummy)", $1,$2,$3,$4,$5,$6,H0}'
   
   echo -e "$XSOS_INDENT_H1${c[H2]}net.${c[0]}"
   __Pa net.core.busy_read "[microsec] "  '{printf "\"%s\"%s  ", $1, H0; if ($1==0) printf "(off)"}'
