@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.32 last mod 2024-05-28
+# xsos v0.7.33 last mod 2024-06-25
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -3147,7 +3147,7 @@ SYSCTL() {
   __P vm.min_free_kbytes
   __Pa vm.nr_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
   __Pa vm.nr_overcommit_hugepages "[$hpgsz-MiB pages] "   "-vHPGSZ=$hpgsz"  '{if ($1>0) printf "\"%s\"%s  (%.1f GiB total)", $1, H0, $1*HPGSZ/1024; else printf "\"%s\"%s", $1, H0}'
-  __Pa vm.overcommit_memory "[0-2] "   '{if ($1==0) printf "\"0\"%s  (heuristic overcommit)", H0; else if ($1==1) printf "\"1\"%s  (always overcommit, never check)", H0; else if ($1==2) print "\"2\"%s  (always check, never overcommit)", H0}'
+  __Pa vm.overcommit_memory "[0-2] "   '{if ($1==0) printf "\"0\"%s  (heuristic overcommit)", H0; else if ($1==1) printf "\"1\"%s  (always overcommit, never check)", H0; else if ($1==2) printf "\"2\"%s  (always check, never overcommit)", H0}'
   __P vm.overcommit_ratio
   __Pa vm.oom_kill_allocating_task "[bool] "  '{if ($1==0) printf "\"0\"%s  (scan tasklist)", H0; else printf "\"1\"%s  (kill OOM-triggering task)", H0}'
   __Pa vm.panic_on_oom "[0-2] "  '{if ($1==0) printf "\"0\"%s  (no panic)", H0; else if ($1==1) printf "\"1\"%s  (no panic if OOM-triggering task limited by mbind/cpuset)", H0; else if ($1==2) printf "\"2\"%s  (always panic)", H0}'
