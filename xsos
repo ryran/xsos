@@ -187,7 +187,7 @@ fi
 
 # XSOS_LSPCI_NET_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Net" heading
-    : ${XSOS_LSPCI_NET_REGEX:="(Ethernet controller|Network controller|InfiniBand)( \[[0-9]{4}\])?:"}
+    : ${XSOS_LSPCI_NET_REGEX:="(Ethernet controller|Network controller|InfiniBand)( \[[0-9]{4}\])?"}
 
 # XSOS_LSPCI_STORAGE_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Storage" heading
@@ -2098,7 +2098,7 @@ LSPCI() {
   
   _parse_periphs() {
     local regex=${1}
-    gawk -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" "
+    gawk -v IGNORECASE=1 -vH_IMP="${c[Imp]}" -vH2="${c[H2]}" -vH0="${c[0]}" "
       /${regex}/"'{
         # Save
         split($1, slot, ":")
