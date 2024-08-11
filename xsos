@@ -3964,6 +3964,13 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
 
   # If SOSREPORT-ROOT provided, use that
   elif [[ -n $sosroot ]]; then
+    if [[ -f $sosroot ]]; then
+      # sosroot is a standard file, try to look for an archive supported by tar
+      newroot="$(mktemp -qd)" \
+      && tar xf "${sosroot}" -C "${newroot}" \
+      && sosroot="$(find "$newroot" -mindepth 1 -maxdepth 1 -type d)" \
+      || exit 1
+    fi
     SOS_CHECKFILE bios    {,sos_commands/{kernel.,hardware/}}dmidecode \
                                                                && DMIDECODE "$sosroot"
     SOS_CHECKFILE os      "proc/"                              && OSINFO    "$sosroot"
