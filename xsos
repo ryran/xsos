@@ -3290,7 +3290,7 @@ PSCHECK() {
       {
         # Print fields up through %MEM
         for (i=1; i<fieldvsz; i++)
-          printf $i"❚"
+          printf "%s❚",$i
         
         # Print fields VSZ & RSS
         for (i=fieldvsz; i<fieldtty; i++) {
