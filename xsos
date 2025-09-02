@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.34 last mod 2025-06-04
+# xsos v0.7.35 last mod 2025-09-03
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1673,6 +1673,7 @@ MEMINFO() {
     /^HugePages_Total:/ { HugepagesTotal = $2 }
     /^HugePages_Free:/  { HugepagesFree  = $2 }
     /^AnonHugePages:/   { THP_Used       = $2 }
+    /^Percpu:/          { Percpu         = $2 }
     
     END {
       
@@ -1686,6 +1687,7 @@ MEMINFO() {
       MemNoBC_Percent = MemUsedNoBC * 100 / MemTotal
       Dirty_Percent   = Dirty * 100 / MemTotal
       Shmem_Percent   = Shmem * 100 / MemTotal
+      Percpu_Percent  = Percpu * 100 / MemTotal
       Slab_Percent    = Slab * 100 / MemTotal
       PT_Percent      = PageTables * 100 / MemTotal
       HP              = Hugepagesize * HugepagesTotal
@@ -1755,6 +1757,7 @@ MEMINFO() {
         PageTables  *= 1024
         HP          *= 1024
         THP_Used    *= 1024
+        Percpu      *= 1024
         if (HugepagesTotal > 0) HP_Used *= 1024
         if (LowTotal > 0) { LowUsed *= 1024; LowTotal *= 1024 }
         if (SwapTotal > 0) { SwapUsed *= 1024; SwapTotal *= 1024 }
@@ -1778,6 +1781,7 @@ MEMINFO() {
         PageTables  /= divisor
         HP          /= divisor
         THP_Used    /= divisor
+        Percpu      /= divisor
         if (HugepagesTotal > 0) HP_Used /= divisor
         if (LowTotal > 0)  { LowUsed  /= divisor; LowTotal  /= divisor }
         if (SwapTotal > 0) { SwapUsed /= divisor; SwapTotal /= divisor }
@@ -1839,6 +1843,7 @@ MEMINFO() {
       Slab_Percent    = round(Slab_Percent,    Prec_Percent)
       PT_Percent      = round(PT_Percent,      Prec_Percent)
       Shmem_Percent   = round(Shmem_Percent,   Prec_Percent)
+      Percpu_Percent  = round(Percpu_Percent,  Prec_Percent)
       Swap_Percent    = round(Swap_Percent,    Prec_Percent)
       
       MemTotal    = round(MemTotal,    Prec_BytesLo)
@@ -1855,6 +1860,7 @@ MEMINFO() {
       SwapUsed    = round(SwapUsed,    Prec_BytesLo)
       SwapTotal   = round(SwapTotal,   Prec_BytesLo)
       THP_Used    = round(THP_Used,    Prec_BytesHi)
+      Percpu      = round(Percpu,      Prec_BytesHi)
               
       printf    "  %sRAM:%s\n", H2, H0
       printf    "    %s%s%s total ram%s\n", H_IMP, MemTotal, Unit, H0
@@ -1880,13 +1886,15 @@ MEMINFO() {
         printf  "    %s%s allocated to THP %s\n", THP_Used, Unit, H0
       }
 
-      printf    "  %sLowMem/Slab/PageTables/Shmem:%s\n", H2, H0
+      printf    "  %sLowMem/Slab/PageTables/Shmem/Percpu:%s\n", H2, H0
       if (SHOW_Lowmem == 1)
         printf  "    %s%s (%s%%) of %s%s LowMem in-use\n", LowUsed, Unit, LowUsed_Percent, LowTotal, Unit
       printf    "    %s%s (%s%%) of total ram used for Slab\n", Slab, Unit, Slab_Percent
       printf    "    %s%s (%s%%) of total ram used for PageTables\n", PageTables, Unit, PT_Percent
+
       if (SHOW_Shmem == 1)
         printf  "    %s%s (%s%%) of total ram used for Shmem\n", Shmem, Unit, Shmem_Percent
+	printf  "    %s%s (%s%%) of total ram used for Percpu\n", Percpu, Unit, Percpu_Percent
       
       printf    "  %sSwap:%s\n", H2, H0
       if (SwapTotal == 0)
