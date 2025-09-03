@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.35 last mod 2025-09-03
+# xsos v0.7.36 last mod 2025-09-03
 # Latest version at <http://github.com/ryran/xsos>
 # RPM packages available at <http://people.redhat.com/rsawhill/rpms>
 # Copyright 2012-2018 Ryan Sawhill Aroha <rsaw@redhat.com>
@@ -1672,6 +1672,7 @@ MEMINFO() {
     /^Hugepagesize:/    { Hugepagesize   = $2 }
     /^HugePages_Total:/ { HugepagesTotal = $2 }
     /^HugePages_Free:/  { HugepagesFree  = $2 }
+    /^HugePages_Rsvd:/  { HugepagesRsvd  = $2 }
     /^AnonHugePages:/   { THP_Used       = $2 }
     /^Percpu:/          { Percpu         = $2 }
     
@@ -1696,8 +1697,12 @@ MEMINFO() {
       # If have hugepages, calculate in-use
       
       if (HugepagesTotal > 0) {
-        HP_Used         = (HugepagesTotal - HugepagesFree) * Hugepagesize
-        HP_Used_Percent = (HugepagesTotal - HugepagesFree) * 100 / HugepagesTotal
+        HP_Used         = (HugepagesTotal - HugepagesFree - HugepagesRsvd) * Hugepagesize
+        HP_Used_Percent = (HugepagesTotal - HugepagesFree - HugepagesRsvd) * 100 / HugepagesTotal
+        HP_Rsvd         = (HugepagesRsvd) * Hugepagesize
+        HP_Rsvd_Percent = (HugepagesRsvd) * 100 / HugepagesTotal
+        HP_Free         = (HugepagesFree) * Hugepagesize
+        HP_Free_Percent = (HugepagesFree) * 100 / HugepagesTotal
       }
       
       # Else, need to avoid divide-by-zero errors
@@ -1705,6 +1710,10 @@ MEMINFO() {
       else {
         HP_Used         = 0
         HP_Used_Percent = 0
+        HP_Rsvd         = 0
+        HP_Rsvd_Percent = 0
+        HP_Free         = 0
+        HP_Free_Percent = 0
       }
       
       # If meminfo has LowTotal (modern x86_64 boxes do not)...
@@ -1758,7 +1767,7 @@ MEMINFO() {
         HP          *= 1024
         THP_Used    *= 1024
         Percpu      *= 1024
-        if (HugepagesTotal > 0) HP_Used *= 1024
+        if (HugepagesTotal > 0) { HP_Used *= 1024; HP_Rsvd *= 1024; HP_Free *= 1024 }
         if (LowTotal > 0) { LowUsed *= 1024; LowTotal *= 1024 }
         if (SwapTotal > 0) { SwapUsed *= 1024; SwapTotal *= 1024 }
       }
@@ -1782,7 +1791,7 @@ MEMINFO() {
         HP          /= divisor
         THP_Used    /= divisor
         Percpu      /= divisor
-        if (HugepagesTotal > 0) HP_Used /= divisor
+        if (HugepagesTotal > 0) { HP_Used /= divisor; HP_Rsvd /= divisor ; HP_Free /=divisor }
         if (LowTotal > 0)  { LowUsed  /= divisor; LowTotal  /= divisor }
         if (SwapTotal > 0) { SwapUsed /= divisor; SwapTotal /= divisor }
       }
@@ -1839,6 +1848,8 @@ MEMINFO() {
       Dirty_Percent   = round(Dirty_Percent,   Prec_Percent)
       HP_PercentRam   = round(HP_PercentRam,   Prec_Percent)
       HP_Used_Percent = round(HP_Used_Percent, Prec_Percent)
+      HP_Rsvd_Percent = round(HP_Rsvd_Percent, Prec_Percent)
+      HP_Free_Percent = round(HP_Free_Percent, Prec_Percent)
       LowUsed_Percent = round(LowUsed_Percent, Prec_Percent)
       Slab_Percent    = round(Slab_Percent,    Prec_Percent)
       PT_Percent      = round(PT_Percent,      Prec_Percent)
@@ -1852,6 +1863,8 @@ MEMINFO() {
       Dirty       = round(Dirty,       Prec_BytesHi)
       HP          = round(HP,          Prec_BytesLo)
       HP_Used     = round(HP_Used,     Prec_BytesLo)
+      HP_Rsvd     = round(HP_Rsvd,     Prec_BytesLo)
+      HP_Free     = round(HP_Free,     Prec_BytesLo)
       LowUsed     = round(LowUsed,     Prec_BytesLo)
       LowTotal    = round(LowTotal,    Prec_BytesLo)
       Slab        = round(Slab,        Prec_BytesHi)
@@ -1876,7 +1889,7 @@ MEMINFO() {
         printf  "    No ram pre-allocated to HugePages\n"
       else {
         printf  "    %s%s%s pre-allocated to HugePages (%s%% of total ram)%s\n", H_IMP, HP, Unit, HP_PercentRam, H0
-        printf  "    %s%s of HugePages (%s%%) in-use by applications\n", HP_Used, Unit, HP_Used_Percent
+        printf  "    In-use: %s%s (%s%%) / Reserved: %s%s (%s%%) / Free: %s%s (%s%%)\n", HP_Used, Unit, HP_Used_Percent, HP_Rsvd, Unit, HP_Rsvd_Percent, HP_Free, Unit, HP_Free_Percent
       }
       
       printf    "  %sTHP:%s\n", H2, H0
