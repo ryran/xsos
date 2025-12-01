@@ -1,5 +1,5 @@
 #!/bin/bash
-# xsos v0.7.38 last mod 2025-12-01
+# xsos v0.7.39 last mod 2025-12-01
 # Latest version at <http://github.com/ryran/xsos>
 # Copyright 2012-2026 Ryan Sawhill Aroha <rsaw@redhat.com> and contributors
 #
@@ -182,7 +182,7 @@ fi
 
 # XSOS_ETHTOOL_ERR_REGEX (str: awk-syntax regular expression)
 #   Configures what ETHTOOL() uses to generate the data under the "Interface Errors" heading
-    : ${XSOS_ETHTOOL_ERR_REGEX:='/Missing ethtool_-S file|(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause|lost|csum).*: [^0]/ && !/(fdir_|veb\.)/'}
+    : ${XSOS_ETHTOOL_ERR_REGEX:='/Missing ethtool_-S file|(drop|disc|err|fifo|buf|fail|miss|OOB|fcs|full|frags|hdr|tso|pause|lost|csum_).*: [^0]/ && !/(cache_full|csum_(complete|none|partial|unchecked|unnecessary)|fdir_|steer_missed|tso_(bytes|packets)|veb\.)/'}
 
 # XSOS_LSPCI_NET_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Net" heading
