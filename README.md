@@ -49,23 +49,25 @@ INSTALLATION
 
 *"I'm sold! How do I install xsos?"*
 
-Two choices:
+Get the latest version directly by downloading the main xsos file from [bit.ly/xsos-direct](http://bit.ly/xsos-direct) (which points to [raw.github.com/ryran/xsos/master/xsos](https://raw.github.com/ryran/xsos/master/xsos)). Updating will need to be done manually by re-downloading.
 
-1. **Manual install:**
-   Get the very latest (potentially bleeding-edge) version directly by downloading the main xsos file from [bit.ly/xsos-direct](http://bit.ly/xsos-direct) (which points to [raw.github.com/ryran/xsos/master/xsos](https://raw.github.com/ryran/xsos/master/xsos)). Updating will need to be done manually by re-downloading.
-   Explicitly, you could run the following as root:
+For a personal non-root install, run the following as your normal user:
+
+```
+mkdir -p ~/bin/
+curl -Lo ~/bin/xsos bit.ly/xsos-direct
+```
+
+Then open a new terminal (your `~/.profile` should add `~/bin/` into `%PATH`).
+
+For a system-wide install, run the following as root:
    
-    ```
-    curl -Lo /usr/local/bin/xsos bit.ly/xsos-direct
-    chmod +x /usr/local/bin/xsos
-    ```
+```
+curl -Lo /usr/local/bin/xsos bit.ly/xsos-direct
+chmod +x /usr/local/bin/xsos
+```
 
-2. **RPM/Yum repo (recommended):**
-   Configure access to the Fedora/RHEL6+ yum repository @ [people.redhat.com/rsawhill/rpms](http://people.redhat.com/rsawhill/rpms/) and install the [potentially not-as-bleeding-edge] xsos rpm from there. Updating can happen automatically along with the rest of your system.
-   Two-step instructions @ [How to install xsos or rsar via yum?](https://github.com/ryran/xsos/issues/67#issuecomment-23339115)
-
-Once xsos is installed by one of the above methods, run `xsos -h` as a normal user to see the help page and get started.
-
+Once xsos is installed, run `xsos -h` as a normal user to see the help page and get started.
 
 EXAMPLES IN ACTION
 -------
