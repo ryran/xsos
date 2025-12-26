@@ -250,8 +250,8 @@ Content options:"
  -p, --ps❚inspect running processes via ps
  -S, --ss❚inspect running processes via ss
  -F, --firewall❚show firewall status
- -I, --ifcfg❚|show ifcfg files summary
- -N, --netstat❚|show ifcfg files summary" | column -ts❚
+ -I, --ifcfg❚show ifcfg files summary
+ -N, --netstat❚show info from /proc/net/netstat" | column -ts❚
 }
 
 HELP_OPTS_DISPLAY() {
@@ -290,9 +290,7 @@ Special options (BASH v4+ required):"
  --N=FILE❚read from FILE containing /proc/net/dev dump
  --G=FILE❚read from FILE containing /proc/net/bonding/xxx dump
  --I=FILE❚read from FILE containing \`ip addr\` dump
- --P=FILE❚read from FILE containing \`ps aux\` dump
- --S=FILE❚read from FILE containing \`ss -peaonmi\` dump
- --F=FILE❚read from FILE containing \`systemctl_status_--all\` dump" | column -ts❚
+ --P=FILE❚read from FILE containing \`ps aux\` dump" | column -ts❚
 }
 
 HELP_SHORT() {
@@ -480,7 +478,6 @@ PARSE() {
       --G)  sfile[G]=$2; shift ;;
       --I)  sfile[I]=$2; shift ;;
       --P)  sfile[P]=$2; shift ;;
-      --S)  sfile[S]=$2; shift ;;
     esac
     shift
   done
@@ -3979,8 +3976,6 @@ trap "rm -rf $TMPDIR 2>/dev/null" EXIT
     [[ -r ${sfile[G]} ]] && BONDING   "${sfile[G]}"
     [[ -r ${sfile[I]} ]] && IPADDR    "${sfile[I]}"
     [[ -r ${sfile[P]} ]] && PSCHECK   "${sfile[P]}"
-    [[ -r ${sfile[S]} ]] && SSCHECK   "${sfile[S]}"
-    [[ -r ${sfile[F]} ]] && FIREWALL  "${sfile[F]}"
 
   # If SOSREPORT-ROOT provided, use that
   elif [[ -n $sosroot ]]; then

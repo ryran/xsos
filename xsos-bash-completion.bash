@@ -36,11 +36,11 @@ _xsos()  {
             -6 -q -u -v -w
             -x -y -z"
             
-  longopts="--help --version
-            --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps -ss --firewall --ifcfg --netstat
-            --B --C --F --M --D --T --L --R --N --G --I --P
-            --scrub --ipv6 --wwid --unit --threads --verbose --width
-            --nocolor --less --more"
+    longopts="--help --version
+                        --all --bios --os --kdump --cpu --intrupt --mem --disks --mpath --lspci --ethtool --softirq --netdev --bonding --ip --net --sysctl --ps --ss --firewall --ifcfg --netstat
+                        --B --C --F --M --D --T --L --R --N --G --I --P
+                        --scrub --ipv6 --rhsupport --wwid --unit --threads --verbose --width
+                        --nocolor --less --more"
   
   # Check previous arg to see if we need to do anything special
   case "$prev" in

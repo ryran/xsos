@@ -115,44 +115,48 @@ OS
 ```
 
 
-**While xsos is always being improved, here's the minimal help page from v0.5.6:**
+**While xsos is always being improved, here's the current minimal help page (run `xsos -h`):**
 
 ```
-Usage: xsos [DISPLAY OPTIONS] [-6abokcmdtlerngisp] [SOSREPORT ROOT]
-  or:  xsos [DISPLAY OPTIONS] {--B|--C|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
+Usage: xsos [DISPLAY OPTIONS] [-6abokcfmdtlerngispSFIN] [SOSREPORT ROOT]
+  or:  xsos [DISPLAY OPTIONS] {--B|--C|--F|--M|--D|--T|--L|--R|--N|--G|--I|--P FILE}...
   or:  xsos [-?|-h|--help]
-  or:  xsos [-U|--update]
 
 Display system info from localhost or extracted sosreport
 
 Content options:
- -a, --all      show everything
- -b, --bios     show info from dmidecode
- -o, --os       show hostname, distro, SELinux, kernel info, uptime, etc
- -k, --kdump    inspect kdump configuration
- -c, --cpu      show info from /proc/cpuinfo
- -m, --mem      show info from /proc/meminfo
- -d, --disks    show info from /proc/partitions + dm-multipath synopsis
- -t, --mpath    show info from dm-multipath
- -l, --lspci    show info from lspci
- -e, --ethtool  show info from ethtool
- -r, --softirq  show info from /proc/net/softnet_stat
- -n, --netdev   show info from /proc/net/dev
- -g, --bonding  show info from /proc/net/bonding
- -i, --ip       show info from ip addr (BASH v4+ required)
-     --net      alias for: --lspci --ethtool --softirq --netdev --bonding --ip
- -s, --sysctl   show important kernel sysctls
- -p, --ps       inspect running processes via ps
+ -a, --all       show everything
+ -b, --bios      show info from dmidecode
+ -o, --os        show hostname, distro, SELinux, kernel info, uptime, etc
+ -k, --kdump     inspect kdump configuration
+ -c, --cpu       show info from /proc/cpuinfo
+ -f, --intrupt   show info from /proc/interrupts
+ -m, --mem       show info from /proc/meminfo
+ -d, --disks     show info from /proc/partitions, dm-multipath, lsblk, df
+ -t, --mpath     show info from dm-multipath
+ -l, --lspci     show info from lspci
+ -e, --ethtool   show info from ethtool
+ -r, --softirq   show info from /proc/net/softnet_stat
+ -n, --netdev    show info from /proc/net/dev
+ -g, --bonding   show bonding and teaming info
+ -i, --ip        show info from ip addr (BASH v4+ required)
+     --net       alias for: --lspci --ethtool --softirq --netdev --bonding --ip
+ -s, --sysctl    show important kernel sysctls
+ -p, --ps        inspect running processes via ps
+ -S, --ss        inspect running processes via ss
+ -F, --firewall  show firewall status
+ -I, --ifcfg     show ifcfg files summary
+ -N, --netstat   show info from /proc/net/netstat
 
 Display options:
-     --scrub-ip     remove IP addresses & hostnames from output
-     --scrub-mac    remove HW MAC addresses from output
-                    see XSOS_SCRUB_IP_HN & XSOS_SCRUB_MACADDR env vars
+     --scrub        remove from output: IP/MAC addrs, hostnames, serial numbers,
+                    proxy user & passwords
  -6, --ipv6         parse ip addr output for IPv6 addresses instead of IPv4
  -q, --wwid=ID      restrict dm-multipath output to a particular mpath device,
                     where ID is a wwid, friendly name, or LUN identifier
  -u, --unit=P       change byte display for /proc/meminfo & /proc/net/dev,
                     where P is "b" for byte, or else "k", "m", "g", or "t"
+     --threads      make ps take threads into account (via `ps auxm`)
  -v, --verbose=NUM  specify ps verbosity level (0-4, default: 1)
  -w, --width=NUM    change fold-width, in columns (positive number, e.g., 80)
                     "0" disables wrapping, "w" autodetects width (default)
@@ -163,6 +167,7 @@ Display options:
 Special options (BASH v4+ required):
  --B=FILE  read from FILE containing `dmidecode` dump
  --C=FILE  read from FILE containing /proc/cpuinfo dump
+ --F=FILE  read from FILE containing /proc/interrupts dump
  --M=FILE  read from FILE containing /proc/meminfo dump
  --D=FILE  read from FILE containing /proc/partitions dump
  --T=FILE  read from FILE containing `multipath -v4 -ll` dump
@@ -175,7 +180,7 @@ Special options (BASH v4+ required):
 
 Run with "--help" to see full help page
 
-Version info: xsos v0.5.6 last mod 2015/01/01
+Version info: xsos v0.7.40 last mod 2025-12-01
 See <github.com/ryran/xsos> to report bugs or suggestions
 ```
 
