@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Bash syntax check
+        run: |
+          bash -n xsos
+          bash -n xsos-bash-completion.bash
+
+      - name: ShellCheck (errors only)
+        run: |
+          shellcheck -S error -x xsos xsos-bash-completion.bash
