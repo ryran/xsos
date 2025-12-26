@@ -1072,7 +1072,7 @@ OSINFO() {
     runlevel=$(runlevel)
     initdefault=$(basename $(readlink -q /etc/systemd/system/default.target) 2>/dev/null) &&
       initdefault=${initdefault%.target} ||
-        initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
+        [[ -r /etc/inittab ]] && initdefault=$(gawk -F: '/^id.*initdefault/ {print $2}' </etc/inittab)
     
   # Otherwise, running on sosreport
   else
