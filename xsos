@@ -483,7 +483,7 @@ PARSE() {
   done
   shift #(to get rid of the '--')
   # Set sosroot
-  sosroot=$@
+  sosroot="$@"
 }
 
 # Call the parser
@@ -2171,7 +2171,7 @@ TEAMING() {
   # If an sosreport, look for sos_commands/teamd/ output...
   else
     files=("$1"/sos_commands/teamd/teamdctl_*_state_dump)
-    if [[ ! -r ${files[0]} ]]; then
+    if [[ ! -r "${files[0]}" ]]; then
       echo -e "${c[Warn2]}Warning:${c[Warn1]} '/sos_commands/teamd/teamdctl_*_state_dump' files unreadable; skipping teaming check${c[0]}" >&2
       echo -en $XSOS_HEADING_SEPARATOR >&2
       return
@@ -2193,7 +2193,7 @@ TEAMING() {
     echo "  Device❚Runner (mode) ❚ifcfg-File TEAM_CONFIG❚Partner MAC Addr❚Ports (*=active; [n]=AggID)"
     echo "  ========❚=================❚========================❚==================❚==============================="
     
-    f=0; for team_input in ${files[@]}; do
+    f=0; for team_input in "${files[@]}"; do
       
       team_name=$(gawk -F '"' '/team_device/,/^$/ {if ($2 == "ifname") {print $4}}' $team_input)
       echo -n "  $team_name❚"
@@ -2293,7 +2293,7 @@ BONDING() {
   # If localhost or sosreport, use that
   else
     files=("$1"/proc/net/bonding/*)
-    if [[ ! -r ${files[0]} ]]; then
+    if [[ ! -r "${files[0]}" ]]; then
       echo -e "${c[Warn2]}Warning:${c[Warn1]} '/proc/net/bonding/' files unreadable; skipping bonding check${c[0]}" >&2
       echo -en $XSOS_HEADING_SEPARATOR >&2
       return
@@ -2343,7 +2343,7 @@ BONDING() {
     echo "  Device❚Mode❚ifcfg-File BONDING_OPTS❚Partner MAC Addr❚Slaves (*=active; [n]=AggID)"
     echo "  ========❚=================❚========================❚==================❚==============================="
     
-    f=0; for bond_input in ${files[@]}; do
+    f=0; for bond_input in "${files[@]}"; do
       
       echo -n "  ${bond_input##*/}❚"
       
@@ -3379,7 +3379,7 @@ PSCHECK() {
   fi
   
   # Calculate top cpu-using & mem-using users
-  if [[ $XSOS_PS_LEVEL < 3 ]]; then  # If verbosity level 0-2, restrict number of users shown
+  if [[ $XSOS_PS_LEVEL -lt 3 ]]; then  # If verbosity level 0-2, restrict number of users shown
     # Process ps input to generate summary user-list of top-users
     top_users=$(
       gawk -vu=$(tr '[:lower:]' '[:upper:]' <<<"$XSOS_PS_UNIT") '
@@ -3879,7 +3879,7 @@ NETSTAT(){
   }
   _print_proc_net_array(){
     declare -A __array="$*"
-    for hdr in ${!__array[@]}; do
+    for hdr in "${!__array[@]}"; do
       val="${__array[$hdr]}"
       [ "${XSOS_NETSTAT_IGNORE_ZERO}" == "y" ]   && [ "$val" -eq "0" ] && continue
       [ "${XSOS_NETSTAT_FILTER_REGEX}" != "" ]    && [[ ! ${hdr,,} =~ ${XSOS_NETSTAT_FILTER_REGEX,,} ]]    && continue
