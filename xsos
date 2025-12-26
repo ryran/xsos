@@ -190,7 +190,7 @@ fi
 
 # XSOS_LSPCI_STORAGE_REGEX (str: regular expression)
 #   Configures what LSPCI() uses to search for peripherals under the "Storage" heading
-    : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller)( \[[0-9]{4}\])?:"}
+    : ${XSOS_LSPCI_STORAGE_REGEX:="(Fibre Channel|RAID bus controller|Non-Volatile memory controller|Mass storage controller|SCSI storage controller|SATA controller|Serial Attached SCSI controller)( \[[0-9]{4}\])?:"}
 
 # XSOS_SS_CHECK_FIELDS (str: pipe separated field names)
 #   Configures what SSCHECK() uses to filter fields whose value is > 0.
